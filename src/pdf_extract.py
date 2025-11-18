@@ -122,8 +122,7 @@ def extract_clean_text_from_page(page):
         merged = merge_blocks(col_blocks)
         paragraphs.extend(merged)
 
-    # --- Step 5: final global sort by reading order (top → bottom, left → right) ------------
-    paragraphs.sort(key=lambda b: (b["y0"], b["x0"]))
+    # --- Step 5: paragraphs are already in correct reading order (left column to right, top to bottom within column)
 
     return [p["text"] for p in paragraphs]
 

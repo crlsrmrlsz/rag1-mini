@@ -20,7 +20,13 @@ def is_caption(text: str) -> bool:
     return bool(CAPTION_REGEX.search(text))
 
 def is_header_footer(block, page_height, margin=60):
-    """Remove top/bottom repeated page elements."""
+    """Remove top/bottom repeated page elements.
+       Important: In PyMuPDF (fitz), page dimensions are returned in points, not pixels. 
+       PDF standard uses 72 points per inch.
+       So for a standard A4 PDF:
+       Width: 210 mm ≈ 8.27 inches → 8.27 × 72 ≈ 595 points
+       Height: 297 mm ≈ 11.69 inches → 11.69 × 72 ≈ 842 points
+       60 / 72 = 0.83 inches ≈ 21 mm from top or bottom."""
     x0, y0, x1, y1, *_ = block
     return (y0 < margin) or (y1 > (page_height - margin))
 
@@ -217,6 +223,8 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
         # Create debug PDF for first few pages if requested
         if debug_output and page_num <= 5:  # Only first 5 pages for debugging
             debug_path = f"{debug_output}_page_{page_num}.pdf"
+            import os
+            os.makedirs(os.path.dirname(debug_path), exist_ok=True)
             create_debug_pdf(page, debug_blocks, debug_path)
             print(f"Debug PDF saved: {debug_path}")
 
@@ -253,7 +261,7 @@ if __name__ == "__main__":
 
     # Test extraction with debug visualization
     print("Testing text extraction with debug visualization...")
-    results = extract_clean_text_with_debug(filepath, debug_output="debug_visualization")
+    results = extract_clean_text_with_debug(filepath, debug_output="../data/debug/debug_visualization")
 
     print(f"\nExtracted {len(results)} text blocks")
 

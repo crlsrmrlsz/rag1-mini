@@ -1,4 +1,4 @@
-import fitz
+import pymupdf
 import re
 import numpy as np
 from sklearn.cluster import KMeans
@@ -123,7 +123,7 @@ def extract_clean_text_from_page(page):
 # ------------------------------------------------------------
 
 def extract_document_text(filepath):
-    doc = fitz.open(filepath)
+    doc = pymupdf.open(filepath)
     output = []
 
     for page_num, page in enumerate(doc, start=1):
@@ -143,7 +143,7 @@ def extract_document_text(filepath):
 # ------------------------------------------------------------
 
 if __name__ == "__main__":
-    filepath = "data/eagleman_ch1.pdf"
+    filepath = "../data/raw/ch1_ch14_Brain_and_behavior.pdf"
     results = extract_document_text(filepath)
 
     for r in results[:30]:

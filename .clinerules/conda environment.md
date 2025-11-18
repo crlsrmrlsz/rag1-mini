@@ -1,0 +1,1 @@
+environment for this project is:  rag1-mini, activate it before executing anything with: conda activate rag1-mini

@@ -59,7 +59,8 @@ def extract_clean_text_from_page(page):
     page_height = page.rect.height
 
     # --- Step 1: raw blocks ---------------------------------
-    raw_blocks = page.get_text("blocks")
+    # Use PyMuPDF's built-in sorting for proper reading order (top-to-bottom, left-to-right)
+    raw_blocks = page.get_text("blocks", sort=True)
 
     blocks = []
     for b in raw_blocks:
@@ -101,8 +102,17 @@ def extract_clean_text_from_page(page):
         kmeans = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
         labels = kmeans.fit_predict(x_positions)
 
-        for b, col in zip(filtered, labels):
-            b["col"] = int(col)
+        # Remap KMeans labels to actual column positions (left-to-right)
+        cluster_centers = kmeans.cluster_centers_.flatten()
+        sorted_centers = np.argsort(cluster_centers)  # indices in left-to-right order
+
+        # Create mapping from KMeans label to actual column number
+        label_to_col = {}
+        for actual_col, kmeans_label in enumerate(sorted_centers):
+            label_to_col[kmeans_label] = actual_col
+
+        for b, label in zip(filtered, labels):
+            b["col"] = label_to_col[label]
 
     # --- Step 4: sort inside each column ---------------------
     paragraphs = []
@@ -112,10 +122,107 @@ def extract_clean_text_from_page(page):
         merged = merge_blocks(col_blocks)
         paragraphs.extend(merged)
 
-    # --- Step 5: final global sort (top → bottom) ------------
+    # --- Step 5: final global sort by reading order (top → bottom, left → right) ------------
     paragraphs.sort(key=lambda b: (b["y0"], b["x0"]))
 
     return [p["text"] for p in paragraphs]
+
+
+def create_debug_pdf(page, blocks, output_path):
+    """Create a debug PDF with visual markers for blocks and columns."""
+    import pymupdf as fitz
+
+    # Create a new PDF with the same page
+    debug_doc = fitz.open()
+    debug_page = debug_doc.new_page(width=page.rect.width, height=page.rect.height)
+
+    # Draw the original page content
+    debug_page.show_pdf_page(page.rect, page.parent, page.number)
+
+    # Draw rectangles around blocks with different colors for columns
+    colors = ["red", "green", "blue", "orange", "purple"]  # up to 5 columns
+
+    for block in blocks:
+        col = block.get("col", 0)
+        color = colors[col % len(colors)]
+
+        # Draw rectangle
+        rect = fitz.Rect(block["x0"], block["y0"], block["x1"], block["y1"])
+        debug_page.draw_rect(rect, color=fitz.utils.getColor(color), width=1)
+
+        # Add column label
+        text_point = fitz.Point(block["x0"] + 2, block["y0"] - 5)
+        debug_page.insert_text(text_point, f"Col {col}", fontsize=8, color=fitz.utils.getColor(color))
+
+    debug_doc.save(output_path)
+    debug_doc.close()
+
+
+def extract_clean_text_with_debug(filepath, debug_output=None):
+    """Extract text with optional debug visualization."""
+    doc = pymupdf.open(filepath)
+    output = []
+
+    for page_num, page in enumerate(doc, start=1):
+        # Get blocks for debug visualization
+        raw_blocks = page.get_text("blocks", sort=True)
+        debug_blocks = []
+
+        page_height = page.rect.height
+
+        for b in raw_blocks:
+            x0, y0, x1, y1, text, *_ = b
+            t = text.strip()
+            if not t:
+                continue
+            if is_header_footer((x0, y0, x1, y1), page_height):
+                continue
+            if is_caption(t):
+                continue
+
+            debug_blocks.append({
+                "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                "text": t
+            })
+
+        # Assign column labels for debug visualization
+        if debug_blocks:
+            x_positions = np.array([[b["x0"]] for b in debug_blocks])
+
+            if max(x_positions) - min(x_positions) >= 40:
+                n_clusters = min(3, len(debug_blocks))
+                kmeans = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
+                labels = kmeans.fit_predict(x_positions)
+
+                # Remap labels to actual column positions
+                cluster_centers = kmeans.cluster_centers_.flatten()
+                sorted_centers = np.argsort(cluster_centers)
+                label_to_col = {}
+                for actual_col, kmeans_label in enumerate(sorted_centers):
+                    label_to_col[kmeans_label] = actual_col
+
+                for b, label in zip(debug_blocks, labels):
+                    b["col"] = label_to_col[label]
+            else:
+                for b in debug_blocks:
+                    b["col"] = 0
+
+        # Extract clean text
+        paragraphs = extract_clean_text_from_page(page)
+        for para in paragraphs:
+            output.append({
+                "page": page_num,
+                "text": para
+            })
+
+        # Create debug PDF for first few pages if requested
+        if debug_output and page_num <= 5:  # Only first 5 pages for debugging
+            debug_path = f"{debug_output}_page_{page_num}.pdf"
+            create_debug_pdf(page, debug_blocks, debug_path)
+            print(f"Debug PDF saved: {debug_path}")
+
+    doc.close()
+    return output
 
 
 # ------------------------------------------------------------
@@ -144,7 +251,21 @@ def extract_document_text(filepath):
 
 if __name__ == "__main__":
     filepath = "../data/raw/ch1_ch14_Brain_and_behavior.pdf"
-    results = extract_document_text(filepath)
 
+    # Test extraction with debug visualization
+    print("Testing text extraction with debug visualization...")
+    results = extract_clean_text_with_debug(filepath, debug_output="debug_visualization")
+
+    print(f"\nExtracted {len(results)} text blocks")
+
+    print("\nFirst 30 text blocks:")
     for r in results[:30]:
         print(f"[Page {r['page']}] {r['text']}\n")
+
+    # Also test basic extraction for comparison
+    print("\n=== BASIC EXTRACTION FOR COMPARISON ===")
+    basic_results = extract_document_text(filepath)
+
+    print("Basic extraction comparison (first 10 blocks):")
+    for r in basic_results[:10]:
+        print(f"[Page {r['page']}] {r['text'][:100]}...")

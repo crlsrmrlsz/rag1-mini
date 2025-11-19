@@ -170,6 +170,7 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
 
     for page_num, page in enumerate(doc, start=1):
         # Get blocks for debug visualization
+        # sort=True ensures proper reading order, vertical, then horizontal
         raw_blocks = page.get_text("blocks", sort=True)
         debug_blocks = []
 

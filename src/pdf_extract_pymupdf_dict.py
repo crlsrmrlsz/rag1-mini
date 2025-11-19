@@ -1,5 +1,6 @@
 import pymupdf  # PyMuPDF
 import re
+import os
 
 def clean_line(text):
     """Basic normalization: remove double spaces, stray hyphens, etc."""
@@ -47,6 +48,55 @@ def extract_page_simple(page, join_lines=True):
     return paragraphs
 
 
+def create_debug_pdf(page, blocks, output_path):
+    """Create a debug PDF with visual markers around text blocks, labeled by extraction order."""
+    debug_doc = pymupdf.open()
+    debug_page = debug_doc.new_page(width=page.rect.width, height=page.rect.height)
+
+    debug_page.show_pdf_page(page.rect, page.parent, page.number)
+
+    color = "red"  # Use red for text blocks
+
+    for block_info in blocks:
+        rect = pymupdf.Rect(*block_info["bbox"])
+        debug_page.draw_rect(rect, color=pymupdf.utils.getColor(color), width=1)
+
+        # Add order label
+        text_point = pymupdf.Point(rect.x0 + 2, rect.y0 - 5)
+        debug_page.insert_text(text_point, str(block_info["order"]), fontsize=8, color=pymupdf.utils.getColor(color))
+
+    debug_doc.save(output_path)
+    debug_doc.close()
+
+
+def extract_document_simple_with_debug(filepath, debug_output=None):
+    """
+    Extract text from document with optional debug PDF output showing block boundaries.
+    """
+    doc = pymupdf.open(filepath)
+    all_paragraphs = []
+
+    for page_num, page in enumerate(doc, start=1):
+        paras = extract_page_simple(page)
+        for p in paras:
+            all_paragraphs.append({"page": page_num, "text": p})
+
+        if debug_output and page_num <= 5:
+            data = page.get_text("dict")
+            debug_blocks = []
+            for order, block in enumerate(data.get("blocks", []), start=1):
+                if block["type"] == 0:
+                    debug_blocks.append({"bbox": block["bbox"], "order": order})
+            debug_path = f"{debug_output}_page_{page_num}.pdf"
+            os.makedirs(os.path.dirname(debug_path), exist_ok=True)
+            create_debug_pdf(page, debug_blocks, debug_path)
+            print(f"Debug PDF saved: {debug_path}")
+
+    doc.close()
+    return all_paragraphs
+
+
+# Original function for reference (kept but not used in main)
 def extract_document_simple(filepath):
     doc = pymupdf.open(filepath)
     all_paragraphs = []
@@ -63,7 +113,7 @@ def extract_document_simple(filepath):
 # Example usage
 if __name__ == "__main__":
     filepath = "../data/raw/ch1_ch14_Brain_and_behavior.pdf"
-    result = extract_document_simple(filepath)
+    result = extract_document_simple_with_debug(filepath, debug_output="../data/debug/pdf_extract_pymupdf_dict/pdf_extract_pymupdf_dict")
 
     print(f"Extracted {len(result)} paragraphs")
     for item in result[:20]:

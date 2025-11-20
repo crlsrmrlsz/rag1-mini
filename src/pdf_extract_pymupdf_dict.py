@@ -1,6 +1,7 @@
 import pymupdf  # PyMuPDF
 import re
 import os
+from pathlib import Path
 
 def clean_line(text):
     """Basic normalization: remove double spaces, stray hyphens, etc."""
@@ -112,8 +113,19 @@ def extract_document_simple(filepath):
 
 # Example usage
 if __name__ == "__main__":
-    filepath = "../data/raw/ch1_ch14_Brain_and_behavior.pdf"
-    result = extract_document_simple_with_debug(filepath, debug_output="../data/debug/pdf_extract_pymupdf_dict/pdf_extract_pymupdf_dict")
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent
+    
+    # Build paths relative to script location (common Python practice)
+    pdf_file = script_dir.parent / "data" / "raw" / "ch1_ch14_Brain_and_behavior.pdf"
+    debug_output_dir = script_dir.parent / "data" / "debug" / "pdf_extract_pymupdf_dict"
+    debug_output_file = debug_output_dir / "pdf_extract_pymupdf_dict"
+    
+    # Convert to string for pymupdf (though Path objects usually work too)
+    result = extract_document_simple_with_debug(
+        str(pdf_file), 
+        debug_output=str(debug_output_file)
+    )
 
     print(f"Extracted {len(result)} paragraphs")
     for item in result[:20]:

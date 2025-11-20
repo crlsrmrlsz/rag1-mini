@@ -2,15 +2,32 @@ import pymupdf
 import re
 import numpy as np
 from sklearn.cluster import KMeans
+from pathlib import Path
+import os
 
 # ------------------------------------------------------------
-# Helpers
+# Constants
 # ------------------------------------------------------------
 
 CAPTION_REGEX = re.compile(
     r"^(fig\.?|figure)\s?\d+", 
     re.IGNORECASE
 )
+
+# Magic numbers extracted as constants for better maintainability
+HEADER_FOOTER_MARGIN = 60
+MAX_VERTICAL_GAP = 12
+MIN_X_DIFFERENCE_MULTICOLUMN = 40
+MAX_CLUSTERS = 3
+KMEANS_INIT = 5
+DEBUG_PAGES_LIMIT = 5
+
+# Colors for different columns in debug visualization
+COLUMN_COLORS = ["red", "green", "blue", "orange", "purple"]  # up to 5 columns
+
+# ------------------------------------------------------------
+# Helper Functions
+# ------------------------------------------------------------
 
 def is_caption(text: str) -> bool:
     """Detect figure captions (common academic patterns)."""
@@ -19,7 +36,7 @@ def is_caption(text: str) -> bool:
         return False
     return bool(CAPTION_REGEX.search(text))
 
-def is_header_footer(block, page_height, margin=60):
+def is_header_footer(block, page_height, margin=HEADER_FOOTER_MARGIN):
     """Remove top/bottom repeated page elements.
        Important: In PyMuPDF (fitz), page dimensions are returned in points, not pixels. 
        PDF standard uses 72 points per inch.
@@ -30,12 +47,8 @@ def is_header_footer(block, page_height, margin=60):
     x0, y0, x1, y1, *_ = block
     return (y0 < margin) or (y1 > (page_height - margin))
 
-def merge_blocks(blocks, max_gap=12):
-    """
-    Merge vertically adjacent blocks that appear to be the same paragraph.
-    Slightly more forgiving than the previous version.
-    """
-
+def merge_blocks(blocks, max_gap=MAX_VERTICAL_GAP):
+    """Merge vertically adjacent blocks that appear to be the same paragraph."""
     if not blocks:
         return []
 
@@ -56,19 +69,40 @@ def merge_blocks(blocks, max_gap=12):
     merged.append(cur)
     return merged
 
+def detect_columns(filtered_blocks):
+    """Detect column structure using KMeans clustering."""
+    x_positions = np.array([[b["x0"]] for b in filtered_blocks])
 
-# ------------------------------------------------------------
-# Page-level extraction
-# ------------------------------------------------------------
+    # If all x0 are within threshold, assume one column
+    if max(x_positions) - min(x_positions) < MIN_X_DIFFERENCE_MULTICOLUMN:
+        for b in filtered_blocks:
+            b["col"] = 0
+        return filtered_blocks
 
-def extract_clean_text_from_page(page):
-    page_height = page.rect.height
+    # Try multiple clusters (2-3)
+    n_clusters = min(MAX_CLUSTERS, len(filtered_blocks))
+    kmeans = KMeans(n_clusters=n_clusters, n_init=KMEANS_INIT, random_state=0)
+    labels = kmeans.fit_predict(x_positions)
 
-    # --- Step 1: raw blocks ---------------------------------
-    # Use PyMuPDF's built-in sorting for proper reading order (top-to-bottom, left-to-right)
+    # Remap KMeans labels to actual column positions (left-to-right)
+    cluster_centers = kmeans.cluster_centers_.flatten()
+    sorted_centers = np.argsort(cluster_centers)  # indices in left-to-right order
+
+    # Create mapping from KMeans label to actual column number
+    label_to_col = {}
+    for actual_col, kmeans_label in enumerate(sorted_centers):
+        label_to_col[kmeans_label] = actual_col
+
+    for b, label in zip(filtered_blocks, labels):
+        b["col"] = label_to_col[label]
+
+    return filtered_blocks
+
+def extract_raw_blocks(page):
+    """Extract raw text blocks from page with proper sorting."""
     raw_blocks = page.get_text("blocks", sort=True)
-
     blocks = []
+
     for b in raw_blocks:
         x0, y0, x1, y1, text, *_ = b
         t = text.strip()
@@ -80,10 +114,10 @@ def extract_clean_text_from_page(page):
             "text": t
         })
 
-    if not blocks:
-        return []
+    return blocks
 
-    # --- Step 2: remove headers, footers, captions ----------
+def filter_blocks(blocks, page_height):
+    """Remove headers, footers, and captions from blocks."""
     filtered = []
     for b in blocks:
         if is_header_footer((b["x0"], b["y0"], b["x1"], b["y1"]), page_height):
@@ -92,76 +126,73 @@ def extract_clean_text_from_page(page):
             continue
         filtered.append(b)
 
-    if not filtered:
+    return filtered
+
+def extract_text_from_columns(filtered_blocks):
+    """Extract text from columns in proper reading order."""
+    if not filtered_blocks:
         return []
 
-    # --- Step 3: detect column structure ---------------------
-    x_positions = np.array([[b["x0"]] for b in filtered])
+    # Detect column structure
+    detect_columns(filtered_blocks)
 
-    # if all x0 are within 40px, assume one column
-    if max(x_positions) - min(x_positions) < 40:
-        for b in filtered:
-            b["col"] = 0
-    else:
-        # try 2–3 clusters
-        n_clusters = min(3, len(filtered))
-        kmeans = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
-        labels = kmeans.fit_predict(x_positions)
-
-        # Remap KMeans labels to actual column positions (left-to-right)
-        cluster_centers = kmeans.cluster_centers_.flatten()
-        sorted_centers = np.argsort(cluster_centers)  # indices in left-to-right order
-
-        # Create mapping from KMeans label to actual column number
-        label_to_col = {}
-        for actual_col, kmeans_label in enumerate(sorted_centers):
-            label_to_col[kmeans_label] = actual_col
-
-        for b, label in zip(filtered, labels):
-            b["col"] = label_to_col[label]
-
-    # --- Step 4: sort inside each column ---------------------
+    # Process each column
     paragraphs = []
-    for col_id in sorted({b["col"] for b in filtered}):
-        col_blocks = [b for b in filtered if b["col"] == col_id]
+    for col_id in sorted({b["col"] for b in filtered_blocks}):
+        col_blocks = [b for b in filtered_blocks if b["col"] == col_id]
         col_blocks.sort(key=lambda b: (b["y0"], b["x0"]))
         merged = merge_blocks(col_blocks)
         paragraphs.extend(merged)
 
-    # --- Step 5: paragraphs are already in correct reading order (left column to right, top to bottom within column)
-
     return [p["text"] for p in paragraphs]
 
+# ------------------------------------------------------------
+# Main Functions
+# ------------------------------------------------------------
+
+def extract_clean_text_from_page(page):
+    """Extract clean text from a single page."""
+    page_height = page.rect.height
+
+    # Step 1: Extract raw blocks
+    raw_blocks = extract_raw_blocks(page)
+
+    if not raw_blocks:
+        return []
+
+    # Step 2: Filter out headers, footers, captions
+    filtered_blocks = filter_blocks(raw_blocks, page_height)
+
+    if not filtered_blocks:
+        return []
+
+    # Step 3: Extract text from columns in proper reading order
+    return extract_text_from_columns(filtered_blocks)
 
 def create_debug_pdf(page, blocks, output_path):
     """Create a debug PDF with visual markers for blocks and columns."""
-    import pymupdf as fitz
-
     # Create a new PDF with the same page
-    debug_doc = fitz.open()
+    debug_doc = pymupdf.open()
     debug_page = debug_doc.new_page(width=page.rect.width, height=page.rect.height)
 
     # Draw the original page content
     debug_page.show_pdf_page(page.rect, page.parent, page.number)
 
     # Draw rectangles around blocks with different colors for columns
-    colors = ["red", "green", "blue", "orange", "purple"]  # up to 5 columns
-
     for block in blocks:
         col = block.get("col", 0)
-        color = colors[col % len(colors)]
+        color = COLUMN_COLORS[col % len(COLUMN_COLORS)]
 
         # Draw rectangle
-        rect = fitz.Rect(block["x0"], block["y0"], block["x1"], block["y1"])
-        debug_page.draw_rect(rect, color=fitz.utils.getColor(color), width=1)
+        rect = pymupdf.Rect(block["x0"], block["y0"], block["x1"], block["y1"])
+        debug_page.draw_rect(rect, color=pymupdf.utils.getColor(color), width=1)
 
         # Add column label
-        text_point = fitz.Point(block["x0"] + 2, block["y0"] - 5)
-        debug_page.insert_text(text_point, f"Col {col}", fontsize=8, color=fitz.utils.getColor(color))
+        text_point = pymupdf.Point(block["x0"] + 2, block["y0"] - 5)
+        debug_page.insert_text(text_point, f"Col {col}", fontsize=8, color=pymupdf.utils.getColor(color))
 
     debug_doc.save(output_path)
     debug_doc.close()
-
 
 def extract_clean_text_with_debug(filepath, debug_output=None):
     """Extract text with optional debug visualization."""
@@ -170,7 +201,6 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
 
     for page_num, page in enumerate(doc, start=1):
         # Get blocks for debug visualization
-        # sort=True ensures proper reading order, vertical, then horizontal
         raw_blocks = page.get_text("blocks", sort=True)
         debug_blocks = []
 
@@ -195,9 +225,9 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
         if debug_blocks:
             x_positions = np.array([[b["x0"]] for b in debug_blocks])
 
-            if max(x_positions) - min(x_positions) >= 40:
-                n_clusters = min(3, len(debug_blocks))
-                kmeans = KMeans(n_clusters=n_clusters, n_init=5, random_state=0)
+            if max(x_positions) - min(x_positions) >= MIN_X_DIFFERENCE_MULTICOLUMN:
+                n_clusters = min(MAX_CLUSTERS, len(debug_blocks))
+                kmeans = KMeans(n_clusters=n_clusters, n_init=KMEANS_INIT, random_state=0)
                 labels = kmeans.fit_predict(x_positions)
 
                 # Remap labels to actual column positions
@@ -222,9 +252,8 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
             })
 
         # Create debug PDF for first few pages if requested
-        if debug_output and page_num <= 5:  # Only first 5 pages for debugging
+        if debug_output and page_num <= DEBUG_PAGES_LIMIT:
             debug_path = f"{debug_output}_page_{page_num}.pdf"
-            import os
             os.makedirs(os.path.dirname(debug_path), exist_ok=True)
             create_debug_pdf(page, debug_blocks, debug_path)
             print(f"Debug PDF saved: {debug_path}")
@@ -232,12 +261,8 @@ def extract_clean_text_with_debug(filepath, debug_output=None):
     doc.close()
     return output
 
-
-# ------------------------------------------------------------
-# Full-document extraction
-# ------------------------------------------------------------
-
 def extract_document_text(filepath):
+    """Extract text from entire document."""
     doc = pymupdf.open(filepath)
     output = []
 
@@ -252,17 +277,21 @@ def extract_document_text(filepath):
     doc.close()
     return output
 
-
 # ------------------------------------------------------------
 # Example
 # ------------------------------------------------------------
 
 if __name__ == "__main__":
-    filepath = "../data/raw/ch1_ch14_Brain_and_behavior.pdf"
-
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent
+    
+    # Build paths relative to script location (common Python practice)
+    pdf_file = script_dir.parent / "data" / "raw" / "ch1_ch14_Brain_and_behavior.pdf"
+    debug_output_dir = script_dir.parent / "data" / "debug" / "pdf_extract_pymupdf_blocks" / "pdf_extract_pymupdf_blocks"
+    
     # Test extraction with debug visualization
     print("Testing text extraction with debug visualization...")
-    results = extract_clean_text_with_debug(filepath, debug_output="../data/debug/debug_visualization")
+    results = extract_clean_text_with_debug(str(pdf_file), debug_output=str(debug_output_dir))
 
     print(f"\nExtracted {len(results)} text blocks")
 
@@ -272,7 +301,7 @@ if __name__ == "__main__":
 
     # Also test basic extraction for comparison
     print("\n=== BASIC EXTRACTION FOR COMPARISON ===")
-    basic_results = extract_document_text(filepath)
+    basic_results = extract_document_text(str(pdf_file))
 
     print("Basic extraction comparison (first 10 blocks):")
     for r in basic_results[:10]:

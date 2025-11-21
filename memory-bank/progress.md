@@ -1,134 +1,76 @@
-# RAG1 Mini - Progress
+# Project Progress
 
-## What Works
+## Current Status: Phase 1 - PDF Extraction
 
-### ✅ Completed Infrastructure
-- **Memory Bank Documentation**: Full project context established covering neuro-philosophy RAG domain
-- **Conda Environment**: `rag1-mini` environment configured for isolated development
-- **Git Repository**: Version control established with development history
-- **Code Principles**: DRY, KISS, YAGNI patterns established for code quality
+### ✅ Completed
+- Conda environment `rag1-mini` configured
+- Git repository initialized
+- Memory bank documentation structure
+- PDF extractors module organized (`src/pdf_extractors/`)
+- 4 extraction methods implemented and tested:
+  - Basic dict method
+  - Sorted dict method
+  - K-means clustering method
+  - PyMuPDF4LLM method
+- Debug visualization system for visual quality assessment
+- Project structure and documentation cleanup
 
-### ✅ PDF Extraction Foundation (Phase 1 - In Progress)
-- **PyMuPDF Integration**: Multiple extraction methods (dict-based, block-based) implemented
-- **Layout Detection**: Enhanced heuristics for multi-column academic documents
-- **Debug Visualization**: Tools for PDF layout analysis and column detection
-- **Reading Order Preservation**: Improved text extraction with proper sequencing
+### 🔄 In Progress
+- **PDF Extraction Method Comparison**: Testing 4 approaches to find optimal solution
+- **Visual Quality Assessment**: Reviewing debug PDFs to evaluate text ordering
+- **Method Selection**: Choosing best approach for production pipeline
 
-### ✅ Project Structure
-- **Modular Architecture**: Component separation with clear responsibilities
-- **Directory Organization**: Raw data, processed data, debug outputs, and source code
-- **Coding Guidelines**: Type hints, focused functions, clean separation of concerns
+### ⚪ Not Started
 
-## What's Left to Build
+#### Phase 2: Chunking & Embedding
+- Implement intelligent chunking (250-350 tokens, 15-20% overlap)
+- Select and integrate embedding model (BGE-base-en or E5-base-v2)
+- Set up vector database (Chroma or FAISS)
 
-### 🔄 Phase 1 — Data Ingestion & Preprocessing (Current Focus)
-- **Advanced Heuristics**: Refine header/footer detection, caption handling, block merging
-- **`clean_paragraphs.jsonl`**: Produce formatted output with `{text, page}` structure
-- **Manual Validation**: Quality checks on extracted academic text content
+#### Phase 3: Retrieval Pipeline
+- Query embedding implementation
+- Top-k retrieval system
+- Optional cross-encoder reranking
 
-### 🚧 Phase 2 — Chunking & Embedding
-- **Intelligent Chunking**: 250–350 token segments with 15–20% overlap
-- **Embedding Model Selection**: BGE-base-en vs E5-base-v2 evaluation for neuro-philosophy
-- **Vector Database Setup**: Chroma or FAISS configuration with metadata preservation
+#### Phase 4: LLM Integration
+- Local LLM setup (Llama-2/Mistral/Phi-3)
+- Citation-based prompt templates
+- JSON response formatting
 
-### 🚧 Phase 3 — Retrieval Pipeline
-- **Query Processing**: Same-model embedding for search queries
-- **Top-k Retrieval**: Efficient similarity search implementation
-- **Cross-Encoder Reranking**: Optional relevance improvement
+#### Phase 5: API Layer
+- FastAPI endpoint implementation
+- Full pipeline orchestration
+- Performance optimization
 
-### 🚧 Phase 4 — Local LLM Orchestration
-- **LLM Integration**: Phi-3-mini, Mistral, or Llama-2 setup with llama.cpp/Ollama
-- **Citation Templates**: Prompt engineering requiring source attribution
-- **JSON Response Format**: Structured outputs with transparency
-
-### 🚧 Phase 5 — API Layer
-- **FastAPI Endpoint**: `POST /ask` implementation with JSON request handling
-- **Full Pipeline Integration**: Embed → retrieve → LLM → response orchestration
-- **Performance Optimization**: < 2 second response time achievement
-
-### 🚧 Phase 6 — Evaluation
-- **Test Suite**: 20–30 neuro-philosophy questions covering human behavior
-- **Quality Metrics**: Context recall and factuality evaluation
-- **Benchmarking**: RAGAS integration and performance monitoring
-
-## Current Status
-
-### Development State: **Phase 1 Implementation**
-- **Current Phase**: Data ingestion and preprocessing
-- **Focus**: Robust PDF extraction from neuroscience and philosophy texts
-- **Progress**: Foundation established, refinement in progress
-- **Blockers**: None identified
-
-### Repository Health
-- **Build Status**: Manual testing of individual components
-- **Test Coverage**: Component-level validation with code examples
-- **Documentation**: Memory Bank fully initialized with project vision
-- **Code Quality**: Consistent with established principles and patterns
-
-### Performance Baseline
-- **PDF Processing**: Functioning extraction with multi-column support
-- **Data Output**: JSONL paragraph export capability
-- **Integration**: Modular components ready for pipeline assembly
-
-## Evolution of Project Decisions
-
-### Scope Definition
-1. **Domain Specialization**: Focused on neuro-philosophy integration
-   - **Reasoning**: Creates unique value beyond generic RAG systems
-   - **Trade-off**: Narrow domain vs specialized expertise
-   - **Date**: Project conception
-
-2. **Local-Only Architecture**: Partial local processing with exposable constraints
-   - **Reasoning**: Educational value in production-level decision making
-   - **Alternatives Considered**: Full cloud deployment
-   - **Date**: Architecture planning
-
-### Technical Decisions
-1. **PyMuPDF Selection**: Chosen for academic document processing
-   - **Reasoning**: Superior reading order and layout handling
-   - **Alternatives**: pdfplumber, PyPDF4, OCR approaches
-   - **Date**: Implementation phase
-
-2. **CPU-First Design**: Embedding models optimized for workstation deployment
-   - **Reasoning**: Accessibility and production constraint simulation
-   - **Trade-off**: Performance vs hardware requirements
-   - **Date**: Model selection phase
-
-3. **Citation Grounding**: Mandatory source attribution in all outputs
-   - **Reasoning**: Builds trust and AI accountability
-   - **Alternatives**: Confidence scoring only
-   - **Date**: System design
-
-4. **FastAPI Over Flask**: Synchronous web framework for clear API focus
-   - **Reasoning**: Type validation and performance for single endpoint
-   - **Trade-off**: Simplicity vs feature depth
-   - **Date**: API design phase
+#### Phase 6: Evaluation
+- Test question suite (20-30 questions)
+- Quality metrics implementation
+- Performance benchmarking
 
 ## Known Issues
 
-### Current Phase Issues
-- **PDF Layout Complexity**: Academic texts with varied formatting (columns, captions, footnotes)
-- **Cross-Domain Alignment**: Ensuring neuroscience and philosophy sources process consistently
-- **Content Balance**: Maintaining appropriate neuro-philosophy ratio in knowledge base
+### Current Phase
+- **Column ordering**: Some methods struggle with multi-column layouts
+- **Text coverage**: K-means method misses some blocks
+- **Performance**: PyMuPDF4LLM times out on large documents
 
-### Anticipated Technical Challenges
-- **Embedding Model Selection**: Balancing semantic quality with CPU performance
-- **LLM Integration**: Managing citation requirements while maintaining answer quality
-- **Performance Targets**: Achieving < 2 second response time on basic hardware
+### Anticipated Challenges
+- Embedding model selection for cross-domain content
+- LLM citation accuracy
+- Response time optimization (< 2 second target)
+
+## Key Decisions Made
+
+1. **Systematic extraction testing**: Compare multiple methods before committing
+2. **Visual validation**: Use debug PDFs as primary quality metric
+3. **Quality-first approach**: Get extraction right before moving to next phase
+4. **Simplified documentation**: Reduce duplication in memory bank
+5. **Removed flawed approaches**: Deleted manual multi-column method
 
 ## Success Metrics
 
-### Neuro-Philosophy Expertise
-- **Answer Integration**: 80% of answers appropriately combine neuroscience and philosophy
-- **Source Grounding**: All claims backed by specific text citations
-- **Behavioral Insights**: Responses provide genuine insights about human cognition/behavior
-
-### Technical Performance
-- **Query Response Time**: < 2 seconds end-to-end processing
-- **Retrieval Accuracy**: 80% relevant context from 20–30 test questions
-- **Content Processing**: Clean extraction from neuroscience + philosophy PDFs
-
-### Educational Outcomes
-- **Pipeline Mastery**: Complete RAG implementation with all major components
-- **Production Awareness**: Understanding resource constraints and optimization
-- **Specialized AI**: Demonstration of domain-specific AI beyond generic assistants
+- [ ] Accurate PDF extraction with proper reading order
+- [ ] 80% of answers integrate neuroscience + philosophy
+- [ ] All claims backed by text citations
+- [ ] < 2 second API response time
+- [ ] Clean, documented codebase

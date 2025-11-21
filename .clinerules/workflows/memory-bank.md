@@ -4,112 +4,101 @@ I am Cline, an expert software engineer with a unique characteristic: my memory 
 
 ## Memory Bank Structure
 
-The Memory Bank consists of core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy:
+The Memory Bank consists of 3 core files in Markdown format:
 
-flowchart TD
-    PB[projectbrief.md] --> PC[productContext.md]
-    PB --> SP[systemPatterns.md]
-    PB --> TC[techContext.md]
-
-    PC --> AC[activeContext.md]
-    SP --> AC
-    TC --> AC
-
-    AC --> P[progress.md]
+```
+memory-bank/
+├── projectbrief.md      # Project overview, goals, architecture, phases
+├── activeContext.md     # Current work focus, recent changes, next steps
+└── progress.md          # What's done, in progress, and remaining
+```
 
 ### Core Files (Required)
-1. `projectbrief.md`
-   - Foundation document that shapes all other files
-   - Created at project start if it doesn't exist
-   - Defines core requirements and goals
-   - Source of truth for project scope
 
-2. `productContext.md`
-   - Why this project exists
-   - Problems it solves
-   - How it should work
-   - User experience goals
-
-3. `activeContext.md`
-   - Current work focus
-   - Recent changes
-   - Next steps
-   - Active decisions and considerations
-   - Important patterns and preferences
-   - Learnings and project insights
-
-4. `systemPatterns.md`
+1. **projectbrief.md** - Foundation document
+   - Project overview and goals
    - System architecture
-   - Key technical decisions
-   - Design patterns in use
-   - Component relationships
-   - Critical implementation paths
+   - Pipeline phases (1-6)
+   - Technical stack
+   - Success criteria and scope
 
-5. `techContext.md`
-   - Technologies used
-   - Development setup
-   - Technical constraints
-   - Dependencies
-   - Tool usage patterns
+2. **activeContext.md** - Current work state
+   - Current focus and phase
+   - Active decisions and approaches
+   - Recent changes
+   - Immediate next steps
+   - Key insights and learnings
 
-6. `progress.md`
-   - What works
-   - What's left to build
-   - Current status
+3. **progress.md** - Status tracking
+   - Completed items
+   - In progress work
+   - Not started phases
    - Known issues
-   - Evolution of project decisions
+   - Key decisions made
 
-### Additional Context
-Create additional files/folders within memory-bank/ when they help organize:
-- Complex feature documentation
-- Integration specifications
-- API documentation
-- Testing strategies
-- Deployment procedures
+### Design Principles
+
+- **No duplication**: Each piece of information lives in ONE file
+- **Clear hierarchy**: projectbrief → activeContext → progress
+- **Focused content**: Only essential information, no verbose explanations
+- **Current state**: Always reflects the actual project state
 
 ## Core Workflows
 
-### Plan Mode
-flowchart TD
-    Start[Start] --> ReadFiles[Read Memory Bank]
-    ReadFiles --> CheckFiles{Files Complete?}
+### Starting a Task (REQUIRED)
+1. Read ALL 3 memory bank files
+2. Understand current phase and context
+3. Check what's in progress
+4. Proceed with task
 
-    CheckFiles -->|No| Plan[Create Plan]
-    Plan --> Document[Document in Chat]
+### During Work
+- Update activeContext.md when focus changes
+- Update progress.md when completing milestones
+- Keep information concise and current
 
-    CheckFiles -->|Yes| Verify[Verify Context]
-    Verify --> Strategy[Develop Strategy]
-    Strategy --> Present[Present Approach]
+### When User Says "update memory bank"
+1. Review ALL 3 files
+2. Update activeContext.md with recent changes
+3. Update progress.md with completed items
+4. Update projectbrief.md ONLY if scope/architecture changes
+5. Remove outdated information
+6. Keep it concise - avoid duplication
 
-### Act Mode
-flowchart TD
-    Start[Start] --> Context[Check Memory Bank]
-    Context --> Update[Update Documentation]
-    Update --> Execute[Execute Task]
-    Execute --> Document[Document Changes]
+## What Goes Where
 
-## Documentation Updates
+### projectbrief.md
+- Project overview and purpose
+- System architecture diagram
+- All 6 pipeline phases (overview)
+- Technical stack list
+- Success criteria
+- Scope limitations
 
-Memory Bank updates occur when:
-1. Discovering new project patterns
-2. After implementing significant changes
-3. When user requests with **update memory bank** (MUST review ALL files)
-4. When context needs clarification
+### activeContext.md
+- Current phase details
+- Methods/approaches being tested
+- Recent changes (last few days)
+- Immediate next steps (1-3 items)
+- Active decisions
 
-flowchart TD
-    Start[Update Process]
+### progress.md
+- Completed checklist
+- In progress items
+- Not started phases (detailed)
+- Known issues
+- Key decisions made
 
-    subgraph Process
-        P1[Review ALL Files]
-        P2[Document Current State]
-        P3[Clarify Next Steps]
-        P4[Document Insights & Patterns]
+## Anti-Patterns to Avoid
 
-        P1 --> P2 --> P3 --> P4
-    end
+❌ Duplicating architecture in multiple files
+❌ Verbose explanations of obvious concepts
+❌ Outdated information that no longer applies
+❌ Multiple files saying the same thing differently
+❌ Detailed technical specs that belong in code comments
 
-    Start --> Process
+✅ Concise, current information
+✅ Each fact in ONE place
+✅ Clear current state
+✅ Actionable next steps
 
-Note: When triggered by **update memory bank**, I MUST review every memory bank file, even if some don't require updates. Focus particularly on activeContext.md and progress.md as they track current state.
-
-REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is my only link to previous work. It must be maintained with precision and clarity, as my effectiveness depends entirely on its accuracy.
+REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is my only link to previous work. Keep it simple, current, and non-redundant.

@@ -61,6 +61,26 @@ class PDFExtractor:
         
         # Place file inside processed_dir
         return self.processed_dir / md_filename
+    def extract_single_pdf_debug(self, pdf_path: Path) -> bool:
+        """Extract a single PDF into Markdown format.
+        
+        Args:
+            pdf_path: Path of the PDF to extract.
+            
+        Returns:
+            True if processing succeeded, False otherwise.
+        """
+
+        out_path = self.get_output_path(pdf_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            md = pymupdf4llm.to_markdown(str(pdf))
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(md)
+        except Exception as e:
+            logging.exception(f"Failed to process {pdf}")  # <-- ESTA LÍNEA DA TRACEBACK COMPLETO
+
+
         
     def extract_single_pdf(self, pdf_path: Path) -> bool:
         """Extract a single PDF into Markdown format.
@@ -75,31 +95,31 @@ class PDFExtractor:
             logger.info(f"Processing: {pdf_path}")
             
             # Extract Markdown using PyMuPDF4LLM.
-            # Headers/footers disabled because they are noise in most books.
-            md_text = pymupdf4llm.to_markdown(
-                str(pdf_path),
-                header=False,
-                footer=False
-            )
-            
+
             # Compute destination path and ensure the folder exists
             output_path = self.get_output_path(pdf_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write UTF-8 encoded Markdown file
-            output_path.write_bytes(md_text.encode())
-            
-            logger.info(f"Saved: {output_path.relative_to(self.processed_dir)}")
-            return True
+
+            md = pymupdf4llm.to_markdown(str(pdf_path))
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(md)
+
             
         except Exception as e:
-            # Log and skip on errors (corrupted PDF, missing permissions, etc.)
-            logger.error(f"Failed to process {pdf_path}: {e}")
-            return False
+            logging.exception(f"Failed to process {pdf_path}")  # <-- ESTA LÍNEA DA TRACEBACK COMPLETO
     
     def extract_all(self) -> None:
         """Extract all PDF files found under raw_dir."""
         pdfs = self.find_pdfs()
+        # TEMP: list of PDFs to test
+        test_only = {
+            "Cognitive_Biology_Evolutionary_and_Developmental_Perspectives_on_Mind_Brain_and_Behavior_Luca_Tommasi_Mary_A._Peterson_Lynn_Nadel.pdf",
+            "Brain_and_behavior_a_cognitive_neuroscience_perspective_David_Eagleman_Jonathan_Downar.pdf",
+            "Biopsychology_Global_Ed_11th_John_Pinel_Steven_Barnes.pdf",
+        }
+
+        # Filter PDFs to only those in test list
+        pdfs = [p for p in pdfs if p.name in test_only]
 
         if not pdfs:
             logger.warning(f"No PDFs found in {self.raw_dir}")

@@ -1,7 +1,7 @@
 from pathlib import Path
-import fitz     
-import pymupdf.layout      # PyMuPDF
-import pymupdf4llm    # High-level Markdown extraction utilities
+import fitz             # PyMuPDF (classic binding)
+import pymupdf.layout   # Required to enable layout analysis features
+import pymupdf4llm      # High-level Markdown extraction utilities
 
 def get_failed_pages(pdf_path: Path):
     """
@@ -38,7 +38,7 @@ def main():
     """Define project paths and run the extraction pipeline on specific files."""
     
     project_root = Path(__file__).parent.parent
-    # Assuming all files are in this specific subdirectory based on your snippet
+    # Adjust 'neuroscience' path if your files are in 'data/raw' directly
     neuro_dir = project_root / "data" / "raw" / "neuroscience" 
 
     test_only = {

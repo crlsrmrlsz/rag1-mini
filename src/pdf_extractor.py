@@ -12,7 +12,6 @@ from typing import List
 import pymupdf.layout  # Required import to enable PyMuPDF layout features
 import pymupdf4llm     # High-level Markdown extraction utilities
 
-
 # Configure global logging for the module
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +70,7 @@ class PDFExtractor:
         Returns:
             True if processing succeeded, False otherwise.
         """
+
         try:
             logger.info(f"Processing: {pdf_path}")
             

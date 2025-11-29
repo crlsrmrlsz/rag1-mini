@@ -11,24 +11,21 @@ Build a specialized AI that integrates:
 
 ## Current Status
 
-**Phase 1: PDF Text Extraction** - Testing and comparing extraction methods for multi-column academic documents.
+**Phase 1: PDF Text Extraction** ✅ Completed - All source PDFs extracted using pymupdf4llm.
+**Phase 2: Markdown Cleaning** 🔄 In Progress - Developing text cleaning pipeline.
 
 ## Project Structure
 
 ```
 rag1-mini/
-├── src/
-│   ├── pdf_extractors/    # PDF extraction methods
-│   ├── ingest.py          # Document ingestion (planned)
-│   ├── chunk.py           # Text chunking (planned)
-│   ├── embed.py           # Embedding generation (planned)
-│   ├── vectorstore.py     # Vector storage (planned)
-│   └── rag_server.py      # API server (planned)
+├── src/text_extractor/
+│   └── pdf_extract.py    # PDF → Markdown with fallback (pymupdf4llm)
 ├── data/
-│   ├── raw/               # Source PDFs
-│   └── debug/             # Debug visualizations
-├── memory-bank/           # Project documentation
-└── tests/                 # Test suite
+│   ├── raw/              # Source PDFs (neuroscience, wisdom)
+│   └── processed/        # Extracted markdown files
+├── memory-bank/          # Project documentation
+├── notebooks/            # Extraction method explorations
+└── tests/
 ```
 
 ## Environment
@@ -36,20 +33,31 @@ rag1-mini/
 ```bash
 # Activate conda environment
 conda activate rag1-mini
-
-# Run PDF extraction tests
-python src/pdf_extractors/pdf_extract_pymupdf_blocks.py
 ```
+
+## Usage
+
+Extract all PDFs from `data/raw/` to `data/processed/`:
+```bash
+python src/text_extractor/pdf_extract.py
+```
+
+Features:
+- Whole-document extraction using `pymupdf4llm.to_markdown()` (layout-aware)
+- Fallback to page-by-page processing for difficult documents
+- OCR support for image-heavy pages
+- Preserves subdirectory structure
 
 ## Pipeline Phases
 
-1. **PDF Extraction** (Current) - Extract clean text from academic PDFs
-2. **Chunking** - Intelligent text segmentation
-3. **Embedding** - Generate semantic vectors
-4. **Vector Storage** - Index and store embeddings
-5. **Retrieval** - Query and retrieve relevant context
-6. **LLM Integration** - Generate grounded answers
-7. **API Layer** - REST endpoint for queries
+1. **PDF Extraction** ✅ Completed - Extract clean layout-aware markdown from academic PDFs
+2. **Markdown Cleaning** 🔄 Current - Remove artifacts, normalize formatting
+3. **Chunking** - Intelligent text segmentation
+4. **Embedding** - Generate semantic vectors
+5. **Vector Storage** - Index and store embeddings
+6. **Retrieval** - Query and retrieve relevant context
+7. **LLM Integration** - Generate grounded answers
+8. **API Layer** - REST endpoint for queries
 
 ## Documentation
 

@@ -22,11 +22,11 @@ Citation-Based Answer → JSON API Response
 
 ## Pipeline Phases
 
-### Phase 1: PDF Extraction (Current)
-- Extract text from academic PDFs using PyMuPDF
-- Test multiple extraction methods for multi-column documents
-- Preserve reading order and handle complex layouts
-- Output: Clean text with page numbers
+### Phase 1: PDF Extraction (✅ Completed)
+- Final extraction using pymupdf4llm.to_markdown() with page-by-page fallback
+- Preserves column order and reading sequence
+- Supports OCR for image-based pages
+- Outputs layout-aware markdown files
 
 ### Phase 2: Chunking & Embedding
 - Intelligent chunking (250-350 tokens, 15-20% overlap)

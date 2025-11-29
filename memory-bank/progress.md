@@ -1,55 +1,46 @@
 # Project Progress
 
-## Current Status: Phase 1 - PDF Extraction (Final Stage)
+## Current Status: Phase 1 - PDF Extraction (✅ Completed)
 
 ### ✅ Completed
 - Conda environment `rag1-mini` configured
-- Git repository initialized  
+- Git repository initialized
 - Memory bank documentation structure
 - Working PDF extraction system using `pymupdf4llm`
-- `src/pdf_extractor.py` processes PDFs with proper text ordering
+- `src/text_extractor/pdf_extract.py` extracts PDFs with fallback strategy
 - Project structure and documentation cleanup
+- Extracted all 18 PDFs from data/raw to data/processed/
+- Folder structure preserved for neuroscience/ and wisdom/ subdirectories
 
 ### 🔄 In Progress
-- **Full PDF Processing**: Extract all 18 PDFs from data/raw to data/processed
-- **Manual Quality Assessment**: Visual verification of extracted MD files
-- **Folder Structure Preservation**: Maintain neuroscience/ and wisdom/ subdirectory structure
+- **Phase 2: Markdown Cleaning** (Current)
+- Develop cleaning pipeline for extracted markdown files
+- Remove extraction artifacts and normalize formatting
+- Prepare clean text for chunking
 
 ### ⚪ Not Started
 
-#### Phase 2: Chunking & Embedding (After Manual Confirmation)
+#### Phase 3: Chunking & Embedding (After Manual Confirmation)
 - Intelligent chunking implementation
 - Local embedding model integration
 - Vector database setup
 
-#### Phase 3-6: Full RAG Pipeline (TBD)
-- Retrieval, LLM integration, API layer, evaluation
-- Will be planned after manual validation confirms extraction quality
+#### Phase 4-6: Full RAG Pipeline (TBD)
+- Will be planned after manual validation confirms cleaning quality
 
 ## Current Task Details
 
-### Found PDFs (18 total)
-- **Root Level**: 3 PDFs
-- **neuroscience/**: 9 PDFs (Eagleman, Sapolsky, Gazzaniga, etc.)
-- **wisdom/**: 6 PDFs (Marcus Aurelius, Seneca, Epictetus, Confucius, etc.)
+### Cleaning Pipeline Development
+- Analyze common artifacts in extracted markdown
+- Develop cleaning functions for headers, footers, page breaks
+- Normalize formatting and typography
+- Maintain source attribution (page numbers if available)
 
-### Processing Goal
-- Generate equivalent MD files for each PDF
-- Preserve folder structure in data/processed/
-- Enable visual quality assessment of text ordering
-- Manual verification before proceeding to chunking
+## Success Metrics (Phase 2)
 
-## Key Decisions Made
+- Clean markdown files ready for chunking
+- No extraction artifacts remaining
+- Consistent formatting across documents
 
-1. **Simplified approach**: Use proven pymupdf4llm extraction
-2. **Manual validation**: Trust visual inspection over automated metrics
-3. **Quality-first**: Complete extraction thoroughly before moving forward
-4. **Focused scope**: Remove complexity until manual assessment is done
-
-## Success Metrics (Current Phase)
-
-- [x] Working PDF extraction system
-- [ ] Process all 18 PDFs successfully  
-- [ ] Generate equivalent MD files with preserved folder structure
-- [ ] Manual verification of extraction quality
-- [ ] Confirmation to proceed to Phase 2
+## Notes
+Left common RAG workflow for future detailed planning - will iterate as cleaning progresses.

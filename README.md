@@ -11,21 +11,25 @@ Build a specialized AI that integrates:
 
 ## Current Status
 
-**Phase 1: PDF Text Extraction** ✅ Completed - All source PDFs extracted using pymupdf4llm.
-**Phase 2: Markdown Cleaning** 🔄 In Progress - Developing text cleaning pipeline.
+**Phase 1: PDF Text Extraction** ✅ Completed.
+**Phase 2: Processing and Chunking** 🔄 In Progress.
 
 ## Project Structure
 
 ```
 rag1-mini/
-├── src/text_extractor/
-│   └── pdf_extract.py    # PDF → Markdown with fallback (pymupdf4llm)
+├── src/
+│   ├── run_stage_1_extraction.py   # Stage 1: PDF -> Markdown
+│   └── run_stage_2_processing.py   # Stage 2: Markdown -> Chunks
 ├── data/
-│   ├── raw/              # Source PDFs (neuroscience, wisdom)
-│   └── processed/        # Extracted markdown files
-├── memory-bank/          # Project documentation
-├── notebooks/            # Extraction method explorations
-└── tests/
+│   ├── raw/
+│   └── processed/
+│       ├── 01_raw_extraction/      # Stage 1 output
+│       ├── 02_manual_review/       # Stage 2 input
+│       ├── 03_structural_debug/    # Stage 2 debug output
+│       └── 04_final_chunks/        # Stage 2 final output
+├── memory-bank/
+└── notebooks/
 ```
 
 ## Environment
@@ -37,27 +41,38 @@ conda activate rag1-mini
 
 ## Usage
 
-Extract all PDFs from `data/raw/` to `data/processed/`:
+The processing pipeline is divided into two stages, with a manual review step in between.
+
+### Stage 1: PDF Extraction
+
+This script extracts text from all PDFs in `data/raw/` and saves them as Markdown files in `data/processed/01_raw_extraction/`. Run it from the project root directory.
+
 ```bash
-python src/text_extractor/pdf_extract.py
+python -m src.run_stage_1_extraction
 ```
 
-Features:
-- Whole-document extraction using `pymupdf4llm.to_markdown()` (layout-aware)
-- Fallback to page-by-page processing for difficult documents
-- OCR support for image-heavy pages
-- Preserves subdirectory structure
+### Manual Review
+
+After Stage 1 is complete, manually inspect the generated Markdown files in `data/processed/01_raw_extraction/`. Correct any extraction errors or formatting issues. Once a file is reviewed and ready for processing, **move it** to the `data/processed/02_manual_review/` directory.
+
+### Stage 2: Processing and Chunking
+
+This script takes the manually reviewed Markdown files from `data/processed/02_manual_review/`, cleans them, segments them into chunks, and adds metadata (including the book name). The final output is saved in `data/processed/04_final_chunks/` in both JSON and Markdown formats. Run it from the project root directory.
+
+```bash
+python -m src.run_stage_2_processing
+```
 
 ## Pipeline Phases
 
-1. **PDF Extraction** ✅ Completed - Extract clean layout-aware markdown from academic PDFs
-2. **Markdown Cleaning** 🔄 Current - Remove artifacts, normalize formatting
-3. **Chunking** - Intelligent text segmentation
-4. **Embedding** - Generate semantic vectors
-5. **Vector Storage** - Index and store embeddings
-6. **Retrieval** - Query and retrieve relevant context
-7. **LLM Integration** - Generate grounded answers
-8. **API Layer** - REST endpoint for queries
+1.  **PDF Extraction** ✅ Completed - Extract clean, layout-aware markdown from PDFs.
+2.  **Manual Review** 🔄 Current - Manually clean and verify extracted markdown.
+3.  **Processing and Chunking** 🔄 Current - Clean, segment, and add metadata to the text.
+4.  **Embedding** - Generate semantic vectors for each chunk.
+5.  **Vector Storage** - Index and store embeddings.
+6.  **Retrieval** - Query and retrieve relevant context.
+7.  **LLM Integration** - Generate grounded answers.
+8.  **API Layer** - REST endpoint for queries.
 
 ## Documentation
 

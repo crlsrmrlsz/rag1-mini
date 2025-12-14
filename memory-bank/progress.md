@@ -1,46 +1,107 @@
-# Project Progress
+# Project Progress - RAG1 Mini
 
-## Current Status: Phase 2 - Processing & Chunking (🔄 In Progress)
+## Current Status: Stage 1-3 Complete ✅
 
-### ✅ Completed
+**Last Updated:** December 14, 2025, 5:38 AM (Europe/Madrid, UTC+1:00)
 
-- **Phase 1: PDF Extraction**
-  - Conda environment `rag1-mini` configured.
-  - Git repository initialized.
-  - Working PDF extraction system using `pymupdf4llm`.
-  - `run_stage_1_extraction.py` created to extract all PDFs from `data/raw/` to `data/processed/01_raw_extraction/`.
+### ✅ Completed Stages
 
-- **Phase 2: Processing & Chunking (Initial Setup)**
-  - `run_stage_2_processing.py` created to handle cleaning, segmentation, and chunking.
-  - Chunking logic updated to include `book_name` in the metadata for better context.
-  - Documentation updated to reflect the new two-stage pipeline with a manual review step.
+#### **Stage 1: PDF Extraction** ✅
+- **Status:** COMPLETE
+- **Input:** 19 PDF files from `raw/` directory
+- **Output:** Raw markdown files in `processed/01_raw_extraction/`
+- **Books Processed:**
+  - **Neuroscience (8 books):** Sapolsky, Pinel & Barnes, Eagleman & Downar, Gazzaniga, Tommasi et al., Sapolsky (Determined), Gage & Bernard, Fountoulakis & Nimatoudis
+  - **Wisdom (11 books):** Kahneman, Schopenhauer (multiple works), Lao Tzu, Seneca, Confucius, Epictetus (multiple works), Marcus Aurelius, Baltasar Gracian
 
-### 🔄 In Progress
+#### **Stage 2: Processing & Cleaning** ✅  
+- **Status:** COMPLETE
+- **Components:**
+  - Manual review in `processed/02_manual_review/`
+  - Markdown cleaning in `processed/03_markdown_cleaning/`
+  - All files successfully cleaned and standardized
 
-- **Phase 2: Manual Review**
-  - Manually reviewing and cleaning the extracted Markdown files in `data/processed/01_raw_extraction/`.
-  - Moving cleaned files to `data/processed/02_manual_review/` for processing.
+#### **Stage 3: NLP Segmentation & Chunking** ✅
+- **Status:** COMPLETE  
+- **Output Location:** `processed/04_final_chunks/`
+- **Output Format:** Both JSON and Markdown files for each book
+- **Chunking Details:**
+  - **Neuroscience chunks:** 8 books with full NLP processing
+  - **Wisdom chunks:** 11 books with full NLP processing
+  - **Total outputs:** 38 files (19 JSON + 19 MD files)
+  - **Metadata:** Includes book_name, category, chunk_id, source info
+  - **Structure:** Proper sentence and paragraph segmentation
 
-### ⚪ Not Started
+### 📊 Processing Statistics
 
-- **Phase 2: Full Execution**
-  - Running `run_stage_2_processing.py` on the complete set of reviewed files.
+**Data Flow:**
+```
+raw/ (19 PDFs) 
+    ↓ [Stage 1: Extraction]
+processed/01_raw_extraction/ (19 MD files)
+    ↓ [Stage 2: Review & Cleaning] 
+processed/02_manual_review/ + processed/03_markdown_cleaning/ (19 MD files)
+    ↓ [Stage 3: NLP Segmentation]
+processed/04_final_chunks/ (38 files: 19 JSON + 19 MD)
+```
 
-- **Phase 3: Embedding**
-  - Local embedding model integration.
-  - Vector database setup.
+**Content Categories:**
+- **Neuroscience:** 8 books (psychology, cognitive science, brain research)
+- **Wisdom:** 11 books (philosophy, stoicism, eastern philosophy, behavioral economics)
 
-- **Phase 4-6: Full RAG Pipeline**
-  - Will be planned after manual validation confirms chunking quality.
+### 🔧 Technical Implementation
 
-## Current Task Details
+**Core Scripts:**
+- `run_stage_1_extraction.py` - PDF to markdown extraction
+- `run_stage_2_processing.py` - Cleaning and manual review processing  
+- `run_stage_3_segmentation.py` - NLP-based chunking and sentence segmentation
 
-### Manual Review
-- Analyze common artifacts in extracted markdown.
-- Correct any errors from the automated extraction.
-- Move files to `data/processed/02_manual_review/` as they are completed.
+**Processors:**
+- `text_cleaner.py` - Markdown cleaning and standardization
+- `nlp_segmenter.py` - Advanced NLP for semantic chunking
 
-## Success Metrics (Phase 2)
+**Configuration:**
+- `config.py` - Centralized settings for chunk sizes, paths, categories
 
-- High-quality, clean markdown files in `data/processed/02_manual_review/`.
-- Structured, meaningful chunks with correct metadata in `data/processed/04_final_chunks/`.
+### 📁 Current Directory Structure
+
+```
+data/
+├── raw/                    # Original PDFs (19 files)
+├── processed/
+│   ├── 01_raw_extraction/   # Stage 1 output (19 MD files)
+│   ├── 02_manual_review/    # Stage 2 review (19 MD files) 
+│   ├── 03_markdown_cleaning/ # Stage 2 cleaned (19 MD files)
+│   └── 04_final_chunks/     # Stage 3 output (38 files)
+└── logs/
+    └── cleaning_report.log
+```
+
+### 🎯 Next Steps (Future Planning)
+
+**Stage 4+: RAG Implementation** (Not Started)
+- Vector embedding generation
+- Vector database setup (Chroma/Pinecone)
+- Retrieval system implementation
+- Query interface development
+
+**Dependencies for Next Stage:**
+- Embedding model selection (local vs. API)
+- Vector database choice
+- Search algorithm selection
+- Performance optimization requirements
+
+### 💡 Key Achievements
+
+1. **Complete Pipeline:** Successfully implemented full extraction → cleaning → chunking pipeline
+2. **Quality Output:** High-quality, structured chunks with proper metadata
+3. **Category Organization:** Clear separation between neuroscience and wisdom content
+4. **Dual Format:** Both JSON (for processing) and MD (for human reading) outputs
+5. **Scalable Architecture:** Modular design ready for RAG integration
+
+### 📝 Notes
+
+- All books successfully processed through all 3 stages
+- No failed extractions or processing errors
+- Clean, consistent file naming convention
+- Ready for embedding and vector database integration

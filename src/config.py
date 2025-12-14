@@ -1,33 +1,106 @@
+"""
+Configuration file for markdown cleaning pipeline.
+Defines paths, cleaning patterns, and NLP settings.
+"""
 import re
 from pathlib import Path
+from typing import List, Tuple
 
-# --- PROJECT PATHS ---
-# Assumes this file is in src/config.py, so project root is one level up
+
+# ============================================================================
+# PROJECT PATHS
+# ============================================================================
+
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
-# Phase 1 Output / Phase 2 Input
+# Processing pipeline directories
 DIR_RAW_EXTRACT = DATA_DIR / "processed" / "01_raw_extraction"
-# Phase 2 Output / Phase 3 Input (User places reviewed files here)
 DIR_MANUAL_REVIEW = DATA_DIR / "processed" / "02_manual_review"
-# Phase 3 Debug Output
-DIR_DEBUG_CLEAN = DATA_DIR / "processed" / "03_structural_debug"
-# Phase 5 Final Output
+DIR_DEBUG_CLEAN = DATA_DIR / "processed" / "03_markdown_cleaning"
 DIR_FINAL_CHUNKS = DATA_DIR / "processed" / "04_final_chunks"
 
-# --- REGEX PATTERNS (Phase 3) ---
-#
-LINE_ARTIFACT_PATTERNS = [
-    (r'^\s*(FIGURE|FIG|Fig|TABLE|TAB|Tab)(\.?)\s*[\d\.\-]+\s*.*$', ''),
-    (r'^\s*(Source|Credit|Data from):.*$', ''),
+# Logging
+DIR_CLEANING_LOGS = DATA_DIR / "logs"
+DIR_CLEANING_LOGS.mkdir(parents=True, exist_ok=True)
+CLEANING_LOG_FILE = DIR_CLEANING_LOGS / "cleaning_report.log"
+
+
+# ============================================================================
+# CLEANING PATTERNS
+# ============================================================================
+
+# Pattern format: (regex_pattern, pattern_name)
+# All patterns use explicit case matching in regex (no re.IGNORECASE needed)
+
+LINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
+    # Figure/Table captions: "Figure 2. Model diagram", "Table 1-3: Flow Chart"
+    # Matches: Figure/Fig/Table/Tab + number/identifier + UPPERCASE start
+    # Preserves: "Figure 2 shows..." (lowercase after number)
+    (
+        r'^\s*(#+\s*)?([Ff][Ii][Gg]([Uu][Rr][Ee])?|[Tt][Aa][Bb]([Ll][Ee])?)\.?\s+[\w\.\-]+\s+[A-Z]',
+        'FIGURE_TABLE_CAPTION'
+    ),
+    
+    # Learning objectives: "LO 1.2", "LO 5"
+    (
+        r'^\s*(##\s*)?LO\s+\d',
+        'LEARNING_OBJECTIVE'
+    ),
+    
+    # Single character lines: isolated letters, numbers, symbols
+    (
+        r'^\s*[a-zA-Z0-9\.\|\-]\s*$',
+        'SINGLE_CHAR'
+    ),
+    
+    # Heading with only a number: "## 5"
+    (
+        r'^\s*##\s+\d+\s*$',
+        'HEADING_SINGLE_NUMBER'
+    ),
 ]
 
-INLINE_REMOVAL_PATTERNS = [
-    r'\(\s*(FIGURE|FIG|Fig|TABLE|TAB|Tab)\.?\s*[\d\.\-]+\s*\)',
+
+INLINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
+    # Figure/table references in parentheses: "(Figure 2)", "(TABLE 1-3)"
+    (
+        r'\(\s*([Ff][Ii][Gg]([Uu][Rr][Ee])?|[Tt][Aa][Bb]([Ll][Ee])?)\.?\s*[\d\.\-]+[a-zA-Z]?\s*\)',
+        'FIG_TABLE_REF'
+    ),
+    
+    # Footnote markers: "fn3", "fn12" (typically appear mid-sentence)
+    (
+        r'\bfn\d+\b\s*',
+        'FOOTNOTE_MARKER'
+    ),
+    
+    # Standalone numbers after punctuation: ". 81 We" -> ". We"
+    # Removes page numbers and footnote references
+    (
+        r'(?<=[.!?\"\'])\s+\d+\s+(?=[A-Z])',
+        'TRAILING_NUMBER'
+    ),
 ]
 
-# --- NLP SETTINGS (Phase 4 & 5) ---
+
+CHARACTER_SUBSTITUTIONS: List[Tuple[str, str, str]] = [
+    # Format: (old_string, new_string, substitution_name)
+    ('/u2014.d', '--', 'EM_DASH_WITH_SUFFIX'),
+    ('/u2014', '--', 'EM_DASH'),
+    ('&amp;', '&', 'HTML_AMPERSAND'),
+]
+
+
+# List marker pattern: used in special processing function
+LIST_MARKER_PATTERN = r'^\s*\([a-z]\)\s+'
+
+
+# ============================================================================
+# NLP SETTINGS
+# ============================================================================
+
 SPACY_MODEL = "en_core_sci_sm"
 
-# Valid terminal punctuation for sentence filtering
-VALID_ENDINGS = ('.', '?', '!', '"', '”', ')', ']')
+# Valid sentence endings for filtering
+VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')

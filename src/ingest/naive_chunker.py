@@ -1,0 +1,430 @@
+"""
+Sequential text chunker for RAG system with sentence overlap.
+Processes paragraphs in reading order, respecting section boundaries and token limits.
+Includes configurable overlap between consecutive chunks within same section.
+"""
+
+import json
+from pathlib import Path
+from typing import List, Dict, Deque
+from collections import deque
+
+from src.config import DIR_FINAL_CHUNKS, MAX_CHUNK_TOKENS, DIR_NLP_CHUNKS, OVERLAP_SENTENCES
+from src.utils.tokens import count_tokens
+from src.utils.file_utils import get_file_list
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def split_oversized_sentence(sentence: str, max_tokens: int) -> List[str]:
+    """
+    Split a sentence that exceeds token limit.
+    
+    Strategy:
+    1. Try splitting by punctuation ("; ", ": ", ", ")
+    2. Fallback to word boundary splitting
+    
+    Args:
+        sentence: Text to split
+        max_tokens: Maximum tokens per chunk
+        
+    Returns:
+        List of sentence parts, each ≤ max_tokens (or single oversized part if splitting fails)
+    """
+    # If sentence fits, no splitting needed
+    if count_tokens(sentence) <= max_tokens:
+        return [sentence]
+    
+    # Try splitting by punctuation marks (in priority order)
+    for separator in ["; ", ": ", ", "]:
+        if separator not in sentence:
+            continue
+            
+        parts = sentence.split(separator)
+        result = []
+        current = ""
+        
+        for i, part in enumerate(parts):
+            # Reconstruct with separator (add separator prefix except for first part)
+            if i > 0:
+                part = separator + part
+            
+            # Try adding part to current chunk
+            test_text = current + part if current else part
+            
+            if count_tokens(test_text) <= max_tokens:
+                current = test_text
+            else:
+                # Part doesn't fit
+                if current:
+                    result.append(current.strip())
+                    current = part.lstrip(separator)  # Start fresh without separator
+                else:
+                    # Single part too large, abandon this separator
+                    break
+        
+        # Add remaining text
+        if current:
+            result.append(current.strip())
+        
+        # If we successfully split, return results
+        if len(result) > 1:
+            return result
+    
+    # Fallback: split by word boundaries
+    return split_by_words(sentence, max_tokens)
+
+
+def split_by_words(text: str, max_tokens: int) -> List[str]:
+    """
+    Split text at word boundaries to respect token limit.
+    Last resort when punctuation splitting fails.
+    
+    Args:
+        text: Text to split
+        max_tokens: Maximum tokens per chunk
+        
+    Returns:
+        List of text chunks (guaranteed to make progress, even if parts exceed max_tokens)
+    """
+    if count_tokens(text) <= max_tokens:
+        return [text]
+    
+    words = text.split()
+    
+    # Edge case: single word or no spaces - can't split further
+    if len(words) <= 1:
+        print(f"  ⚠️  WARNING: Unsplittable text ({count_tokens(text)} tokens), including anyway")
+        return [text]  # Return as-is, accept token overflow
+    
+    chunks = []
+    current_words = []
+    
+    for word in words:
+        test_text = " ".join(current_words + [word])
+        
+        if count_tokens(test_text) <= max_tokens:
+            current_words.append(word)
+        else:
+            # Save current chunk and start new one
+            if current_words:
+                chunks.append(" ".join(current_words))
+                current_words = [word]
+            else:
+                # Single word exceeds limit (extremely rare) - include anyway to make progress
+                print(f"  ⚠️  WARNING: Single word exceeds limit ({count_tokens(word)} tokens): {word[:50]}...")
+                chunks.append(word)
+    
+    # Add remaining words
+    if current_words:
+        chunks.append(" ".join(current_words))
+    
+    return chunks if chunks else [text]  # Ensure we return something
+
+
+def parse_section_name(context: str) -> str:
+    """
+    Extract section name from hierarchical context.
+    
+    Context format: "BookTitle > Chapter > Section > Subsection"
+    Returns the last component (most specific section).
+    
+    Args:
+        context: Hierarchical context string
+        
+    Returns:
+        Section name or empty string
+    """
+    if not context:
+        return ""
+    
+    parts = [p.strip() for p in context.split(">")]
+    return parts[-1] if parts else ""
+
+
+# ============================================================================
+# CORE CHUNKING LOGIC WITH OVERLAP
+# ============================================================================
+
+def create_chunks_from_paragraphs(
+    paragraphs: List[Dict], 
+    book_name: str, 
+    max_tokens: int = MAX_CHUNK_TOKENS,
+    overlap_sentences: int = OVERLAP_SENTENCES
+) -> List[Dict]:
+    """
+    Process paragraphs sequentially to create chunks with overlap.
+    
+    Algorithm:
+    1. Read paragraphs in order (preserves reading sequence)
+    2. When context changes → save current chunk, start new chunk, clear overlap
+    3. For each sentence:
+       - Add to chunk if it fits
+       - If doesn't fit but chunk has content → save chunk, start new chunk with overlap
+       - If sentence too large → split it
+    4. Overlap: Last N sentences from previous chunk initialize next chunk (same section only)
+    
+    Args:
+        paragraphs: List of paragraph dicts with 'context', 'sentences', etc.
+        book_name: Book identifier
+        max_tokens: Maximum tokens per chunk
+        overlap_sentences: Number of sentences to overlap between chunks (0 = no overlap)
+        
+    Returns:
+        List of chunk dicts ready for embedding
+    """
+    chunks = []
+    current_chunk_sentences = []  # Track sentences in current chunk
+    current_context = None
+    chunk_id = 0
+    sentence_counter = 0  # For debugging
+    num_overlap_sentences = 0  # Track how many sentences are from overlap (not new content)
+    
+    # Overlap buffer: stores last N sentences from previous chunk (within same section)
+    overlap_buffer: Deque[str] = deque(maxlen=overlap_sentences if overlap_sentences > 0 else None)
+    
+    def _save_current_chunk():
+        """Helper to save current chunk and update overlap buffer"""
+        nonlocal chunk_id, num_overlap_sentences
+        if current_chunk_sentences:
+            chunk_text = " ".join(current_chunk_sentences)
+            chunks.append(_create_chunk_dict(
+                text=chunk_text,
+                context=current_context,
+                book_name=book_name,
+                chunk_id=chunk_id
+            ))
+            chunk_id += 1
+            
+            # Update overlap buffer with last N sentences (for next chunk in same section)
+            if overlap_sentences > 0:
+                overlap_buffer.clear()
+                overlap_buffer.extend(current_chunk_sentences[-overlap_sentences:])
+            
+            # Reset overlap counter after saving
+            num_overlap_sentences = 0
+    
+    def _start_new_chunk_with_overlap():
+        """Helper to initialize new chunk with overlap from previous chunk"""
+        nonlocal num_overlap_sentences
+        if overlap_sentences > 0 and len(overlap_buffer) > 0:
+            # Start new chunk with overlapping sentences from previous chunk
+            num_overlap_sentences = len(overlap_buffer)
+            return list(overlap_buffer)
+        num_overlap_sentences = 0
+        return []
+    
+    # Process each paragraph sequentially
+    for para_idx, para in enumerate(paragraphs):
+        context = para.get("context", "")
+        sentences = para.get("sentences", [])
+        
+        # Skip paragraphs without content
+        if not sentences or not context:
+            continue
+        
+        # CONTEXT CHANGE: Save current chunk, start fresh, clear overlap
+        if context != current_context:
+            _save_current_chunk()
+            current_chunk_sentences = []
+            current_context = context
+            num_overlap_sentences = 0
+            overlap_buffer.clear()  # Don't overlap across section boundaries
+        
+        # Process each sentence in the paragraph
+        for sent_idx, sentence in enumerate(sentences):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            
+            sentence_counter += 1
+            iteration_count = 0  # Safety counter to detect infinite loops
+            MAX_ITERATIONS = 1000  # Should never need this many
+            
+            # Try to add sentence to current chunk
+            while sentence:  # Loop until sentence is fully processed
+                iteration_count += 1
+                
+                # SAFETY CHECK: Detect infinite loops
+                if iteration_count > MAX_ITERATIONS:
+                    print(f"\n❌ ERROR: Infinite loop detected!")
+                    print(f"  Paragraph {para_idx}, Sentence {sent_idx}")
+                    print(f"  Context: {context}")
+                    print(f"  Sentence ({count_tokens(sentence)} tokens): {sentence[:200]}...")
+                    print(f"  Current chunk size: {len(current_chunk_sentences)} sentences")
+                    print(f"  Overlap sentences: {num_overlap_sentences}")
+                    # Force progress by including sentence anyway
+                    current_chunk_sentences.append(sentence)
+                    num_overlap_sentences = 0
+                    break
+                
+                # Build test chunk
+                test_sentences = current_chunk_sentences + [sentence]
+                test_chunk_text = " ".join(test_sentences)
+                
+                # Check if sentence fits
+                if count_tokens(test_chunk_text) <= max_tokens:
+                    # SUCCESS: Sentence fits in current chunk
+                    current_chunk_sentences.append(sentence)
+                    num_overlap_sentences = 0  # We've added new content, no longer just overlap
+                    break  # Move to next sentence
+                
+                else:
+                    # DOESN'T FIT: Handle based on current chunk state
+                    
+                    # Check if we have NEW content (not just overlap)
+                    # IMPORTANT: This prevents infinite loops when overlap + sentence > max_tokens
+                    # In that case, we drop the overlap and try just the sentence
+                    has_new_content = len(current_chunk_sentences) > num_overlap_sentences
+                    
+                    if has_new_content:
+                        # Chunk has new content → save it and retry sentence in new chunk WITH OVERLAP
+                        _save_current_chunk()
+                        current_chunk_sentences = _start_new_chunk_with_overlap()
+                        # Loop continues with same sentence (will be added to new chunk)
+                    
+                    else:
+                        # Chunk is empty OR only has overlap (no new content yet)
+                        # This means: overlap + sentence > max_tokens
+                        # Solution: drop overlap and try just the sentence
+                        
+                        if current_chunk_sentences:
+                            # We have overlap but it doesn't help - clear it
+                            current_chunk_sentences = []
+                            num_overlap_sentences = 0
+                            # Loop continues - will retry sentence without overlap
+                        else:
+                            # Truly empty, sentence itself is too large → split sentence
+                            original_sentence = sentence
+                            original_token_count = count_tokens(sentence)
+                            sentence_parts = split_oversized_sentence(sentence, max_tokens)
+                            
+                            # CRITICAL: Check if splitting actually worked
+                            if len(sentence_parts) == 1 and sentence_parts[0] == original_sentence:
+                                # Splitting failed - sentence unchanged
+                                # Force progress by including it anyway (accept token overflow)
+                                print(f"  ⚠️  WARNING: Could not split sentence ({original_token_count} tokens)")
+                                print(f"     Preview: {sentence[:100]}...")
+                                current_chunk_sentences.append(sentence)
+                                num_overlap_sentences = 0
+                                break  # Exit while loop, move to next sentence
+                            
+                            # Splitting succeeded - process parts
+                            for part in sentence_parts[:-1]:
+                                current_chunk_sentences.append(part)
+                                num_overlap_sentences = 0
+                                _save_current_chunk()
+                                current_chunk_sentences = _start_new_chunk_with_overlap()
+                            
+                            # Keep last part for next iteration
+                            sentence = sentence_parts[-1]
+                            # Loop continues with last part (which should be smaller)
+    
+    # Save final chunk if it has content
+    _save_current_chunk()
+    
+    return chunks
+
+
+def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -> Dict:
+    """
+    Create standardized chunk dictionary.
+    
+    Args:
+        text: Chunk text content
+        context: Hierarchical context string
+        book_name: Book identifier
+        chunk_id: Sequential chunk number
+        
+    Returns:
+        Chunk dictionary with metadata
+    """
+    return {
+        "chunk_id": f"{book_name}::chunk_{chunk_id}",
+        "book_id": book_name,
+        "context": context,
+        "section": parse_section_name(context),
+        "text": text,
+        "token_count": count_tokens(text),
+        "chunking_strategy": f"sequential_overlap_{OVERLAP_SENTENCES}"
+    }
+
+
+# ============================================================================
+# FILE I/O
+# ============================================================================
+
+def process_single_file(file_path: Path) -> tuple[str, int]:
+    """
+    Process a single JSON file and create chunks.
+    
+    Args:
+        file_path: Path to input JSON file
+        
+    Returns:
+        Tuple of (book_name, chunk_count)
+    """
+    # Read paragraphs from file
+    with file_path.open("r", encoding="utf-8") as f:
+        paragraphs = json.load(f)
+    
+    # Extract book name from filename
+    book_name = file_path.stem
+    
+    # Create chunks with overlap
+    chunks = create_chunks_from_paragraphs(paragraphs, book_name)
+    
+    # Save chunks to output directory
+    output_dir = Path(DIR_FINAL_CHUNKS) / "section"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    output_path = output_dir / f"{book_name}.json"
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(chunks, f, ensure_ascii=False, indent=2)
+    
+    return book_name, len(chunks)
+
+
+def run_section_chunking() -> Dict[str, int]:
+    """
+    Process all JSON files in DIR_NLP_CHUNKS directory.
+    
+    Returns:
+        Dictionary mapping book names to chunk counts
+    """
+    input_files = get_file_list(DIR_NLP_CHUNKS, "json")
+    results = {}
+    
+    print(f"Processing {len(input_files)} files...")
+    print(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
+    print(f"Sentence overlap: {OVERLAP_SENTENCES}")
+    print("-" * 60)
+    
+    for file_path in input_files:
+        try:
+            book_name, chunk_count = process_single_file(file_path)
+            results[book_name] = chunk_count
+            print(f"  ✓ {book_name}: {chunk_count} chunks")
+            
+        except Exception as e:
+            print(f"  ✗ {file_path.name}: ERROR")
+            print(f"     {type(e).__name__}: {e}")
+            results[file_path.stem] = 0
+    
+    return results
+
+
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
+if __name__ == "__main__":
+    print("Starting sequential chunking with overlap...")
+    
+    stats = run_section_chunking()
+    
+    print("-" * 60)
+    print(f"Completed! Processed {len(stats)} books")
+    print(f"Total chunks created: {sum(stats.values())}")

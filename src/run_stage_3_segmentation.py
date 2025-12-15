@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from .config import DIR_DEBUG_CLEAN, DIR_FINAL_CHUNKS
+from .config import DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS
 from .utils import setup_logging, get_file_list, get_output_path
-from .processors import SemanticSegmenter
+from .processors import StructuralSegmenter
 
 
 logger = setup_logging("Stage3_Segmentation")
@@ -11,7 +11,7 @@ logger = setup_logging("Stage3_Segmentation")
 def main():
     # 1. Initialize Segmenter
     logger.info("Initializing NLP Segmenter (SciSpaCy)...")
-    segmenter = SemanticSegmenter()
+    segmenter = StructuralSegmenter()
 
     # 2. Find Cleaned Files
     input_files = get_file_list(DIR_DEBUG_CLEAN, "md")
@@ -32,14 +32,14 @@ def main():
             chunks = segmenter.process_document(cleaned_text, book_name)
 
             # Save Final JSON (Machine Readable)
-            json_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_FINAL_CHUNKS, ".json")
+            json_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS, ".json")
             json_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(chunks, f, indent=2, ensure_ascii=False)
 
             # Save Final Markdown (Human Readable / RAG Input)
-            md_out_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_FINAL_CHUNKS)
+            md_out_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS)
 
             md_lines = [f"# Analyzed Content: {book_name}\n"]
             for i, chunk in enumerate(chunks):

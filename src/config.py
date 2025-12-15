@@ -18,7 +18,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 DIR_RAW_EXTRACT = DATA_DIR / "processed" / "01_raw_extraction"
 DIR_MANUAL_REVIEW = DATA_DIR / "processed" / "02_manual_review"
 DIR_DEBUG_CLEAN = DATA_DIR / "processed" / "03_markdown_cleaning"
-DIR_FINAL_CHUNKS = DATA_DIR / "processed" / "04_final_chunks"
+DIR_NLP_CHUNKS = DATA_DIR / "processed" / "04_nlp_chunks"
+DIR_FINAL_CHUNKS = DATA_DIR / "processed" / "05_final_chunks"
 
 # Logging
 DIR_CLEANING_LOGS = DATA_DIR / "logs"
@@ -88,7 +89,7 @@ CHARACTER_SUBSTITUTIONS: List[Tuple[str, str, str]] = [
     # Format: (old_string, new_string, substitution_name)
     ('/u2014.d', '--', 'EM_DASH_WITH_SUFFIX'),
     ('/u2014', '--', 'EM_DASH'),
-    ('&amp;', '&', 'HTML_AMPERSAND'),
+    ('&', '&', 'HTML_AMPERSAND'),
 ]
 
 
@@ -104,3 +105,20 @@ SPACY_MODEL = "en_core_sci_sm"
 
 # Valid sentence endings for filtering
 VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')
+
+
+# ============================================================================
+# CHUNKING SETTINGS
+# ============================================================================
+
+
+# Chunking parameters (tuned for text-embedding-3-large)
+MAX_CHUNK_TOKENS = 800
+MAX_SENTENCE_TOKENS = 800
+
+# Tokenizer model name (OpenAI compatible)
+TOKENIZER_MODEL = "text-embedding-3-large"
+
+# Configurable overlap: number of sentences to carry from previous chunk
+OVERLAP_SENTENCES = 2  # Adjust this value (0 = no overlap, 2-3 recommended)
+# ============================================================================

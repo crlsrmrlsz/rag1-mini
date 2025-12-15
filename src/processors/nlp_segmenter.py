@@ -6,7 +6,7 @@ from src.utils import setup_logging
 
 logger = setup_logging(__name__)
 
-class SemanticSegmenter:
+class StructuralSegmenter:
     def __init__(self):
         logger.info(f"Loading SciSpaCy model: {SPACY_MODEL}...")
         try:

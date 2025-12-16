@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import List, Tuple
 
+from dotenv import load_dotenv
+import os
 
 # ============================================================================
 # PROJECT PATHS
@@ -20,6 +22,7 @@ DIR_MANUAL_REVIEW = DATA_DIR / "processed" / "02_manual_review"
 DIR_DEBUG_CLEAN = DATA_DIR / "processed" / "03_markdown_cleaning"
 DIR_NLP_CHUNKS = DATA_DIR / "processed" / "04_nlp_chunks"
 DIR_FINAL_CHUNKS = DATA_DIR / "processed" / "05_final_chunks"
+DIR_EMBEDDINGS = DATA_DIR / "processed" / "06_embeddings"
 
 # Logging
 DIR_CLEANING_LOGS = DATA_DIR / "logs"
@@ -121,4 +124,25 @@ TOKENIZER_MODEL = "text-embedding-3-large"
 
 # Configurable overlap: number of sentences to carry from previous chunk
 OVERLAP_SENTENCES = 2  # Adjust this value (0 = no overlap, 2-3 recommended)
+
+
 # ============================================================================
+# EMBEDDING SETTINGS
+# ============================================================================
+
+
+# Embedding model (OpenAI / OpenRouter compatible)
+EMBEDDING_MODEL = TOKENIZER_MODEL  # "text-embedding-3-large"
+
+# Safety limits
+MAX_BATCH_TOKENS = 12_000   # conservative batch size
+MAX_RETRIES = 3
+
+# Load environment variables from the .env file
+load_dotenv()
+
+# Now you can access the variables
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+OPENROUTER_BASE_URL = os.getenv('OPENROUTER_BASE_URL')
+EMBEDDING_MODEL_ID = os.getenv('EMBEDDING_MODEL_ID')
+EMBEDDING_ENCODING_FORMAT = os.getenv('EMBEDDING_ENCODING_FORMAT')

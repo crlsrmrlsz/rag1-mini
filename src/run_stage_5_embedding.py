@@ -1,15 +1,9 @@
-"""
-Stage 5: Embed final text chunks for RAG.
+"""Stage 5: Generate embeddings for final text chunks.
 
 This stage:
 - Loads section-level chunks from Stage 4
-- Calls embedding API (OpenAI-compatible)
-- Saves embeddings to disk (no vector DB yet)
-
-Design goals:
-- Deterministic
-- Restartable
-- Transparent
+- Calls embedding API (OpenRouter)
+- Saves embeddings to disk
 """
 
 import json
@@ -18,71 +12,40 @@ from typing import List, Dict
 
 from src.config import (
     DIR_FINAL_CHUNKS,
-    PROJECT_ROOT,
-    TOKENIZER_MODEL,
     DIR_EMBEDDINGS,
     EMBEDDING_MODEL,
     MAX_BATCH_TOKENS,
-    MAX_RETRIES 
 )
-
-from src.utils.file_utils import setup_logging, get_file_list
-from src.utils.tokens import count_tokens
-from src.ingest.embed_texts import embed_texts
-
-# ---------------------------------------------------------------------------
-# CONFIGURATION
-# ---------------------------------------------------------------------------
-
-# Where embeddings will be stored
-
-DIR_EMBEDDINGS.mkdir(parents=True, exist_ok=True)
+from src.utils import setup_logging, get_file_list
+from src.ingest import embed_texts
 
 logger = setup_logging("Stage5_Embedding")
 
+# Ensure output directory exists
+DIR_EMBEDDINGS.mkdir(parents=True, exist_ok=True)
 
-# ---------------------------------------------------------------------------
-# EMBEDDING CLIENT (ABSTRACTED)
-# ---------------------------------------------------------------------------
-
-def embed_texts(texts: List[str]) -> List[List[float]]:
-    """
-    Call embedding API for a list of texts.
-
-    IMPORTANT:
-    - This function should be the ONLY place that knows about the API.
-    - Makes it easy to swap OpenAI <-> OpenRouter later.
-
-    Args:
-        texts: List of strings to embed
-
-    Returns:
-        List of embedding vectors
-    """
-    # PSEUDO-CODE / PLACEHOLDER:
-    # Replace this with actual OpenAI or OpenRouter client call later
-
-    raise NotImplementedError(
-        "Embedding client not implemented yet. "
-        "Hook OpenAI / OpenRouter here."
-    )
-
-
-# ---------------------------------------------------------------------------
-# CORE LOGIC
-# ---------------------------------------------------------------------------
 
 def load_chunks(file_path: Path) -> List[Dict]:
-    """Load chunk list from a JSON file."""
+    """Load chunk list from a JSON file.
+
+    Args:
+        file_path: Path to the JSON file.
+
+    Returns:
+        List of chunk dictionaries.
+    """
     with file_path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def batch_chunks_by_token_limit(chunks: List[Dict]) -> List[List[Dict]]:
-    """
-    Group chunks into batches that stay under MAX_BATCH_TOKENS.
+    """Group chunks into batches that stay under MAX_BATCH_TOKENS.
 
-    This prevents API failures and rate-limit issues.
+    Args:
+        chunks: List of chunk dictionaries with token_count field.
+
+    Returns:
+        List of batches, where each batch is a list of chunks.
     """
     batches = []
     current_batch = []
@@ -91,7 +54,7 @@ def batch_chunks_by_token_limit(chunks: List[Dict]) -> List[List[Dict]]:
     for chunk in chunks:
         tokens = chunk["token_count"]
 
-        # Single chunk too large (should not happen, but be safe)
+        # Single chunk too large - embed alone
         if tokens > MAX_BATCH_TOKENS:
             logger.warning(
                 f"Chunk {chunk['chunk_id']} exceeds batch limit "
@@ -115,8 +78,10 @@ def batch_chunks_by_token_limit(chunks: List[Dict]) -> List[List[Dict]]:
 
 
 def embed_book(file_path: Path):
-    """
-    Embed all chunks for a single book.
+    """Embed all chunks for a single book.
+
+    Args:
+        file_path: Path to the book's chunk JSON file.
     """
     logger.info(f"Embedding book: {file_path.stem}")
 
@@ -129,7 +94,7 @@ def embed_book(file_path: Path):
         texts = [c["text"] for c in batch]
 
         logger.info(
-            f"  → Batch {batch_idx + 1}/{len(batches)} "
+            f"Batch {batch_idx + 1}/{len(batches)} "
             f"({sum(c['token_count'] for c in batch)} tokens)"
         )
 
@@ -143,7 +108,7 @@ def embed_book(file_path: Path):
                 "embedding_dim": len(vector)
             })
 
-    # Save per-book embedding file
+    # Save embeddings
     output_path = DIR_EMBEDDINGS / f"{file_path.stem}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump({
@@ -152,17 +117,12 @@ def embed_book(file_path: Path):
             "chunks": embedded_chunks
         }, f, ensure_ascii=False, indent=2)
 
-    logger.info(
-        f"  ✓ Saved {len(embedded_chunks)} embeddings → {output_path}"
-    )
+    logger.info(f"Saved {len(embedded_chunks)} embeddings to {output_path}")
 
-
-# ---------------------------------------------------------------------------
-# ENTRY POINT
-# ---------------------------------------------------------------------------
 
 def main():
-    logger.info("Starting Stage 5: Embedding")
+    """Run embedding generation pipeline."""
+    logger.info("Starting Stage 5: Embedding Generation")
 
     section_dir = DIR_FINAL_CHUNKS / "section"
     files = list(section_dir.glob("*.json"))
@@ -174,11 +134,7 @@ def main():
     logger.info(f"Found {len(files)} books to embed.")
 
     for file_path in files:
-        try:
-            embed_book(file_path)
-        except Exception as e:
-            logger.error(f"Failed embedding {file_path.name}: {e}")
-            raise
+        embed_book(file_path)
 
     logger.info("Stage 5 complete.")
 

@@ -9,9 +9,19 @@ from pathlib import Path
 from typing import List, Dict, Deque
 from collections import deque
 
-from src.config import DIR_FINAL_CHUNKS, MAX_CHUNK_TOKENS, DIR_NLP_CHUNKS, OVERLAP_SENTENCES
+from src.config import (
+    DIR_FINAL_CHUNKS,
+    MAX_CHUNK_TOKENS,
+    DIR_NLP_CHUNKS,
+    OVERLAP_SENTENCES,
+    MAX_LOOP_ITERATIONS,
+    CHUNK_ID_PREFIX,
+    CHUNK_ID_SEPARATOR,
+)
 from src.utils.tokens import count_tokens
-from src.utils.file_utils import get_file_list
+from src.utils.file_utils import get_file_list, setup_logging
+
+logger = setup_logging(__name__)
 
 
 # ============================================================================
@@ -96,7 +106,7 @@ def split_by_words(text: str, max_tokens: int) -> List[str]:
     
     # Edge case: single word or no spaces - can't split further
     if len(words) <= 1:
-        print(f"  ⚠️  WARNING: Unsplittable text ({count_tokens(text)} tokens), including anyway")
+        logger.warning(f"Unsplittable text ({count_tokens(text)} tokens), including anyway")
         return [text]  # Return as-is, accept token overflow
     
     chunks = []
@@ -114,7 +124,7 @@ def split_by_words(text: str, max_tokens: int) -> List[str]:
                 current_words = [word]
             else:
                 # Single word exceeds limit (extremely rare) - include anyway to make progress
-                print(f"  ⚠️  WARNING: Single word exceeds limit ({count_tokens(word)} tokens): {word[:50]}...")
+                logger.warning(f"Single word exceeds limit ({count_tokens(word)} tokens): {word[:50]}...")
                 chunks.append(word)
     
     # Add remaining words
@@ -125,23 +135,20 @@ def split_by_words(text: str, max_tokens: int) -> List[str]:
 
 
 def parse_section_name(context: str) -> str:
-    """
-    Extract section name from hierarchical context.
-    
+    """Extract section name from hierarchical context.
+
     Context format: "BookTitle > Chapter > Section > Subsection"
     Returns the last component (most specific section).
-    
+
     Args:
-        context: Hierarchical context string
-        
+        context: Hierarchical context string.
+
     Returns:
-        Section name or empty string
+        Section name or empty string.
     """
     if not context:
         return ""
-    
-    parts = [p.strip() for p in context.split(">")]
-    return parts[-1] if parts else ""
+    return context.split(">")[-1].strip()
 
 
 # ============================================================================
@@ -217,9 +224,9 @@ def create_chunks_from_paragraphs(
         return []
     
     # Process each paragraph sequentially
-    for para_idx, para in enumerate(paragraphs):
-        context = para.get("context", "")
-        sentences = para.get("sentences", [])
+    for paragraph_idx, paragraph in enumerate(paragraphs):
+        context = paragraph.get("context", "")
+        sentences = paragraph.get("sentences", [])
         
         # Skip paragraphs without content
         if not sentences or not context:
@@ -241,20 +248,19 @@ def create_chunks_from_paragraphs(
             
             sentence_counter += 1
             iteration_count = 0  # Safety counter to detect infinite loops
-            MAX_ITERATIONS = 1000  # Should never need this many
             
             # Try to add sentence to current chunk
             while sentence:  # Loop until sentence is fully processed
                 iteration_count += 1
                 
                 # SAFETY CHECK: Detect infinite loops
-                if iteration_count > MAX_ITERATIONS:
-                    print(f"\n❌ ERROR: Infinite loop detected!")
-                    print(f"  Paragraph {para_idx}, Sentence {sent_idx}")
-                    print(f"  Context: {context}")
-                    print(f"  Sentence ({count_tokens(sentence)} tokens): {sentence[:200]}...")
-                    print(f"  Current chunk size: {len(current_chunk_sentences)} sentences")
-                    print(f"  Overlap sentences: {num_overlap_sentences}")
+                if iteration_count > MAX_LOOP_ITERATIONS:
+                    logger.warning(
+                        f"Max iterations reached. Paragraph {paragraph_idx}, Sentence {sent_idx}, "
+                        f"Context: {context}, Sentence ({count_tokens(sentence)} tokens): {sentence[:200]}..., "
+                        f"Current chunk size: {len(current_chunk_sentences)} sentences, "
+                        f"Overlap sentences: {num_overlap_sentences}"
+                    )
                     # Force progress by including sentence anyway
                     current_chunk_sentences.append(sentence)
                     num_overlap_sentences = 0
@@ -305,8 +311,10 @@ def create_chunks_from_paragraphs(
                             if len(sentence_parts) == 1 and sentence_parts[0] == original_sentence:
                                 # Splitting failed - sentence unchanged
                                 # Force progress by including it anyway (accept token overflow)
-                                print(f"  ⚠️  WARNING: Could not split sentence ({original_token_count} tokens)")
-                                print(f"     Preview: {sentence[:100]}...")
+                                logger.warning(
+                                    f"Could not split sentence ({original_token_count} tokens), "
+                                    f"preview: {sentence[:100]}..."
+                                )
                                 current_chunk_sentences.append(sentence)
                                 num_overlap_sentences = 0
                                 break  # Exit while loop, move to next sentence
@@ -342,7 +350,7 @@ def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -
         Chunk dictionary with metadata
     """
     return {
-        "chunk_id": f"{book_name}::chunk_{chunk_id}",
+        "chunk_id": f"{book_name}{CHUNK_ID_SEPARATOR}{CHUNK_ID_PREFIX}_{chunk_id}",
         "book_id": book_name,
         "context": context,
         "section": parse_section_name(context),
@@ -390,29 +398,25 @@ def process_single_file(file_path: Path) -> tuple[str, int]:
 def run_section_chunking() -> Dict[str, int]:
     """
     Process all JSON files in DIR_NLP_CHUNKS directory.
-    
+
     Returns:
         Dictionary mapping book names to chunk counts
+
+    Raises:
+        Exception: Re-raises any exception from file processing (fail-fast).
     """
     input_files = get_file_list(DIR_NLP_CHUNKS, "json")
     results = {}
-    
-    print(f"Processing {len(input_files)} files...")
-    print(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
-    print(f"Sentence overlap: {OVERLAP_SENTENCES}")
-    print("-" * 60)
-    
+
+    logger.info(f"Processing {len(input_files)} files...")
+    logger.info(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
+    logger.info(f"Sentence overlap: {OVERLAP_SENTENCES}")
+
     for file_path in input_files:
-        try:
-            book_name, chunk_count = process_single_file(file_path)
-            results[book_name] = chunk_count
-            print(f"  ✓ {book_name}: {chunk_count} chunks")
-            
-        except Exception as e:
-            print(f"  ✗ {file_path.name}: ERROR")
-            print(f"     {type(e).__name__}: {e}")
-            results[file_path.stem] = 0
-    
+        book_name, chunk_count = process_single_file(file_path)
+        results[book_name] = chunk_count
+        logger.info(f"{book_name}: {chunk_count} chunks")
+
     return results
 
 
@@ -421,10 +425,9 @@ def run_section_chunking() -> Dict[str, int]:
 # ============================================================================
 
 if __name__ == "__main__":
-    print("Starting sequential chunking with overlap...")
-    
+    logger.info("Starting sequential chunking with overlap...")
+
     stats = run_section_chunking()
-    
-    print("-" * 60)
-    print(f"Completed! Processed {len(stats)} books")
-    print(f"Total chunks created: {sum(stats.values())}")
+
+    logger.info(f"Completed! Processed {len(stats)} books")
+    logger.info(f"Total chunks created: {sum(stats.values())}")

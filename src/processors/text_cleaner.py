@@ -13,7 +13,10 @@ from src.config import (
     INLINE_REMOVAL_PATTERNS,
     CHARACTER_SUBSTITUTIONS,
     LIST_MARKER_PATTERN,
-    CLEANING_LOG_FILE
+    CLEANING_LOG_FILE,
+    TERMINAL_PUNCTUATION,
+    SENTENCE_ENDING_PUNCTUATION,
+    REPORT_WIDTH,
 )
 
 
@@ -48,14 +51,14 @@ class CleaningLog:
     def generate_report(self) -> str:
         """Generate comprehensive cleaning report."""
         report = []
-        report.append("=" * 100)
+        report.append("=" * REPORT_WIDTH)
         report.append(f"CLEANING REPORT FOR: {self.book_name}")
-        report.append("=" * 100)
+        report.append("=" * REPORT_WIDTH)
         report.append("")
 
         # Summary
         report.append("SUMMARY:")
-        report.append("-" * 100)
+        report.append("-" * REPORT_WIDTH)
         report.append(f"  Lines removed: {len(self.lines_removed)}")
         report.append(f"  Inline removals: {len(self.inline_removals)}")
         report.append(f"  Paragraphs merged: {self.paragraphs_merged}")
@@ -67,7 +70,7 @@ class CleaningLog:
         # Lines removed details
         if self.lines_removed:
             report.append(f"LINES REMOVED ({len(self.lines_removed)} total):")
-            report.append("-" * 100)
+            report.append("-" * REPORT_WIDTH)
             
             pattern_groups = {}
             for pattern_name, line in self.lines_removed:
@@ -82,7 +85,7 @@ class CleaningLog:
         # Inline removals details
         if self.inline_removals:
             report.append(f"INLINE REMOVALS ({len(self.inline_removals)} total):")
-            report.append("-" * 100)
+            report.append("-" * REPORT_WIDTH)
             
             pattern_groups = {}
             for pattern_name, removed_text in self.inline_removals:
@@ -97,7 +100,7 @@ class CleaningLog:
         # Substitutions details
         if self.substitutions:
             report.append("CHARACTER SUBSTITUTIONS:")
-            report.append("-" * 100)
+            report.append("-" * REPORT_WIDTH)
             for sub_name, count in self.substitutions:
                 report.append(f"  [{sub_name}]: {count} replacements")
             report.append("")
@@ -105,18 +108,18 @@ class CleaningLog:
         # Paragraph merging
         if self.paragraphs_merged > 0:
             report.append("PARAGRAPH CONSOLIDATION:")
-            report.append("-" * 100)
+            report.append("-" * REPORT_WIDTH)
             report.append(f"  {self.paragraphs_merged} paragraph breaks removed")
             report.append("")
 
         # List markers
         if self.list_markers_removed > 0:
             report.append("LIST MARKERS REMOVED:")
-            report.append("-" * 100)
+            report.append("-" * REPORT_WIDTH)
             report.append(f"  {self.list_markers_removed} list marker lines removed")
             report.append("")
 
-        report.append("=" * 100)
+        report.append("=" * REPORT_WIDTH)
         return "\n".join(report)
 
 
@@ -141,6 +144,39 @@ def setup_cleaning_logger(log_file: Optional[Path] = None) -> logging.Logger:
 
     logger.addHandler(fh)
     return logger
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _group_by_pattern(items: List[Tuple[str, str]]) -> dict:
+    """Group items by pattern name.
+
+    Args:
+        items: List of (pattern_name, text) tuples.
+
+    Returns:
+        Dictionary mapping pattern names to lists of texts.
+    """
+    groups = {}
+    for pattern_name, text in items:
+        groups.setdefault(pattern_name, []).append(text)
+    return groups
+
+
+def _should_merge_paragraphs(ends_terminal: bool, starts_lower: bool, ends_connector: bool) -> bool:
+    """Determine if consecutive paragraphs should be merged.
+
+    Args:
+        ends_terminal: Whether first paragraph ends with terminal punctuation.
+        starts_lower: Whether second paragraph starts with lowercase.
+        ends_connector: Whether first paragraph ends with comma or hyphen.
+
+    Returns:
+        True if paragraphs should be merged.
+    """
+    return (not ends_terminal) or starts_lower or ends_connector
 
 
 # ============================================================================
@@ -185,7 +221,7 @@ def remove_list_markers(text: str, log: Optional[CleaningLog] = None) -> str:
             # Check if previous line ends with terminal punctuation
             if i > 0:
                 prev_line = lines[i-1].strip()
-                if prev_line and prev_line[-1] in ('.', '!', '?', '"', '"'):
+                if prev_line and prev_line[-1] in SENTENCE_ENDING_PUNCTUATION:
                     if log:
                         log.log_line_removal('LIST_MARKER', line)
                     removed_count += 1
@@ -249,12 +285,11 @@ def consolidate_paragraphs(paragraphs: List[str], log: Optional[CleaningLog] = N
         if not current:
             continue
 
-        ends_terminal = buffer.endswith(('.', '!', '?', ':', ';', '"', '"'))
+        ends_terminal = buffer.endswith(TERMINAL_PUNCTUATION)
         starts_lower = current[0].islower() if current else False
         ends_connector = buffer.endswith((',', '-'))
 
-        # Merge if: no terminal punctuation OR starts lowercase OR ends with connector
-        if (not ends_terminal) or starts_lower or ends_connector:
+        if _should_merge_paragraphs(ends_terminal, starts_lower, ends_connector):
             buffer += " " + current
             merge_count += 1
         else:

@@ -1,12 +1,21 @@
+"""OpenRouter embedding client for RAG1-Mini.
+
+Provides API integration for generating text embeddings via OpenRouter.
+"""
+
 import time
 import requests
 from typing import List
+
 from src.config import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     EMBEDDING_MODEL_ID,
     EMBEDDING_ENCODING_FORMAT,
 )
+from src.utils.file_utils import setup_logging
+
+logger = setup_logging(__name__)
 
 # --------------------------------------------------------------------------------
 # OPENROUTER EMBEDDING CLIENT
@@ -56,7 +65,7 @@ def call_openrouter_embeddings_api(
                 if attempt > max_retries:
                     response.raise_for_status()
                 delay = backoff_base**attempt
-                print(f"Server error {response.status_code}, retry {attempt} after {delay:.1f}s")
+                logger.warning(f"Server error {response.status_code}, retry {attempt} after {delay:.1f}s")
                 time.sleep(delay)
                 continue
 
@@ -68,7 +77,7 @@ def call_openrouter_embeddings_api(
             if attempt > max_retries:
                 raise
             delay = backoff_base**attempt
-            print(f"Request failed ({exc}), retry {attempt} in {delay:.1f}s")
+            logger.warning(f"Request failed ({exc}), retry {attempt} in {delay:.1f}s")
             time.sleep(delay)
             continue
 

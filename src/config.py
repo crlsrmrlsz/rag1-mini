@@ -1,6 +1,11 @@
-"""
-Configuration file for markdown cleaning pipeline.
-Defines paths, cleaning patterns, and NLP settings.
+"""Central configuration for RAG1-Mini pipeline.
+
+Contains:
+- Project paths for all pipeline stages (extraction through embedding)
+- Text cleaning patterns (line removal, inline removal, substitutions)
+- NLP settings (spaCy model, sentence filtering)
+- Chunking parameters (token limits, overlap)
+- Embedding settings (API configuration via .env)
 """
 import re
 from pathlib import Path
@@ -99,6 +104,13 @@ CHARACTER_SUBSTITUTIONS: List[Tuple[str, str, str]] = [
 # List marker pattern: used in special processing function
 LIST_MARKER_PATTERN = r'^\s*\([a-z]\)\s+'
 
+# Punctuation for paragraph merging decisions
+TERMINAL_PUNCTUATION = ('.', '!', '?', ':', ';', '"', '"')
+SENTENCE_ENDING_PUNCTUATION = ('.', '!', '?', '"', '"')
+
+# Report formatting
+REPORT_WIDTH = 100
+
 
 # ============================================================================
 # NLP SETTINGS
@@ -108,6 +120,16 @@ SPACY_MODEL = "en_core_sci_sm"
 
 # Valid sentence endings for filtering
 VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')
+
+# Sentence filtering
+MIN_SENTENCE_WORDS = 2
+
+# Markdown header detection
+HEADER_CHAPTER = '# '
+HEADER_SECTION = '##'
+
+# Context string formatting
+CONTEXT_SEPARATOR = ' > '
 
 
 # ============================================================================
@@ -124,6 +146,13 @@ TOKENIZER_MODEL = "text-embedding-3-large"
 
 # Configurable overlap: number of sentences to carry from previous chunk
 OVERLAP_SENTENCES = 2  # Adjust this value (0 = no overlap, 2-3 recommended)
+
+# Chunk ID formatting
+CHUNK_ID_PREFIX = 'chunk'
+CHUNK_ID_SEPARATOR = '::'
+
+# Safety limits for chunking loops
+MAX_LOOP_ITERATIONS = 1000
 
 
 # ============================================================================

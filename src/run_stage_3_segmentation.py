@@ -1,64 +1,62 @@
+"""Stage 3: NLP segmentation of cleaned markdown files."""
+
 import json
 from pathlib import Path
 
-from .config import DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS
-from .utils import setup_logging, get_file_list, get_output_path
-from .processors import StructuralSegmenter
-
+from src.config import DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS
+from src.utils import setup_logging, get_file_list, get_output_path
+from src.processors import segment_document
 
 logger = setup_logging("Stage3_Segmentation")
 
-def main():
-    # 1. Initialize Segmenter
-    logger.info("Initializing NLP Segmenter (SciSpaCy)...")
-    segmenter = StructuralSegmenter()
 
-    # 2. Find Cleaned Files
+def main():
+    """Run NLP segmentation pipeline."""
+    logger.info("Starting Stage 3: NLP Segmentation")
+
+    # Find cleaned markdown files
     input_files = get_file_list(DIR_DEBUG_CLEAN, "md")
     logger.info(f"Found {len(input_files)} cleaned Markdown files.")
 
     if not input_files:
-        logger.warning(f"No files found in {DIR_DEBUG_CLEAN}. Run Stage 2 first to clean the reviewed files.")
+        logger.warning(f"No files found in {DIR_DEBUG_CLEAN}. Run Stage 2 first.")
         return
 
     for md_path in input_files:
-        try:
-            logger.info(f"Processing: {md_path.name}")
+        logger.info(f"Processing: {md_path.name}")
 
-            # --- PHASE 4 & 5: NLP Segmentation & Filtering ---
-            cleaned_text = md_path.read_text(encoding="utf-8")
-            book_name = md_path.stem.replace("_debug", "")  # Remove the _debug suffix
+        # Read and segment
+        cleaned_text = md_path.read_text(encoding="utf-8")
+        book_name = md_path.stem.replace("_debug", "")
 
-            chunks = segmenter.process_document(cleaned_text, book_name)
+        chunks = segment_document(cleaned_text, book_name)
 
-            # Save Final JSON (Machine Readable)
-            json_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS, ".json")
-            json_path.parent.mkdir(parents=True, exist_ok=True)
+        # Save JSON output
+        json_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS, ".json")
+        json_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump(chunks, f, indent=2, ensure_ascii=False)
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(chunks, f, indent=2, ensure_ascii=False)
 
-            # Save Final Markdown (Human Readable / RAG Input)
-            md_out_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS)
+        # Save Markdown output (human readable)
+        md_out_path = get_output_path(md_path, DIR_DEBUG_CLEAN, DIR_NLP_CHUNKS)
 
-            md_lines = [f"# Analyzed Content: {book_name}\n"]
-            for i, chunk in enumerate(chunks):
-                md_lines.append("---")
-                md_lines.append(f"### Chunk {i+1}")
-                md_lines.append(f"**Context:** `{chunk['context']}`")
-                md_lines.append(f"**Sentences:** {chunk['num_sentences']}")
-                for sent in chunk['sentences']:
-                    md_lines.append(f"- {sent}")
-                md_lines.append("\n")
+        md_lines = [f"# Analyzed Content: {book_name}\n"]
+        for i, chunk in enumerate(chunks):
+            md_lines.append("---")
+            md_lines.append(f"### Chunk {i+1}")
+            md_lines.append(f"**Context:** `{chunk['context']}`")
+            md_lines.append(f"**Sentences:** {chunk['num_sentences']}")
+            for sent in chunk['sentences']:
+                md_lines.append(f"- {sent}")
+            md_lines.append("\n")
 
-            md_out_path.write_text("\n".join(md_lines), encoding="utf-8")
+        md_out_path.write_text("\n".join(md_lines), encoding="utf-8")
 
-            logger.info(f"✔ Finished {md_path.name} -> {len(chunks)} chunks generated.")
+        logger.info(f"Finished {md_path.name} -> {len(chunks)} chunks generated.")
 
-        except Exception as e:
-            logger.error(f"✘ Error processing {md_path.name}: {e}")
+    logger.info("Stage 3 complete.")
 
-    logger.info("Stage 3 Complete (NLP Segmentation & Filtering).")
 
 if __name__ == "__main__":
     main()

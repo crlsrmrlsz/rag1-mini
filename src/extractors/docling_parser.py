@@ -1,82 +1,115 @@
+"""PDF extraction module using Docling.
+
+Provides PDF-to-markdown conversion with artifact removal
+(captions, footnotes, tables, pictures).
+"""
+
+from pathlib import Path
+from typing import Optional
+
 from docling.datamodel.document import InputFormat, DocItemLabel
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.pipeline_options import PdfPipelineOptions
+
 from src.utils import setup_logging
 
 logger = setup_logging(__name__)
 
-class DoclingExtractor:
-    def __init__(self):
+# Module-level converter (lazy initialized)
+_converter: Optional[DocumentConverter] = None
+
+
+def _get_converter() -> DocumentConverter:
+    """Get or create the document converter singleton.
+
+    Returns:
+        Configured DocumentConverter instance.
+    """
+    global _converter
+    if _converter is None:
+        logger.info("Initializing Docling converter...")
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = False
-        pipeline_options.do_table_structure = False 
+        pipeline_options.do_table_structure = False
 
-        self.converter = DocumentConverter(
+        _converter = DocumentConverter(
             format_options={
                 InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
             }
         )
+    return _converter
 
-    def _get_all_descendants(self, item):
-        """Recursively collect all children, grandchildren, etc."""
-        descendants = []
-        # Check if the item has children
-        if hasattr(item, "children") and item.children:
-            for child in item.children:
-                descendants.append(child)
-                # Recursively get children of the child
-                descendants.extend(self._get_all_descendants(child))
-        return descendants
 
-    def convert_pdf(self, pdf_path) -> str:
-        try:
-            result = self.converter.convert(pdf_path)
-            doc = result.document
+def _get_all_descendants(item) -> list:
+    """Recursively collect all children of a document item.
 
-            # 1. First removal step: Remove captions, footnotes, page headers/footers, and tables
-            items_to_remove = []
-            labels_to_remove = {DocItemLabel.CAPTION, DocItemLabel.FOOTNOTE, 
-                                DocItemLabel.PAGE_FOOTER, DocItemLabel.PAGE_HEADER, 
-                                DocItemLabel.TABLE}
+    Args:
+        item: Document item to traverse.
 
-            for item, level in doc.iterate_items():
-                # Check if the item has a label and if it matches our target list
-                if hasattr(item, "label") and item.label in labels_to_remove:
-                    items_to_remove.append(item)
+    Returns:
+        List of all descendant items.
+    """
+    descendants = []
+    if hasattr(item, "children") and item.children:
+        for child in item.children:
+            descendants.append(child)
+            descendants.extend(_get_all_descendants(child))
+    return descendants
 
-            # Delete the items from the document
-            # This updates the document tree in-place
-            if items_to_remove:
-                doc.delete_items(node_items=items_to_remove)
 
-            # 2. Second removal step: Remove pictures and all their children
-            items_to_remove = []   # Use a list instead of a set
-            seen_ids = set()       # Track IDs to avoid duplicates
+def extract_pdf(pdf_path: Path) -> str:
+    """Extract text from PDF to markdown.
 
-            for item, level in doc.iterate_items():
-                # Check if it is a Picture
-                if hasattr(item, "label") and item.label == DocItemLabel.PICTURE:
-                    
-                    # A. Add the Picture item itself (if not already added)
-                    if id(item) not in seen_ids:
-                        items_to_remove.append(item)
-                        seen_ids.add(id(item))
-                    
-                    # B. Get all children (captions, texts inside)
-                    children = self._get_all_descendants(item)
-                    
-                    for child in children:
-                        if id(child) not in seen_ids:
-                            items_to_remove.append(child)
-                            seen_ids.add(id(child))
+    Removes captions, footnotes, tables, page headers/footers,
+    and pictures with their children.
 
-            # Delete the items
-            if items_to_remove:
-                logger.info(f"Removing {len(items_to_remove)} items...")
-                doc.delete_items(node_items=items_to_remove)
+    Args:
+        pdf_path: Path to the input PDF file.
 
-            return doc.export_to_markdown()
+    Returns:
+        Extracted text as markdown string.
 
-        except Exception as e:
-            logger.error(f"Failed to convert {pdf_path}: {e}")
-            raise e
+    Raises:
+        Exception: If PDF conversion fails.
+    """
+    converter = _get_converter()
+    result = converter.convert(pdf_path)
+    doc = result.document
+
+    # First removal: captions, footnotes, headers, footers, tables
+    labels_to_remove = {
+        DocItemLabel.CAPTION,
+        DocItemLabel.FOOTNOTE,
+        DocItemLabel.PAGE_FOOTER,
+        DocItemLabel.PAGE_HEADER,
+        DocItemLabel.TABLE
+    }
+
+    items_to_remove = [
+        item for item, level in doc.iterate_items()
+        if hasattr(item, "label") and item.label in labels_to_remove
+    ]
+
+    if items_to_remove:
+        doc.delete_items(node_items=items_to_remove)
+
+    # Second removal: pictures and all children
+    items_to_remove = []
+    seen_ids = set()
+
+    for item, level in doc.iterate_items():
+        if hasattr(item, "label") and item.label == DocItemLabel.PICTURE:
+            if id(item) not in seen_ids:
+                items_to_remove.append(item)
+                seen_ids.add(id(item))
+
+            for child in _get_all_descendants(item):
+                if id(child) not in seen_ids:
+                    items_to_remove.append(child)
+                    seen_ids.add(id(child))
+
+    if items_to_remove:
+        logger.info(f"Removing {len(items_to_remove)} picture items")
+        doc.delete_items(node_items=items_to_remove)
+
+    return doc.export_to_markdown()

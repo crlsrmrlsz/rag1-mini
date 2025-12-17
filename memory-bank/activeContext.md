@@ -1,119 +1,83 @@
-# Active Context - Stage 1-4 Complete ✅
+# Active Context - Codebase Refactoring Complete
 
-**Last Updated:** December 15, 2025, 7:18 AM (Europe/Madrid, UTC+1:00)
+**Last Updated:** December 17, 2025
 
 ## Current State
-**All core processing stages (1-4) are COMPLETE.** The project has successfully processed all 19 books through the full extraction → cleaning → NLP segmentation → section chunking pipeline.
 
-## Completed Pipeline
+**All pipeline stages (1-5) are functional.** The codebase has been refactored for consistency, clean architecture, and portfolio presentation.
 
-### Stage 1: PDF Extraction ✅
-- **Input:** 19 PDF files from `data/raw/`
-- **Output:** Raw markdown files in `data/processed/01_raw_extraction/`
-- **Status:** Complete - all books successfully extracted
+## Recent Refactoring (December 17, 2025)
 
-### Stage 2: Processing & Cleaning ✅  
-- **Manual Review:** Files reviewed and moved to `data/processed/02_manual_review/`
-- **Markdown Cleaning:** Cleaned files in `data/processed/03_markdown_cleaning/`
-- **Status:** Complete - all files processed and standardized
+### Code Standardization
 
-### Stage 3: NLP Segmentation & Chunking ✅
-- **Input:** Cleaned markdown files from Stage 2
-- **Output:** `data/processed/04_nlp_chunks/` 
-- **Format:** JSON files with structured paragraphs and sentences
-- **Content:** 19 total files (one per book)
-- **Metadata:** Includes context, sentences, num_sentences for each paragraph
-- **Status:** Complete - full NLP processing and paragraph segmentation
+**Architecture Changes:**
+- Converted `DoclingExtractor` class to `extract_pdf()` function with lazy singleton
+- Converted `StructuralSegmenter` class to `segment_document()` function with lazy singleton
+- All modules now use function-based design (classes only for stateful initialization)
 
-### Stage 4: Section-Based Chunking ✅ **[NEWLY COMPLETED - DEC 15, 2025]**
-- **Input:** NLP chunks from `data/processed/04_nlp_chunks/`
-- **Output:** `data/processed/05_final_chunks/section/`
-- **Algorithm:** Sequential section-aware chunking with 2-sentence overlap
-- **Configuration:** 800 max tokens per chunk, overlap=2 sentences
-- **Total Chunks:** 6,245 chunks across 19 books
-- **Quality Features:**
-  - Section boundary awareness
-  - Sentence overlap for context continuity
-  - Automatic oversized sentence splitting
-  - Token count tracking and validation
-- **Status:** Complete - all books processed through final chunking stage
+**Import Standardization:**
+- All stage runners now use absolute imports (`from src.module import ...`)
+- Removed relative imports (`.config`, `.utils`, `.extractors`)
 
-## Recent Technical Achievements (December 15, 2025)
+**Logging Standardization:**
+- Replaced all `print()` statements with `logger` calls
+- Removed emoji from log messages (no more checkmarks, X marks, arrows)
+- Added logging to `naive_chunker.py` and `embed_texts.py`
 
-### Import Error Resolution
-**Problem:** Multiple import errors prevented stages 3 and 4 from running
-- Missing exports in `src/utils/__init__.py`
-- Missing dependencies: `tiktoken`, `spacy`
-- Incompatible spaCy model configuration
+**Error Handling:**
+- Implemented fail-fast pattern across all stages
+- Exceptions propagate immediately instead of log-and-continue
 
-**Solution Implemented:**
-- Fixed `src/utils/__init__.py` to properly export utility functions
-- Installed required dependencies: `pip install tiktoken spacy`
-- Updated spaCy model from `en_core_sci_sm` to `en_core_web_sm`
-- Verified all stages now run without import errors
+**Critical Bug Fix:**
+- Removed shadowing `embed_texts()` function in `run_stage_5_embedding.py` (was raising NotImplementedError)
 
-### Stage 4 Validation Results
-- **Total Processing:** 19 books successfully chunked
-- **Largest Output:** Biopsychology (803 chunks)
-- **Smallest Output:** Wisdom of Life (72 chunks)
-- **Average:** ~329 chunks per book
-- **Quality Check:** All chunks within token limits, proper overlap applied
+### Documentation Updates
 
-## Content Summary
+- Enhanced `CLAUDE.md` with code standards, module interface table, pipeline diagram
+- Rewrote `README.md` for portfolio presentation
+- Updated module docstrings to Google style
 
-**Neuroscience Category (8 books):**
-- Sapolsky, Pinel & Barnes, Eagleman & Downar, Gazzaniga, Tommasi et al., Sapolsky (Determined), Gage & Bernard, Fountoulakis & Nimatoudis
+### Files Modified
 
-**Wisdom Category (11 books):**
-- Kahneman, Schopenhauer (multiple works), Lao Tzu, Seneca, Confucius, Epictetus (multiple works), Marcus Aurelius, Baltasar Gracian
+| File | Changes |
+|------|---------|
+| `src/run_stage_1_extraction.py` | Absolute imports, function call, no emoji |
+| `src/run_stage_2_processing.py` | Absolute imports, fail-fast, no emoji |
+| `src/run_stage_3_segmentation.py` | Absolute imports, function call, no emoji |
+| `src/run_stage_4_chunking.py` | Simplified, removed broken stats logic |
+| `src/run_stage_5_embedding.py` | Removed shadowing function, no emoji |
+| `src/extractors/docling_parser.py` | Class to function conversion |
+| `src/extractors/__init__.py` | Updated exports |
+| `src/processors/nlp_segmenter.py` | Class to function conversion |
+| `src/processors/__init__.py` | Updated exports |
+| `src/ingest/naive_chunker.py` | Added logging, removed print() |
+| `src/ingest/embed_texts.py` | Added logging, removed print() |
+| `src/ingest/__init__.py` | Added exports |
+| `src/config.py` | Updated docstring |
+| `CLAUDE.md` | Enhanced documentation |
+| `README.md` | Portfolio rewrite |
 
-## Current Architecture
+## Pipeline Status
 
-```
-data/
-├── raw/                    # Original PDFs (19 files)
-├── processed/
-│   ├── 01_raw_extraction/   # Stage 1: Raw MD extraction
-│   ├── 02_manual_review/    # Stage 2: Manual review 
-│   ├── 03_markdown_cleaning/ # Stage 2: Cleaned MD
-│   ├── 04_nlp_chunks/       # Stage 3: Structured paragraphs
-│   └── 05_final_chunks/     # Stage 4: Final chunks (6,245 total)
-│       └── section/         # Section-aware chunking output
-└── logs/
-    └── cleaning_report.log
-```
+| Stage | Status | Output |
+|-------|--------|--------|
+| Stage 1: Extraction | Complete | 19 markdown files |
+| Stage 2: Cleaning | Complete | 19 cleaned files |
+| Stage 3: Segmentation | Complete | 19 JSON files |
+| Stage 4: Chunking | Complete | 6,245 chunks |
+| Stage 5: Embedding | Ready | Requires API key |
 
-## Next Phase Planning
+## Code Standards (Now Enforced)
 
-**Stage 5+: RAG Implementation** (Future)
-- Vector embedding generation from 6,245 processed chunks
-- Vector database setup and indexing (Chroma/Pinecone/FAISS)
-- Retrieval system implementation with semantic search
-- Query interface and LLM integration
-- Response generation with proper context attribution
+- **Imports**: Absolute (`from src.module import ...`)
+- **Architecture**: Functions as primary interface
+- **Error handling**: Fail-fast (exceptions propagate)
+- **Logging**: Logger only, no print(), no emoji
+- **Docstrings**: Google style with Args/Returns/Raises
 
-**Current Readiness:**
-- ✅ High-quality, structured text chunks ready for embedding (6,245 chunks)
-- ✅ Proper metadata for context and categorization  
-- ✅ Section-aware chunking with overlap for better retrieval
-- ✅ Token-optimized chunks (800 tokens) for embedding models
-- ✅ Clean, scalable architecture for RAG integration
-- ✅ All technical dependencies resolved and functional
+## Next Steps
 
-## Technical Notes
-
-- **Dependencies:** All required packages installed and configured
-- **Models:** spaCy English model (`en_core_web_sm`) operational
-- **Configuration:** Centralized settings in `src/config.py`
-- **Error Handling:** Comprehensive logging and error recovery
-- **Quality Assurance:** All stages tested and validated
-- **File Formats:** JSON for processing, structured for easy parsing
-
-## Key Performance Metrics
-
-- **Processing Success Rate:** 100% (19/19 books completed)
-- **Total Chunks Generated:** 6,245
-- **Average Chunks per Book:** ~329
-- **Token Efficiency:** All chunks optimized for embedding models
-- **Context Preservation:** 2-sentence overlap maintains continuity
-- **Import Error Resolution:** 100% success rate
+1. Run Stage 5 with OpenRouter API key to generate embeddings
+2. Implement vector database (Chroma/FAISS) for storage
+3. Build retrieval system with semantic search
+4. Add LLM integration for RAG queries

@@ -1,139 +1,154 @@
 # RAG1-Mini
 
-A lightweight Retrieval-Augmented Generation (RAG) system combining cognitive neuroscience and philosophy to answer questions about human behavior.
+A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates a specialized AI combining cognitive neuroscience with philosophical wisdom to answer questions about human behavior.
 
-## Project Goal
+## Highlights
 
-Build a specialized AI that integrates:
-- **Cognitive Neuroscience** (David Eagleman, Robert Sapolsky, John Pinel, etc.)
-- **Stoic Philosophy** (Marcus Aurelius, Epictetus, Seneca)
-- **Life Wisdom** (Schopenhauer, Gracián, Confucius, Lao Tzu, Daniel Kahneman)
+- **19 Books Processed**: 8 neuroscience texts + 11 philosophy/wisdom books
+- **6,245 Semantic Chunks**: Section-aware chunking with sentence overlap
+- **5-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding
+- **Clean Architecture**: Function-based design with fail-fast error handling
 
-## Current Status
+## Pipeline Overview
 
-**Stage 1: PDF Text Extraction** ✅ **COMPLETE**
-**Stage 2: Processing and Cleaning** ✅ **COMPLETE**  
-**Stage 3: NLP Segmentation & Chunking** ✅ **COMPLETE**
+```
+PDF Files (19)
+     |
+     v
++-----------------------+
+|  Stage 1: Extract     |  Docling PDF extraction
++-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 2: Clean       |  Regex-based artifact removal
++-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 3: Segment     |  spaCy NLP sentence segmentation
++-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 4: Chunk       |  800-token chunks, 2-sentence overlap
++-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 5: Embed       |  OpenRouter API embeddings
++-----------------------+
+     |
+     v
+Vector Database (ready for RAG)
+```
 
-**Stage 4+: RAG Implementation** 🔄 **Ready to Begin**
+## Quick Start
 
-All 19 books have been successfully processed through the complete extraction → cleaning → chunking pipeline. The system is now ready for vector embedding and RAG implementation.
+```bash
+# Setup environment
+conda activate rag1-mini
+
+# Run pipeline stages
+python -m src.run_stage_1_extraction   # Extract PDFs
+python -m src.run_stage_2_processing   # Clean markdown
+python -m src.run_stage_3_segmentation # NLP segmentation
+python -m src.run_stage_4_chunking     # Create chunks
+python -m src.run_stage_5_embedding    # Generate embeddings
+```
 
 ## Project Structure
 
 ```
 rag1-mini/
 ├── src/
-│   ├── run_stage_1_extraction.py     # Stage 1: PDF → Markdown
-│   ├── run_stage_2_processing.py     # Stage 2: Cleaning & Review Processing
-│   ├── run_stage_3_segmentation.py   # Stage 3: NLP Chunking
-│   ├── config.py                     # Configuration settings
+│   ├── run_stage_1_extraction.py    # PDF to Markdown
+│   ├── run_stage_2_processing.py    # Markdown cleaning
+│   ├── run_stage_3_segmentation.py  # NLP segmentation
+│   ├── run_stage_4_chunking.py      # Section chunking
+│   ├── run_stage_5_embedding.py     # Embedding generation
+│   ├── config.py                    # Central configuration
 │   ├── extractors/
-│   │   └── docling_parser.py         # PDF extraction logic
-│   └── processors/
-│       ├── text_cleaner.py           # Markdown cleaning
-│       └── nlp_segmenter.py          # NLP chunking
+│   │   └── docling_parser.py        # PDF extraction
+│   ├── processors/
+│   │   ├── text_cleaner.py          # Markdown cleaning
+│   │   └── nlp_segmenter.py         # Sentence segmentation
+│   ├── ingest/
+│   │   ├── naive_chunker.py         # Token-aware chunking
+│   │   └── embed_texts.py           # Embedding API client
+│   └── utils/
+│       ├── file_utils.py            # File operations
+│       └── tokens.py                # Token counting
 ├── data/
-│   ├── raw/                          # Original PDFs (19 files)
+│   ├── raw/                         # Original PDFs (19 files)
 │   └── processed/
-│       ├── 01_raw_extraction/        # Stage 1 output (19 MD files)
-│       ├── 02_manual_review/         # Stage 2 manual review
-│       ├── 03_markdown_cleaning/     # Stage 2 cleaned files
-│       └── 04_final_chunks/          # Stage 3 output (38 files: JSON + MD)
-├── memory-bank/
-│   ├── progress.md                   # Detailed project progress
-│   ├── activeContext.md              # Current system state
-│   └── projectbrief.md               # Project overview
-├── notebooks/                        # Jupyter notebooks for analysis
-└── logs/
-    └── cleaning_report.log           # Processing logs
+│       ├── 01_raw_extraction/       # Stage 1 output
+│       ├── 02_manual_review/        # Manual review
+│       ├── 03_markdown_cleaning/    # Stage 2 output
+│       ├── 04_nlp_chunks/           # Stage 3 output
+│       ├── 05_final_chunks/         # Stage 4 output (6,245 chunks)
+│       └── 06_embeddings/           # Stage 5 output
+└── memory-bank/                     # Project documentation
 ```
 
-## Environment
-
-```bash
-# Activate conda environment
-conda activate rag1-mini
-```
-
-## Usage
-
-The processing pipeline consists of 3 completed stages, with a future RAG implementation phase.
-
-### Completed Stages
-
-#### Stage 1: PDF Extraction ✅
-Extracts text from all PDFs in `data/raw/` and saves them as Markdown files.
-```bash
-python -m src.run_stage_1_extraction
-```
-
-#### Stage 2: Processing and Cleaning ✅
-Takes manually reviewed files, cleans them, and standardizes the format.
-```bash
-python -m src.run_stage_2_processing
-```
-
-#### Stage 3: NLP Segmentation & Chunking ✅
-Performs advanced NLP processing and creates semantic chunks with metadata.
-```bash
-python -m src.run_stage_3_segmentation
-```
-
-### Current Outputs
-
-**Stage 3 Results in `data/processed/04_final_chunks/`:**
-- **38 files total:** 19 JSON files + 19 Markdown files
-- **Neuroscience:** 8 books (psychology, cognitive science, brain research)
-- **Wisdom:** 11 books (philosophy, stoicism, behavioral economics)
-- **Metadata:** Each chunk includes book_name, category, chunk_id, source info
-- **Format:** Both structured JSON (for processing) and readable Markdown (for humans)
-
-## Pipeline Phases
-
-1. **PDF Extraction** ✅ **COMPLETE** - Extract clean, layout-aware markdown from 19 PDFs
-2. **Manual Review** ✅ **COMPLETE** - Manual cleaning and verification of extracted content
-3. **Processing and Chunking** ✅ **COMPLETE** - NLP-based segmentation with metadata
-4. **Embedding** 🔄 **Ready** - Generate semantic vectors for each chunk
-5. **Vector Storage** 🔄 **Ready** - Index and store embeddings in vector database
-6. **Retrieval** 🔄 **Ready** - Query and retrieve relevant context
-7. **LLM Integration** 🔄 **Ready** - Generate grounded answers
-8. **API Layer** 🔄 **Ready** - REST endpoint for queries
-
-## Content Categories
+## Content Library
 
 ### Neuroscience (8 books)
-- **Robert Sapolsky:** "Behave" & "Determined"
-- **John Pinel & Steven Barnes:** "Biopsychology" 
-- **David Eagleman & Jonathan Downar:** "Brain and Behavior"
-- **Michael Gazzaniga:** "Cognitive Neuroscience"
-- **Luca Tommasi et al.:** "Cognitive Biology"
-- **Nicole Gage & Bernard:** "Fundamentals of Cognitive Neuroscience"
-- **Konstanthos Fountoulakis & Ioannis Nimatoudis:** "Psychobiology of Behaviour"
 
-### Wisdom & Philosophy (11 books)
-- **Daniel Kahneman:** "Thinking, Fast and Slow"
-- **Arthur Schopenhauer:** Multiple works (Essays, Counsels and Maxims, Wisdom of Life)
-- **Marcus Aurelius:** "Meditations"
-- **Epictetus:** "The Enchiridion" & "The Art of Living"
-- **Seneca:** "Letters from a Stoic"
-- **Confucius:** "The Analects"
-- **Lao Tzu:** "Tao Te Ching"
-- **Baltasar Gracian:** "The Pocket Oracle and Art of Prudence"
+| Author | Title |
+|--------|-------|
+| Robert Sapolsky | Behave, Determined |
+| David Eagleman & Jonathan Downar | Brain and Behavior |
+| John Pinel & Steven Barnes | Biopsychology |
+| Michael Gazzaniga | Cognitive Neuroscience |
+| Luca Tommasi et al. | Cognitive Biology |
+| Nicole Gage & Bernard | Fundamentals of Cognitive Neuroscience |
+| Fountoulakis & Nimatoudis | Psychobiology of Behaviour |
 
-## Next Steps
+### Philosophy & Wisdom (11 books)
 
-The project is now ready for **Stage 4: RAG Implementation**. The processed chunks are high-quality and ready for:
+| Author | Title |
+|--------|-------|
+| Daniel Kahneman | Thinking, Fast and Slow |
+| Marcus Aurelius | Meditations |
+| Epictetus | The Enchiridion, The Art of Living |
+| Seneca | Letters from a Stoic |
+| Arthur Schopenhauer | Essays, Counsels and Maxims, Wisdom of Life |
+| Confucius | The Analects |
+| Lao Tzu | Tao Te Ching |
+| Baltasar Gracian | The Pocket Oracle and Art of Prudence |
 
-1. **Vector Embedding Generation** - Using local or API-based embedding models
-2. **Vector Database Setup** - Chroma, Pinecone, or similar vector store
-3. **Retrieval System** - Semantic search and context retrieval
-4. **LLM Integration** - Grounded response generation
-5. **API Development** - RESTful interface for queries
+## Technical Design
 
-## Documentation
+### Architecture Principles
 
-See `memory-bank/` for detailed project context and progress tracking:
-- `progress.md` - Comprehensive project progress and statistics
-- `activeContext.md` - Current system state and readiness assessment
-- `projectbrief.md` - Original project goals and requirements
+- **Function-based**: Functions as primary interface; classes only for stateful components
+- **Fail-fast**: Exceptions propagate immediately; no log-and-continue
+- **Absolute imports**: Consistent `from src.module import ...` pattern
+- **Centralized config**: All settings in `src/config.py`
+
+### Chunking Strategy
+
+- **Token limit**: 800 tokens per chunk (optimized for embedding models)
+- **Overlap**: 2 sentences carried between consecutive chunks
+- **Section-aware**: Respects document structure boundaries
+- **Quality filtering**: Removes sentence fragments and artifacts
+
+### Key Parameters
+
+```python
+MAX_CHUNK_TOKENS = 800      # Target chunk size
+OVERLAP_SENTENCES = 2       # Context continuity
+SPACY_MODEL = "en_core_sci_sm"  # Scientific NLP
+```
+
+## Requirements
+
+- Python 3.8+
+- Conda environment: `rag1-mini`
+- Dependencies: docling, spacy, tiktoken, requests
+- OpenRouter API key (for Stage 5)
+
+## License
+
+MIT

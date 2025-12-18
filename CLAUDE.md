@@ -42,6 +42,9 @@ python -m src.run_stage_6_weaviate     # Upload to Weaviate (requires running We
 - Google style docstrings for all public functions
 - Include Args, Returns, and Raises sections
 
+### Commits
+- Always commit changes after completing a task or significant modification (do not wait for user to ask)
+
 ## Pipeline Architecture
 
 ```

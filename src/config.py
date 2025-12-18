@@ -6,6 +6,7 @@ Contains:
 - NLP settings (spaCy model, sentence filtering)
 - Chunking parameters (token limits, overlap)
 - Embedding settings (API configuration via .env)
+- Weaviate vector database settings
 """
 import re
 from pathlib import Path
@@ -174,4 +175,35 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 OPENROUTER_BASE_URL = os.getenv('OPENROUTER_BASE_URL')
 EMBEDDING_MODEL_ID = os.getenv('EMBEDDING_MODEL_ID')
-EMBEDDING_ENCODING_FORMAT = os.getenv('EMBEDDING_ENCODING_FORMAT')
+
+
+# ============================================================================
+# WEAVIATE SETTINGS
+# ============================================================================
+
+# Connection settings
+WEAVIATE_HOST = os.getenv('WEAVIATE_HOST', 'localhost')
+WEAVIATE_HTTP_PORT = int(os.getenv('WEAVIATE_HTTP_PORT', '8080'))
+WEAVIATE_GRPC_PORT = int(os.getenv('WEAVIATE_GRPC_PORT', '50051'))
+
+# Batch upload settings
+WEAVIATE_BATCH_SIZE = 100  # Objects per batch (Weaviate recommends 100-1000)
+
+# Collection naming components (auto-generated)
+# Format: RAG_{chunking_strategy}_{embedding_model_short}_{version}
+CHUNKING_STRATEGY_NAME = "section800"  # Describes current chunking approach
+EMBEDDING_MODEL_SHORT = "embed3large"  # Short name for embedding model
+COLLECTION_VERSION = "v1"  # Increment when re-running with same strategy
+
+
+def get_collection_name() -> str:
+    """
+    Generate collection name from current pipeline configuration.
+
+    Returns:
+        Collection name in format: RAG_{strategy}_{model}_{version}
+
+    Example:
+        "RAG_section800_embed3large_v1"
+    """
+    return f"RAG_{CHUNKING_STRATEGY_NAME}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"

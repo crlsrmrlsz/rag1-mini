@@ -11,7 +11,6 @@ from src.config import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     EMBEDDING_MODEL_ID,
-    EMBEDDING_ENCODING_FORMAT,
 )
 from src.utils.file_utils import setup_logging
 

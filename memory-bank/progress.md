@@ -1,8 +1,8 @@
 # Project Progress - RAG1 Mini
 
-## Current Status: Stage 1-4 Complete ✅
+## Current Status: Stages 1-7B Complete ✅
 
-**Last Updated:** December 15, 2025, 7:18 AM (Europe/Madrid, UTC+1:00)
+**Last Updated:** December 19, 2025
 
 ### ✅ Completed Stages
 
@@ -31,23 +31,34 @@
   - **Total outputs:** 19 JSON files with structured paragraphs and sentences
   - **Metadata:** Includes context, sentences, num_sentences for each paragraph
 
-#### **Stage 4: Section-Based Chunking** ✅ **[NEWLY COMPLETED]**
-- **Status:** COMPLETE (December 15, 2025)
-- **Input:** NLP chunks from `processed/04_nlp_chunks/`
-- **Output Location:** `processed/05_final_chunks/section/`
-- **Algorithm:** Sequential section-aware chunking with 2-sentence overlap
-- **Configuration:** 800 max tokens per chunk, overlap=2 sentences
-- **Total Output:** 19 section chunk files (one per book)
-- **Statistics:**
-  - **Total Chunks Created:** 6,245 chunks across 19 books
-  - **Largest:** Biopsychology (Pinel & Barnes): 803 chunks
-  - **Smallest:** Wisdom of Life (Schopenhauer): 72 chunks
-  - **Average:** ~329 chunks per book
-- **Quality Features:**
-  - Section boundary awareness
-  - Sentence overlap for context continuity
-  - Automatic oversized sentence splitting
-  - Token count tracking and validation
+#### **Stage 4: Section-Based Chunking** ✅
+- **Status:** COMPLETE
+- **Output:** `processed/05_final_chunks/section/` (6,245 chunks)
+- **Config:** 800 tokens max, 2-sentence overlap
+
+#### **Stage 5: Embedding Generation** ✅
+- **Status:** COMPLETE
+- **Output:** `processed/06_embeddings/` (19 JSON files)
+- **Model:** text-embedding-3-large (3072 dimensions) via OpenRouter
+- **Batch processing:** 12,000 token batches with retry logic
+
+#### **Stage 6: Weaviate Vector Storage** ✅
+- **Status:** COMPLETE
+- **Collection:** `RAG_section800_embed3large_v1`
+- **Index:** HNSW with cosine distance
+- **Total objects:** 6,249 chunks uploaded
+
+#### **Stage 7A: Query Layer** ✅
+- **Status:** COMPLETE (December 19, 2025)
+- **New file:** `src/vector_db/weaviate_query.py`
+- **Functions:** `query_similar()`, `query_hybrid()`, `list_available_books()`
+- **Features:** Book filtering, vector search, hybrid search (vector + BM25)
+
+#### **Stage 7B: Streamlit UI** ✅
+- **Status:** COMPLETE (December 19, 2025)
+- **New files:** `src/ui/app.py`, `src/ui/services/search.py`
+- **Run:** `streamlit run src/ui/app.py`
+- **Features:** Book selection, search type toggle, collection selector
 
 ### 📊 Processing Statistics
 
@@ -105,21 +116,18 @@ data/
     └── cleaning_report.log
 ```
 
-### 🎯 Next Steps (Future Planning)
+### 🎯 Next Steps
 
-**Stage 5+: RAG Implementation** (Not Started)
-- Vector embedding generation from final chunks
-- Vector database setup (Chroma/Pinecone/FAISS)
-- Retrieval system implementation
-- Query interface development
-- LLM integration for response generation
+**Stage 7C: RAGAS Evaluation** (Planned)
+- Install: `pip install ragas datasets langchain-openai`
+- Create test questions with ground truth
+- Evaluate: faithfulness, answer relevancy, context precision/recall
+- Generate quality reports
 
-**Dependencies for Next Stage:**
-- Embedding model selection (OpenAI, local models, or hybrid)
-- Vector database choice and setup
-- Search algorithm selection (similarity, hybrid, reranking)
-- Performance optimization requirements
-- API integration planning
+**Future Enhancements:**
+- Alternative embedding strategies (semantic, LLM-based chunking)
+- LLM answer generation integration
+- Comparison mode across embedding strategies
 
 ### 💡 Key Achievements
 

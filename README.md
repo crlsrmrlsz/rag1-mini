@@ -6,7 +6,7 @@ A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates 
 
 - **19 Books Processed**: 8 neuroscience texts + 11 philosophy/wisdom books
 - **6,245 Semantic Chunks**: Section-aware chunking with sentence overlap
-- **5-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding
+- **7-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding, Vector Storage, Search UI
 - **Clean Architecture**: Function-based design with fail-fast error handling
 
 ## Pipeline Overview
@@ -40,7 +40,14 @@ PDF Files (19)
 +-----------------------+
      |
      v
-Vector Database (ready for RAG)
++-----------------------+
+|  Stage 6: Store       |  Weaviate vector database
++-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 7: Search UI   |  Streamlit interface
++-----------------------+
 ```
 
 ## Quick Start
@@ -55,6 +62,11 @@ python -m src.run_stage_2_processing   # Clean markdown
 python -m src.run_stage_3_segmentation # NLP segmentation
 python -m src.run_stage_4_chunking     # Create chunks
 python -m src.run_stage_5_embedding    # Generate embeddings
+python -m src.run_stage_6_weaviate     # Upload to Weaviate
+
+# Launch search UI
+docker compose up -d                   # Start Weaviate
+streamlit run src/ui/app.py            # Open http://localhost:8501
 ```
 
 ## Project Structure
@@ -76,6 +88,11 @@ rag1-mini/
 │   ├── ingest/
 │   │   ├── naive_chunker.py         # Token-aware chunking
 │   │   └── embed_texts.py           # Embedding API client
+│   ├── vector_db/
+│   │   ├── weaviate_client.py       # Weaviate connection & upload
+│   │   └── weaviate_query.py        # Search functions
+│   ├── ui/
+│   │   └── app.py                   # Streamlit search interface
 │   └── utils/
 │       ├── file_utils.py            # File operations
 │       └── tokens.py                # Token counting
@@ -146,8 +163,9 @@ SPACY_MODEL = "en_core_sci_sm"  # Scientific NLP
 
 - Python 3.8+
 - Conda environment: `rag1-mini`
-- Dependencies: docling, spacy, tiktoken, requests
-- OpenRouter API key (for Stage 5)
+- Dependencies: docling, spacy, tiktoken, requests, weaviate-client, streamlit
+- OpenRouter API key (for embeddings)
+- Docker (for Weaviate vector database)
 
 ## License
 

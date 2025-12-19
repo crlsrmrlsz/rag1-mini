@@ -207,3 +207,39 @@ def get_collection_name() -> str:
         "RAG_section800_embed3large_v1"
     """
     return f"RAG_{CHUNKING_STRATEGY_NAME}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
+
+
+# ============================================================================
+# UI SETTINGS
+# ============================================================================
+
+# Book categories for UI display (organized by domain)
+BOOK_CATEGORIES = {
+    "neuroscience": [
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "Biopsychology (John Pinel, Steven Barnes)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Cognitive Biology , Evolutionary and Developmental Perspectives on Mind Brain and Behavior (Luca Tommasi, Mary A.Peterson, Lynn Nadel)",
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Determined, a science of life without free will (Robert M. Sapolsky)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+    ],
+    "philosophy": [
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "Letters from a Stoic (Seneca)",
+        "Tao te ching Lao_tzu (Lao Tzu)",
+        "The Analects Conclusions and Conversations (Confucius)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "The Enchiridion (Epictetus)",
+        "The Meditations (Marcus Aurelius)",
+        "The Pocket Oracle and Art of Prudence (Baltasar Gracian)",
+        "The essays, counsels and maxims (Arthur Schopenhauer)",
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Wisdom of Life (Schopenhauer)",
+    ],
+}
+
+# Search UI defaults
+DEFAULT_TOP_K = 5
+MAX_TOP_K = 20

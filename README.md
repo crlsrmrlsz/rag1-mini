@@ -6,7 +6,7 @@ A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates 
 
 - **19 Books Processed**: 8 neuroscience texts + 11 philosophy/wisdom books
 - **6,245 Semantic Chunks**: Section-aware chunking with sentence overlap
-- **7-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding, Vector Storage, Search UI
+- **8-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding, Vector Storage, Search UI, RAGAS Evaluation
 - **Clean Architecture**: Function-based design with fail-fast error handling
 
 ## Pipeline Overview
@@ -48,6 +48,11 @@ PDF Files (19)
 +-----------------------+
 |  Stage 7: Search UI   |  Streamlit interface
 +-----------------------+
+     |
+     v
++-----------------------+
+|  Stage 8: Evaluate    |  RAGAS quality metrics
++-----------------------+
 ```
 
 ## Quick Start
@@ -67,6 +72,9 @@ python -m src.run_stage_6_weaviate     # Upload to Weaviate
 # Launch search UI
 docker compose up -d                   # Start Weaviate
 streamlit run src/ui/app.py            # Open http://localhost:8501
+
+# Run evaluation
+python -m src.run_stage_7_evaluation   # RAGAS quality metrics
 ```
 
 ## Project Structure
@@ -93,6 +101,8 @@ rag1-mini/
 │   │   └── weaviate_query.py        # Search functions
 │   ├── ui/
 │   │   └── app.py                   # Streamlit search interface
+│   ├── evaluation/
+│   │   └── ragas_evaluator.py       # RAGAS evaluation framework
 │   └── utils/
 │       ├── file_utils.py            # File operations
 │       └── tokens.py                # Token counting
@@ -163,7 +173,7 @@ SPACY_MODEL = "en_core_sci_sm"  # Scientific NLP
 
 - Python 3.8+
 - Conda environment: `rag1-mini`
-- Dependencies: docling, spacy, tiktoken, requests, weaviate-client, streamlit
+- Dependencies: docling, spacy, tiktoken, requests, weaviate-client, streamlit, ragas, langchain-openai
 - OpenRouter API key (for embeddings)
 - Docker (for Weaviate vector database)
 

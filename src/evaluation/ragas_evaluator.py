@@ -1,0 +1,378 @@
+"""RAGAS evaluation for RAG1-Mini.
+
+Provides:
+- OpenRouter chat integration for answer generation
+- RAGAS evaluation with LangChain wrapper
+- Retrieval and generation functions for the evaluation pipeline
+"""
+
+import time
+import requests
+from typing import List, Dict, Any, Optional, Callable
+
+from ragas import evaluate, EvaluationDataset
+from ragas.metrics import (
+    Faithfulness,
+    ResponseRelevancy,
+    LLMContextPrecisionWithoutReference,
+    LLMContextRecall,
+    FactualCorrectness,
+)
+from ragas.llms import LangchainLLMWrapper
+from ragas.embeddings import LangchainEmbeddingsWrapper
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+from src.config import (
+    OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL,
+    EMBEDDING_MODEL_ID,
+    get_collection_name,
+    DEFAULT_TOP_K,
+)
+from src.vector_db import get_client, query_similar
+from src.utils.file_utils import setup_logging
+
+logger = setup_logging(__name__)
+
+
+# ============================================================================
+# OPENROUTER CHAT CLIENT
+# ============================================================================
+
+# Default model for answer generation (can be overridden)
+DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
+
+
+def call_openrouter_chat(
+    prompt: str,
+    model: str = DEFAULT_CHAT_MODEL,
+    max_tokens: int = 1024,
+    temperature: float = 0.1,
+    max_retries: int = 3,
+    backoff_base: float = 1.5,
+) -> str:
+    """
+    Call OpenRouter chat completions API.
+
+    Args:
+        prompt: The prompt to send to the model.
+        model: OpenRouter model ID (e.g., "openai/gpt-4o-mini").
+        max_tokens: Maximum tokens in response.
+        temperature: Sampling temperature (0-2).
+        max_retries: Number of retries on failure.
+        backoff_base: Backoff multiplier for retries.
+
+    Returns:
+        The model's response text.
+
+    Raises:
+        requests.RequestException: If all retries fail.
+    """
+    url = f"{OPENROUTER_BASE_URL}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    attempt = 0
+    while True:
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+
+            # Rate limit or server errors
+            if response.status_code >= 500 or response.status_code == 429:
+                attempt += 1
+                if attempt > max_retries:
+                    response.raise_for_status()
+                delay = backoff_base ** attempt
+                logger.warning(
+                    f"Server error {response.status_code}, retry {attempt} after {delay:.1f}s"
+                )
+                time.sleep(delay)
+                continue
+
+            # Hard failure
+            response.raise_for_status()
+
+        except requests.RequestException as exc:
+            attempt += 1
+            if attempt > max_retries:
+                raise
+            delay = backoff_base ** attempt
+            logger.warning(f"Request failed ({exc}), retry {attempt} in {delay:.1f}s")
+            time.sleep(delay)
+            continue
+
+
+# ============================================================================
+# RAGAS LLM WRAPPER
+# ============================================================================
+
+
+def create_evaluator_llm(model: str = "openai/gpt-4o-mini") -> LangchainLLMWrapper:
+    """
+    Create LLM wrapper for RAGAS evaluation via OpenRouter.
+
+    Args:
+        model: OpenRouter model ID for evaluation.
+
+    Returns:
+        LangchainLLMWrapper configured for OpenRouter.
+    """
+    llm = ChatOpenAI(
+        model=model,
+        base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
+        temperature=0.1,
+    )
+    return LangchainLLMWrapper(llm)
+
+
+def create_evaluator_embeddings() -> LangchainEmbeddingsWrapper:
+    """
+    Create embeddings wrapper for RAGAS evaluation via OpenRouter.
+
+    Returns:
+        LangchainEmbeddingsWrapper configured for OpenRouter.
+    """
+    embeddings = OpenAIEmbeddings(
+        model=EMBEDDING_MODEL_ID,
+        base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
+    )
+    return LangchainEmbeddingsWrapper(embeddings)
+
+
+# ============================================================================
+# RETRIEVAL AND GENERATION
+# ============================================================================
+
+
+def retrieve_contexts(
+    question: str,
+    top_k: int = DEFAULT_TOP_K,
+    collection_name: Optional[str] = None,
+) -> List[str]:
+    """
+    Retrieve relevant contexts from Weaviate for a question.
+
+    Args:
+        question: The user's question.
+        top_k: Number of chunks to retrieve.
+        collection_name: Override collection name.
+
+    Returns:
+        List of context strings from retrieved chunks.
+    """
+    collection_name = collection_name or get_collection_name()
+    client = get_client()
+
+    try:
+        results = query_similar(
+            client=client,
+            query_text=question,
+            top_k=top_k,
+            collection_name=collection_name,
+        )
+        return [r.text for r in results]
+    finally:
+        client.close()
+
+
+def generate_answer(
+    question: str,
+    contexts: List[str],
+    model: str = DEFAULT_CHAT_MODEL,
+) -> str:
+    """
+    Generate an answer using retrieved contexts.
+
+    Args:
+        question: The user's question.
+        contexts: List of context strings from retrieval.
+        model: OpenRouter model ID for generation.
+
+    Returns:
+        Generated answer string.
+    """
+    context_text = "\n\n---\n\n".join(contexts)
+
+    prompt = f"""Based on the following context, answer the question.
+Only use information from the context. If the context doesn't contain
+enough information to fully answer the question, say so explicitly.
+
+Context:
+{context_text}
+
+Question: {question}
+
+Answer:"""
+
+    return call_openrouter_chat(prompt, model=model)
+
+
+# ============================================================================
+# RAGAS EVALUATION
+# ============================================================================
+
+
+def run_evaluation(
+    test_questions: List[Dict[str, Any]],
+    metrics: Optional[List[str]] = None,
+    top_k: int = DEFAULT_TOP_K,
+    generation_model: str = DEFAULT_CHAT_MODEL,
+    evaluation_model: str = "openai/gpt-4o-mini",
+    collection_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Run RAGAS evaluation on test questions.
+
+    This function:
+    1. Retrieves contexts for each question
+    2. Generates answers using the RAG pipeline
+    3. Evaluates using RAGAS metrics
+
+    Args:
+        test_questions: List of dicts with 'question' and optionally 'reference' keys.
+        metrics: Which metrics to compute. Options:
+            - "faithfulness": Is the answer grounded in context?
+            - "relevancy": Does the answer address the question?
+            - "context_precision": Are retrieved chunks relevant?
+            - "context_recall": Did retrieval capture needed info? (requires reference)
+            - "factual_correctness": Is the answer correct? (requires reference)
+        top_k: Number of chunks to retrieve per question.
+        generation_model: Model for answer generation.
+        evaluation_model: Model for RAGAS evaluation.
+        collection_name: Override Weaviate collection.
+
+    Returns:
+        Dict with:
+            - "scores": Dict of metric_name -> average score
+            - "results": Per-question results DataFrame
+            - "samples": List of evaluation samples
+    """
+    # Default metrics (those that don't require ground truth)
+    if metrics is None:
+        metrics = ["faithfulness", "relevancy", "context_precision"]
+
+    logger.info(f"Starting evaluation with {len(test_questions)} questions")
+    logger.info(f"Metrics: {metrics}")
+
+    # Build evaluation samples
+    samples = []
+    for i, q in enumerate(test_questions):
+        question = q["question"]
+        reference = q.get("reference")
+
+        logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question[:50]}...")
+
+        # Retrieve contexts
+        contexts = retrieve_contexts(
+            question=question,
+            top_k=top_k,
+            collection_name=collection_name,
+        )
+        logger.info(f"  Retrieved {len(contexts)} contexts")
+
+        # Generate answer
+        answer = generate_answer(
+            question=question,
+            contexts=contexts,
+            model=generation_model,
+        )
+        logger.info(f"  Generated answer: {answer[:100]}...")
+
+        sample = {
+            "user_input": question,
+            "retrieved_contexts": contexts,
+            "response": answer,
+        }
+
+        # Add reference if available (needed for some metrics)
+        if reference:
+            sample["reference"] = reference
+
+        samples.append(sample)
+
+    # Create RAGAS dataset
+    dataset = EvaluationDataset.from_list(samples)
+
+    # Map metric names to objects
+    metric_map = {
+        "faithfulness": Faithfulness(),
+        "relevancy": ResponseRelevancy(),
+        "context_precision": LLMContextPrecisionWithoutReference(),
+        "context_recall": LLMContextRecall(),
+        "factual_correctness": FactualCorrectness(),
+    }
+
+    # Validate metrics
+    selected_metrics = []
+    for m in metrics:
+        if m not in metric_map:
+            logger.warning(f"Unknown metric: {m}, skipping")
+            continue
+
+        # Check if metric requires reference
+        if m in ["context_recall", "factual_correctness"]:
+            has_references = all(q.get("reference") for q in test_questions)
+            if not has_references:
+                logger.warning(f"Metric {m} requires reference answers, skipping")
+                continue
+
+        selected_metrics.append(metric_map[m])
+
+    if not selected_metrics:
+        raise ValueError("No valid metrics selected")
+
+    logger.info(f"Running RAGAS evaluation with {len(selected_metrics)} metrics...")
+
+    # Create evaluator LLM and embeddings
+    evaluator_llm = create_evaluator_llm(model=evaluation_model)
+    evaluator_embeddings = create_evaluator_embeddings()
+
+    # Run evaluation
+    results = evaluate(
+        dataset=dataset,
+        metrics=selected_metrics,
+        llm=evaluator_llm,
+        embeddings=evaluator_embeddings,
+    )
+
+    logger.info("Evaluation complete")
+
+    # Convert to DataFrame for analysis
+    results_df = results.to_pandas()
+
+    # Map our metric names to RAGAS column names
+    metric_column_map = {
+        "faithfulness": "faithfulness",
+        "relevancy": "answer_relevancy",
+        "context_precision": "context_precision",
+        "context_recall": "context_recall",
+        "factual_correctness": "factual_correctness",
+    }
+
+    # Extract aggregate scores from DataFrame
+    scores = {}
+    for metric_name in metrics:
+        col_name = metric_column_map.get(metric_name, metric_name)
+        if col_name in results_df.columns:
+            scores[metric_name] = float(results_df[col_name].mean())
+
+    return {
+        "scores": scores,
+        "results": results_df,
+        "samples": samples,
+    }

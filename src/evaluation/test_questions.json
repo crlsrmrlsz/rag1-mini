@@ -1,9 +1,10 @@
 {
   "metadata": {
-    "version": "2.0",
+    "version": "2.1",
     "created": "2025-12-19",
-    "description": "Evaluation questions with verified ground truth from each book (19 total)",
-    "categories": ["neuroscience", "philosophy"]
+    "description": "Evaluation questions with verified ground truth (19 single-book + 4 cross-book = 23 total)",
+    "categories": ["neuroscience", "philosophy"],
+    "difficulty_levels": ["single_concept", "cross_domain"]
   },
   "questions": [
     {
@@ -176,6 +177,136 @@
       "reference": "Schopenhauer argues that to live happily only means to live less unhappily - to live a tolerable life. Life is given us not to be enjoyed, but to be overcome. The happiest lot is not to have experienced the keenest delights or greatest pleasures, but to have brought life to a close without any very great pain.",
       "ground_truth_quote": "to live happily only means to live less unhappily -to live a tolerable life",
       "expected_books": ["The essays, counsels and maxims (Arthur Schopenhauer)"]
+    },
+    {
+      "id": "cross_motivation_01",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What brain structures and neurotransmitter systems are involved in motivation and reward-seeking behavior?",
+      "reference": "Motivation and reward involve multiple interconnected brain structures. The ventral tegmental area (VTA) is a primary source of dopamine, which plays key roles in motivation and reward. The mesolimbic pathway projects from the VTA to the nucleus accumbens (NAc), which is critical for reward integration and addiction. The basal ganglia are involved in action selection, goal-oriented behavior, and reward-based learning. The dopamine signal represents the error between predicted and actual reward. The hypothalamus generates homeostatic drives (hunger, thirst) and passes motivational signals to the cortex.",
+      "ground_truth_sources": [
+        {
+          "book": "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+          "quote": "The dopamine signal appears to represent the error between predicted future reward and actual reward",
+          "line": 489
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "dopamine, which plays key roles in movement, cognition, motivation, and reward",
+          "line": 621
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "The ventral striatum contains a structure known as the nucleus accumbens-an important player in reward and addiction",
+          "line": 729
+        },
+        {
+          "book": "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+          "quote": "fibers originate from the ventral tegmental area (VTA) and project to the amygdaloid nucleus, the dorsolateral septal nucleus, and the nucleus accumbens",
+          "line": 127
+        }
+      ],
+      "expected_books": [
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+      ]
+    },
+    {
+      "id": "cross_motivation_02",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What is the neuroscientific distinction between 'wanting' and 'liking' in the context of motivation and reward?",
+      "reference": "Neuroscience distinguishes between 'wanting' (incentive salience, motivation to pursue rewards) and 'liking' (hedonic pleasure from consuming rewards). Dopamine release in the nucleus accumbens mediates the motivational aspects - the drive to obtain rewards, especially hedonically desirable ones ('wanting'). In contrast, the hedonic reaction to pleasure ('liking') is regulated by endogenous opioids and endocannabinoids acting via mu-type opioid receptors and CB1 receptors within the shell of the nucleus accumbens. This dissociation explains why addicts may intensely want drugs while no longer liking them.",
+      "ground_truth_sources": [
+        {
+          "book": "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+          "quote": "Dopamine release in the NAc mediates the motivational aspects of food intake, especially the drive to eat food that is hedonically desirable ('wanting')",
+          "line": 794
+        },
+        {
+          "book": "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+          "quote": "The hedonic reaction per se to the pleasure of food reward ('liking') is regulated by endogenous opioids and endocannabinoids acting via mu-type opioid receptors and CB1 receptors",
+          "line": 798
+        },
+        {
+          "book": "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+          "quote": "The neurotransmitter dopamine is known to be a key ingredient in reward-seeking behavior",
+          "line": 896
+        }
+      ],
+      "expected_books": [
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)"
+      ]
+    },
+    {
+      "id": "cross_consciousness_01",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What is the role of the thalamus in consciousness according to neuroscience research?",
+      "reference": "The thalamus plays a critical role in consciousness across multiple dimensions. Core consciousness depends on the functions of the brainstem and thalamus - it occurs when an organism is alive, awake, alert, and aware of the current moment. All sensory input except smell passes through the thalamus, which has neuronal connections forming loops with specific cortical regions that coordinate activity and contribute to consciousness. Attention, awareness, and consciousness all critically depend on the information-conveying capacity of the thalamus. The intralaminar nuclei provide diffuse input to large cortical areas; even small injury to these nuclei can produce profound reduction in consciousness. Consciousness arises from interactions between subcortical systems (brainstem, hypothalamus), the thalamus, and the cortex.",
+      "ground_truth_sources": [
+        {
+          "book": "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+          "quote": "Core consciousness depends on the functions of the brainstem and thalamus",
+          "line": 6289
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "Attention, awareness, and consciousness all critically depend on the information-conveying capacity of the thalamus",
+          "line": 679
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "intralaminar nuclei injury can produce profound reduction in the level of consciousness",
+          "line": 675
+        },
+        {
+          "book": "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+          "quote": "Both activity of the EEG and consciousness itself arise from interactions between subcortical systems, the thalamus, and the cortex",
+          "line": 1787
+        }
+      ],
+      "expected_books": [
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+      ]
+    },
+    {
+      "id": "cross_consciousness_02",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What are the neural correlates of consciousness and why is explaining consciousness considered the 'hard problem' of neuroscience?",
+      "reference": "Scientists seek to identify neural correlates of consciousness - specific brain regions or processes that correlate with conscious perception. Research using binocular rivalry (where perception alternates while physical stimulus stays constant) helps identify which neuronal properties correlate with consciousness changes. However, understanding WHY these correlates exist is the 'hard problem.' The problem of sentience - subjective experience, qualia, raw feelings, first-person viewpoint - remains elusive. While we can study self-knowledge and access to information scientifically, explaining how neural activity gives rise to subjective experience is fundamentally different. Currently we lack theoretical and operational tools to extrapolate subjective properties (consciousness) from properties of interconnected nerve cells. The hard problem lies at the outer limit of what material explanations will say about the experience of being human.",
+      "ground_truth_sources": [
+        {
+          "book": "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+          "quote": "the topic of sentience remains elusive",
+          "line": 6310
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "This is the so-called hard problem of neuroscience... understanding why they correlate with consciousness",
+          "line": 279
+        },
+        {
+          "book": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+          "quote": "There is no awareness without attention",
+          "line": 2600
+        },
+        {
+          "book": "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+          "quote": "Currently we lack the tools both theoretical and also operational to dig deeper into these mechanisms",
+          "line": 450
+        }
+      ],
+      "expected_books": [
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+      ]
     }
   ]
 }

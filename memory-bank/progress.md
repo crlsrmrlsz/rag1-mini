@@ -133,19 +133,51 @@ data/
     └── cleaning_report.log
 ```
 
-### 🎯 Next Steps
+### 🎯 Current: Run Full RAGAS Evaluation
 
-**Stage 8: Advanced RAG Improvements** (Planned)
-- Contextual Retrieval (Anthropic approach): LLM-generated context prepended to chunks
-- Semantic chunking: Variable-size chunks based on semantic similarity
-- Increased top-k retrieval with reranking
-- Hybrid search alpha tuning
+**Selected Models (Quality Tier, ~$0.50 for 10 questions):**
+```bash
+python -m src.run_stage_7_evaluation \
+  --generation-model google/gemini-3-flash \
+  --evaluation-model anthropic/claude-sonnet-4.5
+```
 
-**Future Enhancements:**
-- Alternative embedding strategies (semantic, LLM-based chunking)
-- Cross-encoder reranking before generation
-- Comparison mode across embedding strategies
-- Multi-turn conversation support
+**See:** `memory-bank/model-selection.md` for full pricing and alternatives.
+
+---
+
+### 🔮 Stage 8: Advanced RAG Improvements (Planned)
+
+**Why improve?** Current naive chunking loses context for scientific texts. Example:
+> "This receptor shows increased activity..." — What receptor? Which brain region?
+
+#### 1. Contextual Retrieval (Anthropic, Sept 2024)
+- **What:** Prepend LLM-generated context to each chunk before embedding
+- **Why:** 67% reduction in retrieval failure (with BM25 + reranking)
+- **Cost:** ~$3 to contextualize all 6,245 chunks with prompt caching
+- **Result:** `RAG_contextual_embed3large_v1` collection
+
+#### 2. Semantic Chunking
+- **What:** Chunk based on semantic similarity, not fixed size
+- **Why:** Variable-size chunks preserve complete concepts
+- **Best for:** Philosophy texts with varying density
+
+#### 3. Increased Top-K + Reranking
+- **What:** Retrieve 20 chunks, LLM reranks to top 5
+- **Why:** Reduces noise, improves faithfulness for complex questions
+
+#### 4. Hybrid Search Tuning
+- **What:** Test alpha values (0.3, 0.5, 0.7) for vector/keyword balance
+- **Why:** Technical terms benefit from keyword matching
+
+### 📊 Evaluation Workflow
+
+```
+1. Run baseline (current) → identify weak points
+2. Implement improvement → create new collection
+3. Re-evaluate → compare to baseline
+4. Document improvement delta
+```
 
 ### 💡 Key Achievements
 

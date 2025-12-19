@@ -113,33 +113,33 @@ col1, col2, col3 = st.sidebar.columns(3)
 
 all_books = BOOK_CATEGORIES["neuroscience"] + BOOK_CATEGORIES["philosophy"]
 
+# Initialize widget keys if not set (first run)
+if "neuro_select" not in st.session_state:
+    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
+if "phil_select" not in st.session_state:
+    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
+
+# Button handlers update the widget keys directly
 if col1.button("All", use_container_width=True):
-    st.session_state.selected_neuro = BOOK_CATEGORIES["neuroscience"]
-    st.session_state.selected_phil = BOOK_CATEGORIES["philosophy"]
+    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
+    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
     st.rerun()
 
 if col2.button("Neuro", use_container_width=True):
-    st.session_state.selected_neuro = BOOK_CATEGORIES["neuroscience"]
-    st.session_state.selected_phil = []
+    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
+    st.session_state.phil_select = []
     st.rerun()
 
 if col3.button("Phil", use_container_width=True):
-    st.session_state.selected_neuro = []
-    st.session_state.selected_phil = BOOK_CATEGORIES["philosophy"]
+    st.session_state.neuro_select = []
+    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
     st.rerun()
-
-# Initialize selected books if not set
-if "selected_neuro" not in st.session_state:
-    st.session_state.selected_neuro = BOOK_CATEGORIES["neuroscience"]
-if "selected_phil" not in st.session_state:
-    st.session_state.selected_phil = BOOK_CATEGORIES["philosophy"]
 
 # Neuroscience books multiselect
 st.sidebar.markdown("**Neuroscience**")
 neuro_selection = st.sidebar.multiselect(
     "Neuroscience Books",
     options=BOOK_CATEGORIES["neuroscience"],
-    default=st.session_state.selected_neuro,
     label_visibility="collapsed",
     key="neuro_select",
 )
@@ -149,7 +149,6 @@ st.sidebar.markdown("**Philosophy**")
 phil_selection = st.sidebar.multiselect(
     "Philosophy Books",
     options=BOOK_CATEGORIES["philosophy"],
-    default=st.session_state.selected_phil,
     label_visibility="collapsed",
     key="phil_select",
 )

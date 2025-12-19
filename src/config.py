@@ -243,3 +243,21 @@ BOOK_CATEGORIES = {
 # Search UI defaults
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 20
+
+
+# ============================================================================
+# EVALUATION SETTINGS (RAGAS)
+# ============================================================================
+
+# Model selection based on research (see memory-bank/model-selection.md)
+# Generation model: Fast, cost-effective for answer generation
+EVAL_GENERATION_MODEL = "google/gemini-2.0-flash-exp"
+
+# Evaluation model: High quality for LLM-as-judge (RAGAS metrics)
+EVAL_EVALUATION_MODEL = "anthropic/claude-3.5-sonnet"
+
+# Test questions file location
+EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"
+
+# Results output directory
+EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"

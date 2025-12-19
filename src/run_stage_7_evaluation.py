@@ -19,7 +19,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from src.config import PROJECT_ROOT, DEFAULT_TOP_K
+from src.config import (
+    PROJECT_ROOT,
+    DEFAULT_TOP_K,
+    EVAL_GENERATION_MODEL,
+    EVAL_EVALUATION_MODEL,
+    EVAL_TEST_QUESTIONS_FILE,
+    EVAL_RESULTS_DIR,
+)
 from src.evaluation import run_evaluation
 from src.utils.file_utils import setup_logging
 
@@ -27,12 +34,11 @@ logger = setup_logging(__name__)
 
 
 # ============================================================================
-# PATHS
+# PATHS (from config)
 # ============================================================================
 
-EVALUATION_DIR = PROJECT_ROOT / "data" / "evaluation"
-TEST_QUESTIONS_FILE = EVALUATION_DIR / "test_questions.json"
-RESULTS_DIR = EVALUATION_DIR / "results"
+TEST_QUESTIONS_FILE = EVAL_TEST_QUESTIONS_FILE
+RESULTS_DIR = EVAL_RESULTS_DIR
 
 
 # ============================================================================
@@ -196,14 +202,14 @@ def main():
     parser.add_argument(
         "--generation-model",
         type=str,
-        default="openai/gpt-4o-mini",
-        help="OpenRouter model for answer generation",
+        default=EVAL_GENERATION_MODEL,
+        help=f"OpenRouter model for answer generation (default: {EVAL_GENERATION_MODEL})",
     )
     parser.add_argument(
         "--evaluation-model",
         type=str,
-        default="openai/gpt-4o-mini",
-        help="OpenRouter model for RAGAS evaluation",
+        default=EVAL_EVALUATION_MODEL,
+        help=f"OpenRouter model for RAGAS evaluation (default: {EVAL_EVALUATION_MODEL})",
     )
     parser.add_argument(
         "--output",

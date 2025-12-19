@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "created": "2025-12-19",
+    "description": "Evaluation questions with verified ground truth from each book (19 total)",
+    "categories": ["neuroscience", "philosophy"]
+  },
+  "questions": [
+    {
+      "id": "neuro_behave_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "What structural change occurs in the amygdala with long-term PTSD according to Sapolsky?",
+      "reference": "The amygdala expands in size with long-term PTSD. In PTSD sufferers, the amygdala is overreactive to mildly fearful stimuli and is slow in calming down after being activated.",
+      "ground_truth_quote": "the amygdala expands in size with long-term PTSD",
+      "expected_books": ["Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)"]
+    },
+    {
+      "id": "neuro_biopsy_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "What is the actual ratio of glia to neurons in the human brain?",
+      "reference": "Contrary to the common claim that there are 10 times as many glia as neurons, there are roughly two glia for every three neurons in the brain.",
+      "ground_truth_quote": "There are roughly two glia for every three neurons in your brain",
+      "expected_books": ["Biopsychology (John Pinel, Steven Barnes)"]
+    },
+    {
+      "id": "neuro_eagleman_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "How many connections does a typical neuron make to neighboring neurons?",
+      "reference": "A typical neuron makes about 10,000 connections to neighboring neurons. Given the billions of neurons, this means there are as many connections in a single cubic centimeter of brain tissue as there are stars in the Milky Way galaxy.",
+      "ground_truth_quote": "A typical neuron makes about 10,000 connections to neighboring neurons",
+      "expected_books": ["Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)"]
+    },
+    {
+      "id": "neuro_gazzaniga_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "Where and when did the term 'cognitive neuroscience' originate?",
+      "reference": "The scientific field of cognitive neuroscience received its name in the late 1970s in the back seat of a New York City taxi. Out of that taxi ride came the term cognitive neuroscience.",
+      "ground_truth_quote": "in the late 1970s in the back seat of a New York City taxi",
+      "expected_books": ["Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)"]
+    },
+    {
+      "id": "neuro_gage_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "What is the thalamocortical hub and why is it important?",
+      "reference": "The brain has massive interconnectivity, the heart of which is the thalamocortical hub connecting virtually every region of cortex with the thalamus and other cortical and subcortical regions.",
+      "ground_truth_quote": "the thalamocortical hub connecting virtually every region of cortex with the thalamus",
+      "expected_books": ["Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)"]
+    },
+    {
+      "id": "neuro_tommasi_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "How much better are kangaroo rats at finding their own caches compared to competitors?",
+      "reference": "In a study of Merriam's kangaroo rats, despite the small arena size and plenty of time for hungry pilferers to find the caches, their success rate was on average 30 percent less than that of the original owner.",
+      "ground_truth_quote": "their success rate was on average 30 percent less than that of the original owner",
+      "expected_books": ["Cognitive Biology , Evolutionary and Developmental Perspectives on Mind Brain and Behavior (Luca Tommasi, Mary A.Peterson, Lynn Nadel)"]
+    },
+    {
+      "id": "neuro_determined_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "How far in advance does the prefrontal cortex make decisions before conscious awareness according to Haynes' research?",
+      "reference": "John-Dylan Haynes' fMRI study replicated and extended Libet's findings, showing that the prefrontal cortex was making its decision up to ten seconds before subjects felt they were consciously deciding.",
+      "ground_truth_quote": "the PFC was making its decision up to ten seconds before subjects felt they were consciously deciding",
+      "expected_books": ["Determined, a science of life without free will (Robert M. Sapolsky)"]
+    },
+    {
+      "id": "neuro_psychobio_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "From which amino acid is serotonin synthesized?",
+      "reference": "Serotonin (5-hydroxytryptamine or 5-HT) is synthesized from the essential amino acid tryptophan. They both are indoles with an aromatic structure.",
+      "ground_truth_quote": "Serotonin (5-hydroxytryptamine or 5-HT) is synthesized from the essential amino acid tryptophan",
+      "expected_books": ["Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"]
+    },
+    {
+      "id": "phil_kahneman_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "How does Daniel Kahneman define System 1 thinking?",
+      "reference": "System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control. In contrast, System 2 allocates attention to the effortful mental activities that demand it, including complex computations.",
+      "ground_truth_quote": "System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control",
+      "expected_books": ["Thinking Fast and Slow (Daniel Kahneman)"]
+    },
+    {
+      "id": "phil_seneca_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What does Seneca say about the relationship between imagination and suffering?",
+      "reference": "Seneca teaches that we often torment ourselves with imagined fears rather than real ones. There are more things likely to frighten us than there are to crush us; we suffer more often in imagination than in reality.",
+      "ground_truth_quote": "we suffer more often in imagination than in reality",
+      "expected_books": ["Letters from a Stoic (Seneca)"]
+    },
+    {
+      "id": "phil_marcus_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What metaphor does Marcus Aurelius use to describe humans controlled by their passions?",
+      "reference": "Marcus Aurelius uses the metaphor of puppets moved by wires to describe how humans can be controlled by passions without their rational approval, urging us not to let passions move us as the wires do a puppet.",
+      "ground_truth_quote": "moves you, as the wires do a puppet, without your own approbation",
+      "expected_books": ["The Meditations (Marcus Aurelius)"]
+    },
+    {
+      "id": "phil_schopen_essays_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "How does Schopenhauer define happiness in his pessimistic philosophy?",
+      "reference": "Schopenhauer argues that suffering is the normal condition of life, and happiness means merely the diminution of suffering, not a positive state in itself.",
+      "ground_truth_quote": "happiness means merely the diminution of suffering",
+      "expected_books": ["Essays and Aphorisms (Arthur Schopenhauer)"]
+    },
+    {
+      "id": "phil_enchiridion_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What is the fundamental distinction Epictetus makes about what is within our control?",
+      "reference": "Epictetus teaches that some things are within our control and some things are not. It is only after you have faced up to this fundamental rule and learned to distinguish between what you can and can't control that inner tranquility and outer effectiveness become possible.",
+      "ground_truth_quote": "Some things are within our control, and some things are not",
+      "expected_books": ["The Enchiridion (Epictetus)"]
+    },
+    {
+      "id": "phil_tao_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What is the opening paradox of the Tao Te Ching?",
+      "reference": "The Tao Te Ching opens with a fundamental paradox about the nature of the Way: the way you can go isn't the real way, and the name you can say isn't the real name. This points to the ineffability of the Tao.",
+      "ground_truth_quote": "The way you can go isn't the real way. The name you can say isn't the real name.",
+      "expected_books": ["Tao te ching Lao_tzu (Lao Tzu)"]
+    },
+    {
+      "id": "phil_confucius_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What does Confucius teach about how a noble man (junzi) should treat others?",
+      "reference": "Confucius teaches that a junzi (noble man) will not serve or treat others as a mere instrument. This reflects the importance of treating people as ends in themselves, not merely as means.",
+      "ground_truth_quote": "A junzi [noble man] will not serve (or treat others) as a mere instrument",
+      "expected_books": ["The Analects Conclusions and Conversations (Confucius)"]
+    },
+    {
+      "id": "phil_gracian_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What does Gracian identify as the central problem of human affairs?",
+      "reference": "Gracian identifies deceit (engano) as the key concept in understanding human affairs. This covers not simply the deception of one individual by another, but our self-deception as to the true nature and value of the world.",
+      "ground_truth_quote": "The key concept here is deceit (engano)",
+      "expected_books": ["The Pocket Oracle and Art of Prudence (Baltasar Gracian)"]
+    },
+    {
+      "id": "phil_artliving_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "According to Epictetus, what are the natural consequences of doing the right thing?",
+      "reference": "Epictetus teaches that for a happy life and a virtuous life are synonymous. Happiness and personal fulfillment are the natural consequences of doing the right thing.",
+      "ground_truth_quote": "Happiness and personal fulfillment are the natural consequences of doing the right thing",
+      "expected_books": ["The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"]
+    },
+    {
+      "id": "phil_wisdom_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "According to Schopenhauer, what matters more for happiness: what a person IS or what they HAVE?",
+      "reference": "Schopenhauer argues that the happiness we receive from ourselves is greater than that which we obtain from our surroundings. He states that a healthy beggar is happier than an ailing king, emphasizing that personality and health outweigh external possessions.",
+      "ground_truth_quote": "a healthy beggar is happier than an ailing king",
+      "expected_books": ["Wisdom of Life (Schopenhauer)"]
+    },
+    {
+      "id": "phil_schopen_counsels_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "According to Schopenhauer, what is the true meaning of living happily?",
+      "reference": "Schopenhauer argues that to live happily only means to live less unhappily - to live a tolerable life. Life is given us not to be enjoyed, but to be overcome. The happiest lot is not to have experienced the keenest delights or greatest pleasures, but to have brought life to a close without any very great pain.",
+      "ground_truth_quote": "to live happily only means to live less unhappily -to live a tolerable life",
+      "expected_books": ["The essays, counsels and maxims (Arthur Schopenhauer)"]
+    }
+  ]
+}

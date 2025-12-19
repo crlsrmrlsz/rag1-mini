@@ -10,6 +10,7 @@ import time
 import requests
 from typing import List, Dict, Any, Optional, Callable
 
+import litellm
 from ragas import evaluate, EvaluationDataset
 from ragas.metrics import (
     Faithfulness,
@@ -18,9 +19,8 @@ from ragas.metrics import (
     LLMContextRecall,
     FactualCorrectness,
 )
-from ragas.llms import LangchainLLMWrapper
-from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from ragas.llms import llm_factory
+from ragas.embeddings import embedding_factory
 
 from src.config import (
     OPENROUTER_API_KEY,
@@ -120,38 +120,41 @@ def call_openrouter_chat(
 # ============================================================================
 
 
-def create_evaluator_llm(model: str = "openai/gpt-4o-mini") -> LangchainLLMWrapper:
+def create_evaluator_llm(model: str = "openai/gpt-4o-mini"):
     """
-    Create LLM wrapper for RAGAS evaluation via OpenRouter.
+    Create LLM for RAGAS evaluation via OpenRouter using LiteLLM.
 
     Args:
         model: OpenRouter model ID for evaluation.
 
     Returns:
-        LangchainLLMWrapper configured for OpenRouter.
+        RAGAS LLM configured for OpenRouter via LiteLLM.
     """
-    llm = ChatOpenAI(
-        model=model,
-        base_url=OPENROUTER_BASE_URL,
-        api_key=OPENROUTER_API_KEY,
+    # Configure LiteLLM for OpenRouter
+    litellm.api_base = OPENROUTER_BASE_URL
+    litellm.api_key = OPENROUTER_API_KEY
+
+    return llm_factory(
+        model,
+        provider="litellm",
+        client=litellm.completion,
         temperature=0.1,
     )
-    return LangchainLLMWrapper(llm)
 
 
-def create_evaluator_embeddings() -> LangchainEmbeddingsWrapper:
+def create_evaluator_embeddings():
     """
-    Create embeddings wrapper for RAGAS evaluation via OpenRouter.
+    Create embeddings for RAGAS evaluation via OpenRouter using LiteLLM.
 
     Returns:
-        LangchainEmbeddingsWrapper configured for OpenRouter.
+        RAGAS embeddings configured for OpenRouter via LiteLLM.
     """
-    embeddings = OpenAIEmbeddings(
+    return embedding_factory(
+        "litellm",
         model=EMBEDDING_MODEL_ID,
-        base_url=OPENROUTER_BASE_URL,
+        api_base=OPENROUTER_BASE_URL,
         api_key=OPENROUTER_API_KEY,
     )
-    return LangchainEmbeddingsWrapper(embeddings)
 
 
 # ============================================================================

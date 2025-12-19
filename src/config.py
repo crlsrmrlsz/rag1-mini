@@ -168,8 +168,8 @@ EMBEDDING_MODEL = TOKENIZER_MODEL  # "text-embedding-3-large"
 MAX_BATCH_TOKENS = 12_000   # conservative batch size
 MAX_RETRIES = 3
 
-# Load environment variables from the .env file
-load_dotenv()
+# Load environment variables from the .env file (in src/ directory)
+load_dotenv(Path(__file__).parent / ".env")
 
 # Now you can access the variables
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
@@ -251,10 +251,10 @@ MAX_TOP_K = 20
 
 # Model selection based on research (see memory-bank/model-selection.md)
 # Generation model: Fast, cost-effective for answer generation
-EVAL_GENERATION_MODEL = "google/gemini-2.0-flash-exp"
+EVAL_GENERATION_MODEL = "google/gemini-2.5-flash"
 
 # Evaluation model: High quality for LLM-as-judge (RAGAS metrics)
-EVAL_EVALUATION_MODEL = "anthropic/claude-3.5-sonnet"
+EVAL_EVALUATION_MODEL = "anthropic/claude-sonnet-4.5"
 
 # Test questions file location
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"

@@ -10,6 +10,12 @@ Prerequisites:
     - Stage 6 must have been run to populate the collection
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 import streamlit as st
 
 from src.config import BOOK_CATEGORIES, DEFAULT_TOP_K, MAX_TOP_K

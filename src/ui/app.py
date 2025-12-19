@@ -11,10 +11,15 @@ Prerequisites:
 """
 
 import sys
+import logging
 from pathlib import Path
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+# Suppress noisy HTTP logs from Weaviate client
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 import streamlit as st
 

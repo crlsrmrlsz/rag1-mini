@@ -1,16 +1,23 @@
 """Stage 7C: RAGAS Evaluation for RAG1-Mini.
 
 Runs RAGAS evaluation on test questions to measure RAG pipeline quality.
+Supports cross-encoder reranking and configurable hybrid search alpha.
 
 Usage:
-    python -m src.run_stage_7_evaluation
-    python -m src.run_stage_7_evaluation --questions 5  # Run on first 5 questions
-    python -m src.run_stage_7_evaluation --metrics faithfulness relevancy
+    python -m src.run_stage_7_evaluation                    # Default: alpha=0.5, reranking
+    python -m src.run_stage_7_evaluation --alpha 0.3        # Keyword-heavy hybrid
+    python -m src.run_stage_7_evaluation --alpha 0.7        # Vector-heavy hybrid
+    python -m src.run_stage_7_evaluation --no-reranking     # Disable reranking
+    python -m src.run_stage_7_evaluation --questions 5      # Run on first 5 questions
 
 Prerequisites:
     - Weaviate must be running (docker compose up -d)
     - Stage 6 must have been run to populate the collection
     - OpenRouter API key must be set in .env
+
+Configuration Tracking:
+    Results are saved to data/evaluation/results/eval_TIMESTAMP.json
+    Track different configurations in data/evaluation/tracking.json
 """
 
 import argparse
@@ -20,7 +27,6 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from src.config import (
-    PROJECT_ROOT,
     DEFAULT_TOP_K,
     EVAL_GENERATION_MODEL,
     EVAL_EVALUATION_MODEL,
@@ -218,6 +224,25 @@ def main():
         default=None,
         help="Output file path (default: results/eval_TIMESTAMP.json)",
     )
+    parser.add_argument(
+        "--alpha",
+        "-a",
+        type=float,
+        default=0.5,
+        help="Hybrid search alpha: 0.0=keyword, 0.5=balanced, 1.0=vector (default: 0.5)",
+    )
+    parser.add_argument(
+        "--reranking",
+        action="store_true",
+        default=True,
+        help="Enable cross-encoder reranking (default: True)",
+    )
+    parser.add_argument(
+        "--no-reranking",
+        dest="reranking",
+        action="store_false",
+        help="Disable cross-encoder reranking",
+    )
 
     args = parser.parse_args()
 
@@ -238,6 +263,8 @@ def main():
     logger.info("Starting RAGAS evaluation...")
     logger.info(f"Metrics: {args.metrics}")
     logger.info(f"Top-K: {args.top_k}")
+    logger.info(f"Alpha: {args.alpha}")
+    logger.info(f"Reranking: {args.reranking}")
     logger.info(f"Generation model: {args.generation_model}")
     logger.info(f"Evaluation model: {args.evaluation_model}")
 
@@ -248,6 +275,8 @@ def main():
             top_k=args.top_k,
             generation_model=args.generation_model,
             evaluation_model=args.evaluation_model,
+            use_reranking=args.reranking,
+            alpha=args.alpha,
         )
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")

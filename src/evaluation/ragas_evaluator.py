@@ -30,6 +30,7 @@ from src.config import (
     DEFAULT_TOP_K,
 )
 from src.vector_db import get_client, query_hybrid
+from src.reranking import rerank
 from src.utils.file_utils import setup_logging
 
 logger = setup_logging(__name__)
@@ -163,29 +164,54 @@ def retrieve_contexts(
     question: str,
     top_k: int = DEFAULT_TOP_K,
     collection_name: Optional[str] = None,
+    use_reranking: bool = True,
+    alpha: float = 0.5,
 ) -> List[str]:
     """
     Retrieve relevant contexts from Weaviate for a question.
 
+    This function implements two-stage retrieval:
+    1. Hybrid search retrieves an initial candidate set
+    2. Cross-encoder reranking refines the results
+
     Args:
         question: The user's question.
-        top_k: Number of chunks to retrieve.
+        top_k: Number of chunks to return after reranking.
         collection_name: Override collection name.
+        use_reranking: If True, apply cross-encoder reranking.
+                       Retrieves 50 candidates and reranks to top_k.
+                       If False, directly returns top_k from hybrid search.
+        alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
 
     Returns:
         List of context strings from retrieved chunks.
+
+    Technical Notes:
+        - Hybrid search combines vector similarity with BM25 keyword matching
+        - alpha=0.0 is pure BM25, alpha=1.0 is pure vector, 0.5 is balanced
+        - Cross-encoder processes [query, document] pairs for deeper matching
+        - Reranking improves precision by 20-35% (research evidence)
     """
     collection_name = collection_name or get_collection_name()
     client = get_client()
 
     try:
+        # Determine initial retrieval size
+        # If reranking, get more candidates for the reranker to work with
+        initial_k = 50 if use_reranking else top_k
+
         results = query_hybrid(
             client=client,
             query_text=question,
-            top_k=top_k,
-            alpha=0.5,  # Balance between vector (1.0) and keyword (0.0)
+            top_k=initial_k,
+            alpha=alpha,
             collection_name=collection_name,
         )
+
+        # Apply cross-encoder reranking if enabled
+        if use_reranking and results:
+            results = rerank(question, results, top_k=top_k)
+
         return [r.text for r in results]
     finally:
         client.close()
@@ -235,12 +261,14 @@ def run_evaluation(
     generation_model: str = DEFAULT_CHAT_MODEL,
     evaluation_model: str = "openai/gpt-4o-mini",
     collection_name: Optional[str] = None,
+    use_reranking: bool = True,
+    alpha: float = 0.5,
 ) -> Dict[str, Any]:
     """
     Run RAGAS evaluation on test questions.
 
     This function:
-    1. Retrieves contexts for each question
+    1. Retrieves contexts for each question (with optional cross-encoder reranking)
     2. Generates answers using the RAG pipeline
     3. Evaluates using RAGAS metrics
 
@@ -256,6 +284,9 @@ def run_evaluation(
         generation_model: Model for answer generation.
         evaluation_model: Model for RAGAS evaluation.
         collection_name: Override Weaviate collection.
+        use_reranking: If True, apply cross-encoder reranking to improve retrieval.
+                       Default: True (enabled for best accuracy).
+        alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
 
     Returns:
         Dict with:
@@ -278,11 +309,13 @@ def run_evaluation(
 
         logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question[:50]}...")
 
-        # Retrieve contexts
+        # Retrieve contexts (with optional reranking for improved precision)
         contexts = retrieve_contexts(
             question=question,
             top_k=top_k,
             collection_name=collection_name,
+            use_reranking=use_reranking,
+            alpha=alpha,
         )
         logger.info(f"  Retrieved {len(contexts)} contexts")
 

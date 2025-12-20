@@ -78,6 +78,7 @@ The `memory-bank/` directory contains project context:
 Update these files when making significant changes to maintain project continuity.
 
 ## Current Tasks
+<!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 
 ### Active
 - [ ] Implement reranking (cross-encoder) for hybrid search

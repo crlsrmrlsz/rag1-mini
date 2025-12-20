@@ -23,7 +23,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 import streamlit as st
 
-from src.config import BOOK_CATEGORIES, DEFAULT_TOP_K, MAX_TOP_K
+from src.config import DEFAULT_TOP_K, MAX_TOP_K
 from src.ui.services.search import search_chunks, list_collections
 
 
@@ -78,10 +78,16 @@ else:
     st.sidebar.warning("No collections found. Is Weaviate running?")
     selected_collection = None
 
+# -----------------------------------------------------------------------------
+# Retrieval Strategy Configuration
+# -----------------------------------------------------------------------------
+st.sidebar.subheader("Retrieval Strategy")
+
 # Search type selector
 search_type = st.sidebar.radio(
     "Search Type",
     options=["vector", "hybrid"],
+    index=1,  # Default to hybrid (better for this corpus)
     format_func=lambda x: "Semantic (Vector)" if x == "vector" else "Hybrid (Vector + Keyword)",
     help="Semantic search finds similar meaning. Hybrid also matches exact keywords.",
 )
@@ -99,6 +105,15 @@ if search_type == "hybrid":
 else:
     alpha = 0.5
 
+# Reranking toggle
+use_reranking = st.sidebar.checkbox(
+    "Enable Cross-Encoder Reranking",
+    value=False,
+    help="Uses a cross-encoder model to re-score results for higher accuracy. "
+         "Slower but significantly improves result quality. "
+         "First use downloads a 1.2GB model.",
+)
+
 # Number of results
 top_k = st.sidebar.slider(
     "Number of Results",
@@ -108,57 +123,16 @@ top_k = st.sidebar.slider(
     help="How many chunks to retrieve.",
 )
 
-st.sidebar.divider()
-
-# Book selection
-st.sidebar.subheader("Book Filters")
-
-# Quick select buttons
-col1, col2, col3 = st.sidebar.columns(3)
-
-all_books = BOOK_CATEGORIES["neuroscience"] + BOOK_CATEGORIES["philosophy"]
-
-# Initialize widget keys if not set (first run)
-if "neuro_select" not in st.session_state:
-    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
-if "phil_select" not in st.session_state:
-    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
-
-# Button handlers update the widget keys directly
-if col1.button("All", use_container_width=True):
-    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
-    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
-    st.rerun()
-
-if col2.button("Neuro", use_container_width=True):
-    st.session_state.neuro_select = BOOK_CATEGORIES["neuroscience"]
-    st.session_state.phil_select = []
-    st.rerun()
-
-if col3.button("Phil", use_container_width=True):
-    st.session_state.neuro_select = []
-    st.session_state.phil_select = BOOK_CATEGORIES["philosophy"]
-    st.rerun()
-
-# Neuroscience books multiselect
-st.sidebar.markdown("**Neuroscience**")
-neuro_selection = st.sidebar.multiselect(
-    "Neuroscience Books",
-    options=BOOK_CATEGORIES["neuroscience"],
-    label_visibility="collapsed",
-    key="neuro_select",
-)
-
-# Philosophy books multiselect
-st.sidebar.markdown("**Philosophy**")
-phil_selection = st.sidebar.multiselect(
-    "Philosophy Books",
-    options=BOOK_CATEGORIES["philosophy"],
-    label_visibility="collapsed",
-    key="phil_select",
-)
-
-selected_books = neuro_selection + phil_selection
+# Show current configuration summary
+with st.sidebar.expander("Current Configuration", expanded=False):
+    config_summary = f"""
+**Search Type:** {search_type}
+**Alpha:** {alpha if search_type == 'hybrid' else 'N/A'}
+**Reranking:** {'Enabled' if use_reranking else 'Disabled'}
+**Top-K:** {top_k}
+**Collection:** {selected_collection if selected_collection else 'None'}
+    """
+    st.markdown(config_summary.strip())
 
 
 # ============================================================================
@@ -180,34 +154,22 @@ query = st.text_input(
 )
 
 # Search button
-col1, col2 = st.columns([1, 4])
-with col1:
-    search_clicked = st.button("Search", type="primary", disabled=not query)
-with col2:
-    if selected_books:
-        st.caption(f"Searching {len(selected_books)} of {len(all_books)} books")
-    else:
-        st.caption("No books selected")
+search_clicked = st.button("Search", type="primary", disabled=not query)
 
 # Execute search
 if search_clicked and query:
     if not selected_collection:
         st.error("No collection available. Please run `docker compose up -d` and run Stage 6.")
-    elif not selected_books:
-        st.warning("Please select at least one book to search.")
     else:
         with st.spinner("Searching..."):
             try:
-                # Use filter only if not all books selected
-                book_filter = selected_books if len(selected_books) < len(all_books) else None
-
                 results = search_chunks(
                     query=query,
-                    book_filter=book_filter,
                     top_k=top_k,
                     search_type=search_type,
                     alpha=alpha,
                     collection_name=selected_collection,
+                    use_reranking=use_reranking,
                 )
                 st.session_state.search_results = results
                 st.session_state.last_query = query
@@ -251,7 +213,7 @@ if st.session_state.search_results:
             st.markdown(chunk["text"])
 
 elif query and not st.session_state.search_results:
-    st.info("No results found. Try a different query or select more books.")
+    st.info("No results found. Try a different query.")
 
 else:
     st.info("Enter a query above to search the knowledge base.")
@@ -271,7 +233,8 @@ with st.expander("How This Works"):
     2. **Vector Search** finds the chunks whose embeddings are most similar
        to your query embedding (cosine similarity).
 
-    3. **Filtering** optionally restricts results to selected books.
+    3. **Reranking (Optional)**: A cross-encoder re-scores the top-50 results
+       by processing query and document together for deeper understanding.
 
     4. **Results** show the most relevant text passages with their source.
 
@@ -283,17 +246,45 @@ with st.expander("How This Works"):
     - **Hybrid**: Combines semantic search with keyword matching (BM25).
       Good for technical terms that should match exactly.
 
+    ### Cross-Encoder Reranking
+
+    **Why Reranking Improves Results:**
+
+    The default search uses a **bi-encoder** that embeds query and documents
+    separately. This is fast but can miss subtle relationships.
+
+    A **cross-encoder** processes query and document *together* through a
+    transformer, enabling it to understand fine-grained semantic connections.
+
+    Example:
+    - Query: "What metaphor does Marcus Aurelius use for passions?"
+    - Document: "He likens humans to puppets moved by wires"
+
+    The bi-encoder might not connect "puppet metaphor" to "passions" because
+    they're processed separately. The cross-encoder sees both together and
+    understands that "puppets moved by wires" IS the metaphor about passions.
+
+    **Trade-off:** Reranking is slower (~1-2s) but significantly more accurate.
+
     ### Technical Details
 
     - **Embedding Model**: text-embedding-3-large (3072 dimensions)
+    - **Reranking Model**: mxbai-rerank-large-v1 (560M parameters)
     - **Vector Database**: Weaviate with HNSW index
     - **Distance Metric**: Cosine similarity (1.0 = identical)
     - **Chunk Size**: ~800 tokens with 2-sentence overlap
 
-    ### Python Concepts in This UI
+    ### Evaluation Metrics (RAGAS)
 
-    - **Session State**: `st.session_state` persists data across UI interactions
-    - **Reactive Updates**: Streamlit reruns the script when inputs change
-    - **Component Layout**: Sidebars, columns, expanders for organization
-    - **Error Handling**: Try/except with user-friendly error messages
+    - **Faithfulness**: Is the answer grounded in retrieved context?
+    - **Answer Relevancy**: Does the answer address the question?
+    - **Context Precision**: Are retrieved chunks relevant to the question?
+
+    ### Configurations to Compare
+
+    | Configuration | Relevancy | Notes |
+    |---------------|-----------|-------|
+    | Vector, top_k=5 | 0.67 | Baseline |
+    | Hybrid, top_k=10 | 0.79 | +17% improvement |
+    | Hybrid + Reranking | ??? | Expected +20-35% |
     """)

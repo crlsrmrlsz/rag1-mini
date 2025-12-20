@@ -45,6 +45,11 @@ python -m src.run_stage_6_weaviate     # Upload to Weaviate (requires running We
 ### Commits
 - Always commit changes after completing a task or significant modification (do not wait for user to ask)
 
+### Learning Mode
+This is a learning project. For every code change:
+1. **Explain the theory** - What RAG concept does this implement? (1 paragraph)
+2. **Show the library** - What libraries are used and why? (1 paragraph)
+3. **Trace the flow** - How does data move through the change? (1 paragraph)
 
 ## Key Modules
 
@@ -74,6 +79,7 @@ The `memory-bank/` directory contains project context:
 - `project-status.md` - Pipeline status and overview
 - `model-selection.md` - Model research and pricing
 - `rag-improve-research.md` - RAG improvement strategies
+- `evaluation-history.md` - RAGAS runs with configs and metrics
 
 Update these files when making significant changes to maintain project continuity.
 
@@ -81,13 +87,16 @@ Update these files when making significant changes to maintain project continuit
 <!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 
 ### Active
-- [ ] Implement reranking (cross-encoder) for hybrid search
-- [ ] Test hybrid search alpha values (0.3, 0.5, 0.7)
+- [ ] Complete cross-encoder reranking integration
+- [ ] Alpha tuning experiments (0.3, 0.5, 0.7)
 
-### Blocked
-_(none)_
+### Next
+- [ ] Step-back prompting implementation
+- [ ] Query decomposition implementation
+- [ ] UI query preprocessing options
 
 ### Completed Recently
-- Removed .clinerules/, updated memory-bank references (Dec 20)
+- Created evaluation-history.md tracking 3 runs (Dec 20)
+- Added Learning Mode instructions (Dec 20)
+- Hybrid search: 78.6% relevancy, 0% failures (Dec 20)
 - Switched evaluation to hybrid search (Dec 19)
-- Updated RAGAS to modern API (Dec 19)

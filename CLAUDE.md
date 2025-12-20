@@ -45,32 +45,6 @@ python -m src.run_stage_6_weaviate     # Upload to Weaviate (requires running We
 ### Commits
 - Always commit changes after completing a task or significant modification (do not wait for user to ask)
 
-## Pipeline Architecture
-
-```
-data/raw/ (19 PDFs)
-    |
-    v  Stage 1: extract_pdf()
-data/processed/01_raw_extraction/
-    |
-    v  Manual review
-data/processed/02_manual_review/
-    |
-    v  Stage 2: run_structural_cleaning()
-data/processed/03_markdown_cleaning/
-    |
-    v  Stage 3: segment_document()
-data/processed/04_nlp_chunks/
-    |
-    v  Stage 4: run_section_chunking()
-data/processed/05_final_chunks/section/ (6,245 chunks)
-    |
-    v  Stage 5: embed_texts()
-data/processed/06_embeddings/
-    |
-    v  Stage 6: upload_embeddings()
-Weaviate (RAG_{strategy}_{model}_{version})
-```
 
 ## Key Modules
 
@@ -96,9 +70,9 @@ Weaviate (RAG_{strategy}_{model}_{version})
 
 ## Memory Bank
 
-The `memory-bank/` directory contains Cline project state:
-- `projectbrief.md` - Goals and architecture
-- `activeContext.md` - Current state
-- `progress.md` - Completed stages
+The `memory-bank/` directory contains project context:
+- `project-status.md` - Pipeline status and overview
+- `model-selection.md` - Model research and pricing
+- `rag-improve-research.md` - RAG improvement strategies
 
 Update these files when making significant changes to maintain project continuity.

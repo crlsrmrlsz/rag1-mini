@@ -96,7 +96,7 @@ Update these files when making significant changes to maintain project continuit
 - [ ] UI query preprocessing options
 
 ### Completed Recently
+- Removed book selection from UI for generalization (Dec 20)
 - Created evaluation-history.md tracking 3 runs (Dec 20)
 - Added Learning Mode instructions (Dec 20)
 - Hybrid search: 78.6% relevancy, 0% failures (Dec 20)
-- Switched evaluation to hybrid search (Dec 19)

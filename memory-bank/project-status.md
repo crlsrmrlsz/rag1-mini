@@ -81,10 +81,17 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 | Step-Back Prompting | Broaden open-ended queries for better retrieval | Complete |
 | Answer Generator | Synthesize LLM answer from retrieved chunks | Complete |
 | UI Enhancement | Display query analysis + generated answers | Complete |
+| Prompt Refinement | Integrated neuroscience + philosophy focus | Complete |
 
 **New Modules:**
 - `src/preprocessing/` - Query classification and step-back prompting
 - `src/generation/` - LLM answer synthesis with source citations
+
+**Prompt Design Principles:**
+- Role-based framing (WHO the assistant is, not task lists)
+- Domain integration by default (science + wisdom together)
+- Principle-based examples (patterns, not exhaustive lists)
+- Science explains HOW we work; philosophy guides what to DO
 
 ## Previous Plans: Stage 8 Advanced RAG
 

@@ -99,8 +99,8 @@ Update these files when making significant changes to maintain project continuit
 - [ ] Contextual retrieval (prepend LLM context to chunks)
 
 ### Completed Recently
+- Improved prompts for integrated human behavior understanding (Dec 20)
 - Implemented query preprocessing (classification + step-back prompting) (Dec 20)
 - Implemented LLM answer generation from retrieved chunks (Dec 20)
 - Enhanced UI with query analysis and generated answers (Dec 20)
 - Added generation model selection to UI (Dec 20)
-- Updated project-status.md with Run 4 results (Dec 20)

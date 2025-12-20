@@ -29,7 +29,7 @@ from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
 )
-from src.vector_db import get_client, query_similar
+from src.vector_db import get_client, query_hybrid
 from src.utils.file_utils import setup_logging
 
 logger = setup_logging(__name__)
@@ -179,10 +179,11 @@ def retrieve_contexts(
     client = get_client()
 
     try:
-        results = query_similar(
+        results = query_hybrid(
             client=client,
             query_text=question,
             top_k=top_k,
+            alpha=0.5,  # Balance between vector (1.0) and keyword (0.0)
             collection_name=collection_name,
         )
         return [r.text for r in results]

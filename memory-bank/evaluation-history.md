@@ -141,10 +141,35 @@ Based on research in `rag-improve-research.md`:
 
 | Improvement | Expected Impact | Status |
 |-------------|-----------------|--------|
-| Cross-encoder reranking | +20-35% precision | Scaffolded, not tested |
-| Alpha tuning (0.3, 0.7) | Find optimal balance | Pending |
+| Cross-encoder reranking | +20-35% precision | Implemented, ready to test |
+| Alpha tuning (0.3, 0.7) | Find optimal balance | Ready to test |
 | Step-back prompting | +27% multi-hop | Pending |
 | Query decomposition | +36.7% MRR@10 | Pending |
+
+---
+
+## How to Run Experiments
+
+```bash
+# Test reranking effect
+python -m src.run_stage_7_evaluation --reranking      # with reranking
+python -m src.run_stage_7_evaluation --no-reranking   # without
+
+# Test alpha values
+python -m src.run_stage_7_evaluation --alpha 0.3 -o data/evaluation/results/alpha_0.3.json
+python -m src.run_stage_7_evaluation --alpha 0.5 -o data/evaluation/results/alpha_0.5.json
+python -m src.run_stage_7_evaluation --alpha 0.7 -o data/evaluation/results/alpha_0.7.json
+```
+
+### Alpha Parameter Explained
+
+| Alpha | Weight | Best For |
+|-------|--------|----------|
+| 0.0 | 100% BM25 | Exact term matching |
+| 0.3 | 70% BM25 + 30% vector | Philosophy terminology |
+| 0.5 | Balanced | General use (default) |
+| 0.7 | 30% BM25 + 70% vector | Conceptual queries |
+| 1.0 | 100% vector | Pure semantic search |
 
 ---
 

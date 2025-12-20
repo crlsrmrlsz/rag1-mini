@@ -87,8 +87,8 @@ Update these files when making significant changes to maintain project continuit
 <!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 
 ### Active
-- [ ] Complete cross-encoder reranking integration
-- [ ] Alpha tuning experiments (0.3, 0.5, 0.7)
+- [ ] Run alpha tuning experiments (0.3, 0.5, 0.7) with RAGAS
+- [ ] Run reranking vs no-reranking comparison
 
 ### Next
 - [ ] Step-back prompting implementation
@@ -96,7 +96,8 @@ Update these files when making significant changes to maintain project continuit
 - [ ] UI query preprocessing options
 
 ### Completed Recently
+- Added alpha parameter to evaluation CLI (Dec 20)
+- Completed cross-encoder reranking integration (Dec 20)
 - Removed book selection from UI for generalization (Dec 20)
 - Created evaluation-history.md tracking 3 runs (Dec 20)
 - Added Learning Mode instructions (Dec 20)
-- Hybrid search: 78.6% relevancy, 0% failures (Dec 20)

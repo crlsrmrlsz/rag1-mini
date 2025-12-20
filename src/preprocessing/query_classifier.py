@@ -166,20 +166,24 @@ def _call_chat_completion(
 # QUERY CLASSIFICATION
 # =============================================================================
 
-CLASSIFICATION_PROMPT = """You are a query classifier for a RAG system that contains:
-- 8 neuroscience textbooks (Sapolsky, Eagleman, Gazzaniga, etc.)
-- 11 philosophy/wisdom books (Seneca, Marcus Aurelius, Lao Tzu, Epictetus, etc.)
+CLASSIFICATION_PROMPT = """You are a query classifier for a knowledge system about human behavior, mind, and life.
 
-Classify the user's query into ONE of these types:
+The system contains:
+- Neuroscience texts: brain mechanisms, consciousness, emotions, decision-making, behavior
+- Philosophy texts: Stoicism, Taoism, wisdom traditions, meaning, ethics, the good life
 
-1. "factual" - Seeks specific facts, definitions, or concrete information
-   Examples: "What is serotonin?", "What are the thalamocortical circuits?"
+Classify the query based on what type of response would best serve the user:
 
-2. "open_ended" - Philosophical, life-advice, or wisdom-seeking questions
-   Examples: "How should I live?", "What is the good life?", "How to find meaning?"
+1. "factual" - Seeks a specific fact, definition, mechanism, or what a particular author said
+   -> Direct, precise answer needed
 
-3. "multi_hop" - Requires combining information from multiple sources or comparisons
-   Examples: "Compare Stoic and Taoist views on...", "How does X relate to Y?"
+2. "open_ended" - Explores human nature, behavior, emotions, life questions, or seeks understanding
+   -> Rich, multi-perspective answer integrating science and wisdom where relevant
+
+3. "multi_hop" - Explicitly compares, contrasts, or connects concepts across sources or domains
+   -> Analytical synthesis across perspectives
+
+When uncertain, prefer "open_ended" - most questions about human behavior benefit from integrated perspectives.
 
 Respond with JSON: {"query_type": "factual" | "open_ended" | "multi_hop"}"""
 
@@ -239,19 +243,25 @@ def classify_query(query: str, model: Optional[str] = None) -> QueryType:
 # STEP-BACK PROMPTING
 # =============================================================================
 
-STEP_BACK_PROMPT = """You are helping improve search queries for a RAG system containing
-neuroscience textbooks and philosophy/wisdom books.
+STEP_BACK_PROMPT = """You help improve search queries for a knowledge system about human behavior.
 
-The user asked an open-ended or philosophical question. Generate a "step-back" query
-that abstracts to broader principles or concepts that would help retrieve relevant passages.
+The system contains neuroscience (brain, behavior, consciousness) AND philosophy (wisdom, ethics, meaning).
 
-Examples:
-- "How should I live?" -> "Stoic and philosophical principles for living a good life"
-- "What is the puppet metaphor in Marcus Aurelius?" -> "Marcus Aurelius metaphors for human passions and emotions"
-- "Why do we make bad decisions?" -> "Cognitive biases and decision-making psychology"
-- "What is the meaning of life?" -> "Philosophical perspectives on purpose and meaning"
+Given the user's question, generate a broader "step-back" query that will retrieve relevant content
+from both scientific AND philosophical perspectives when appropriate.
 
-Generate ONLY the step-back query, nothing else. Keep it concise (under 15 words)."""
+Principles:
+- Identify the UNDERLYING TOPIC (emotion, motivation, decision-making, meaning, consciousness, etc.)
+- Include SCIENTIFIC ANGLE (brain mechanisms, neurotransmitters, psychology, evolution)
+- Include WISDOM ANGLE (philosophical practices, ancient wisdom, life guidance)
+- Keep it broad enough to catch diverse relevant passages
+
+Examples of the pattern:
+- Specific question -> "underlying topic from neuroscience; underlying topic from philosophy"
+- "Why do I feel anxious?" -> "neuroscience of anxiety and fear; philosophical approaches to tranquility"
+- "What is the point of life?" -> "psychology of meaning and purpose; philosophical perspectives on the good life"
+
+Generate ONLY the step-back query. Keep it under 20 words."""
 
 
 def step_back_prompt(query: str, model: Optional[str] = None) -> str:

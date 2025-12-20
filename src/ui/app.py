@@ -1,6 +1,8 @@
 """RAG1-Mini Search Interface.
 
 A Streamlit application for testing the RAG system with Weaviate backend.
+Now includes query preprocessing (classification, step-back prompting) and
+LLM-based answer generation.
 
 Run with:
     streamlit run src/ui/app.py
@@ -23,8 +25,17 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 import streamlit as st
 
-from src.config import DEFAULT_TOP_K, MAX_TOP_K
+from src.config import (
+    DEFAULT_TOP_K,
+    MAX_TOP_K,
+    AVAILABLE_GENERATION_MODELS,
+    GENERATION_MODEL,
+    ENABLE_ANSWER_GENERATION,
+    ENABLE_QUERY_PREPROCESSING,
+)
 from src.ui.services.search import search_chunks, list_collections
+from src.preprocessing import preprocess_query, QueryType
+from src.generation import generate_answer
 
 
 # ============================================================================
@@ -52,6 +63,44 @@ if "last_query" not in st.session_state:
 
 if "connection_error" not in st.session_state:
     st.session_state.connection_error = None
+
+if "preprocessed_query" not in st.session_state:
+    st.session_state.preprocessed_query = None
+
+if "generated_answer" not in st.session_state:
+    st.session_state.generated_answer = None
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+
+def _display_chunks(chunks):
+    """Display chunk results with expandable details."""
+    for i, chunk in enumerate(chunks, 1):
+        # Extract author for cleaner display
+        book_parts = chunk["book_id"].rsplit("(", 1)
+        book_title = book_parts[0].strip()
+        author = book_parts[1].rstrip(")") if len(book_parts) > 1 else ""
+
+        with st.expander(
+            f"**[{i}]** {book_title[:50]}... | Score: {chunk['similarity']:.3f}",
+            expanded=(i <= 3 and not st.session_state.generated_answer),
+        ):
+            # Metadata row
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Similarity", f"{chunk['similarity']:.4f}")
+            col2.metric("Tokens", chunk["token_count"])
+            col3.markdown(f"**Author:** {author}")
+
+            # Section info
+            st.markdown(f"**Section:** {chunk['section']}")
+            st.caption(f"Context: {chunk['context']}")
+
+            # Main text
+            st.markdown("---")
+            st.markdown(chunk["text"])
 
 
 # ============================================================================
@@ -105,15 +154,6 @@ if search_type == "hybrid":
 else:
     alpha = 0.5
 
-# Reranking toggle
-use_reranking = st.sidebar.checkbox(
-    "Enable Cross-Encoder Reranking",
-    value=False,
-    help="Uses a cross-encoder model to re-score results for higher accuracy. "
-         "Slower but significantly improves result quality. "
-         "First use downloads a 1.2GB model.",
-)
-
 # Number of results
 top_k = st.sidebar.slider(
     "Number of Results",
@@ -123,14 +163,58 @@ top_k = st.sidebar.slider(
     help="How many chunks to retrieve.",
 )
 
+# -----------------------------------------------------------------------------
+# Answer Generation Configuration
+# -----------------------------------------------------------------------------
+st.sidebar.subheader("Answer Generation")
+
+# Enable answer generation
+enable_generation = st.sidebar.checkbox(
+    "Generate Answer",
+    value=ENABLE_ANSWER_GENERATION,
+    help="Use an LLM to synthesize an answer from retrieved chunks.",
+)
+
+# Enable query preprocessing
+enable_preprocessing = st.sidebar.checkbox(
+    "Query Preprocessing",
+    value=ENABLE_QUERY_PREPROCESSING,
+    help="Classify queries and apply step-back prompting for open-ended questions.",
+)
+
+# Model selection for generation
+if enable_generation:
+    model_options = {model_id: label for model_id, label in AVAILABLE_GENERATION_MODELS}
+    selected_model = st.sidebar.selectbox(
+        "Generation Model",
+        options=list(model_options.keys()),
+        index=2,  # Default to gpt-5-mini (index 2)
+        format_func=lambda x: model_options[x],
+        help="Model used for answer generation. Higher cost = better quality.",
+    )
+else:
+    selected_model = GENERATION_MODEL
+
+# Reranking toggle (disabled by default - too slow on CPU)
+with st.sidebar.expander("Advanced Options", expanded=False):
+    use_reranking = st.sidebar.checkbox(
+        "Enable Cross-Encoder Reranking",
+        value=False,
+        help="Re-scores results with a cross-encoder for higher accuracy. "
+             "Very slow on CPU (~2 min/query). Disabled by default.",
+    )
+
 # Show current configuration summary
 with st.sidebar.expander("Current Configuration", expanded=False):
     config_summary = f"""
 **Search Type:** {search_type}
 **Alpha:** {alpha if search_type == 'hybrid' else 'N/A'}
-**Reranking:** {'Enabled' if use_reranking else 'Disabled'}
 **Top-K:** {top_k}
 **Collection:** {selected_collection if selected_collection else 'None'}
+**Preprocessing:** {'Enabled' if enable_preprocessing else 'Disabled'}
+**Generation:** {'Enabled' if enable_generation else 'Disabled'}
+**Model:** {selected_model if enable_generation else 'N/A'}
+**Reranking:** {'Enabled' if use_reranking else 'Disabled'}
     """
     st.markdown(config_summary.strip())
 
@@ -161,10 +245,27 @@ if search_clicked and query:
     if not selected_collection:
         st.error("No collection available. Please run `docker compose up -d` and run Stage 6.")
     else:
+        # Step 1: Query Preprocessing (optional)
+        preprocessed = None
+        search_query = query
+
+        if enable_preprocessing:
+            with st.spinner("Analyzing query..."):
+                try:
+                    preprocessed = preprocess_query(query)
+                    search_query = preprocessed.search_query
+                    st.session_state.preprocessed_query = preprocessed
+                except Exception as e:
+                    st.warning(f"Preprocessing failed: {e}. Using original query.")
+                    st.session_state.preprocessed_query = None
+        else:
+            st.session_state.preprocessed_query = None
+
+        # Step 2: Search
         with st.spinner("Searching..."):
             try:
                 results = search_chunks(
-                    query=query,
+                    query=search_query,
                     top_k=top_k,
                     search_type=search_type,
                     alpha=alpha,
@@ -177,6 +278,26 @@ if search_clicked and query:
             except Exception as e:
                 st.error(f"Search failed: {e}")
                 st.session_state.search_results = []
+                st.session_state.generated_answer = None
+                preprocessed = None
+
+        # Step 3: Answer Generation (optional)
+        if enable_generation and st.session_state.search_results:
+            with st.spinner("Generating answer..."):
+                try:
+                    query_type = preprocessed.query_type if preprocessed else QueryType.FACTUAL
+                    answer = generate_answer(
+                        query=query,
+                        chunks=st.session_state.search_results,
+                        query_type=query_type,
+                        model=selected_model,
+                    )
+                    st.session_state.generated_answer = answer
+                except Exception as e:
+                    st.warning(f"Answer generation failed: {e}")
+                    st.session_state.generated_answer = None
+        else:
+            st.session_state.generated_answer = None
 
 
 # ============================================================================
@@ -186,31 +307,60 @@ if search_clicked and query:
 if st.session_state.search_results:
     st.divider()
     st.subheader(f"Results for: \"{st.session_state.last_query}\"")
-    st.caption(f"Found {len(st.session_state.search_results)} chunks")
 
-    for i, chunk in enumerate(st.session_state.search_results, 1):
-        # Extract author for cleaner display
-        book_parts = chunk["book_id"].rsplit("(", 1)
-        book_title = book_parts[0].strip()
-        author = book_parts[1].rstrip(")") if len(book_parts) > 1 else ""
+    # -------------------------------------------------------------------------
+    # Query Analysis Section (if preprocessing was enabled)
+    # -------------------------------------------------------------------------
+    if st.session_state.preprocessed_query:
+        prep = st.session_state.preprocessed_query
+        with st.expander("Query Analysis", expanded=True):
+            col1, col2 = st.columns(2)
 
-        with st.expander(
-            f"**{i}.** {book_title[:50]}... | Score: {chunk['similarity']:.3f}",
-            expanded=(i <= 3),  # Expand top 3 by default
-        ):
-            # Metadata row
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Similarity", f"{chunk['similarity']:.4f}")
-            col2.metric("Tokens", chunk["token_count"])
-            col3.markdown(f"**Author:** {author}")
+            # Query type with color-coded badge
+            type_colors = {
+                QueryType.FACTUAL: "blue",
+                QueryType.OPEN_ENDED: "green",
+                QueryType.MULTI_HOP: "orange",
+            }
+            type_color = type_colors.get(prep.query_type, "gray")
+            col1.markdown(f"**Type:** :{type_color}[{prep.query_type.value.upper()}]")
+            col2.markdown(f"**Preprocessing Time:** {prep.preprocessing_time_ms:.0f}ms")
 
-            # Section info
-            st.markdown(f"**Section:** {chunk['section']}")
-            st.caption(f"Context: {chunk['context']}")
+            # Show step-back query if applied
+            if prep.step_back_query and prep.step_back_query != prep.original_query:
+                st.markdown("**Step-Back Query:**")
+                st.info(prep.step_back_query)
 
-            # Main text
-            st.markdown("---")
-            st.markdown(chunk["text"])
+    # -------------------------------------------------------------------------
+    # Generated Answer Section (if generation was enabled)
+    # -------------------------------------------------------------------------
+    if st.session_state.generated_answer:
+        ans = st.session_state.generated_answer
+        st.markdown("### Generated Answer")
+
+        # Display the answer
+        st.markdown(ans.answer)
+
+        # Show metadata
+        col1, col2, col3 = st.columns(3)
+        col1.caption(f"Model: {ans.model}")
+        col2.caption(f"Sources cited: {ans.sources_used}")
+        col3.caption(f"Generated in {ans.generation_time_ms:.0f}ms")
+
+        st.divider()
+
+    # -------------------------------------------------------------------------
+    # Retrieved Chunks Section
+    # -------------------------------------------------------------------------
+    chunks_header = f"Retrieved Chunks ({len(st.session_state.search_results)})"
+
+    # Make chunks collapsible if answer was generated (focus on answer)
+    if st.session_state.generated_answer:
+        with st.expander(chunks_header, expanded=False):
+            _display_chunks(st.session_state.search_results)
+    else:
+        st.markdown(f"### {chunks_header}")
+        _display_chunks(st.session_state.search_results)
 
 elif query and not st.session_state.search_results:
     st.info("No results found. Try a different query.")
@@ -225,18 +375,35 @@ else:
 
 with st.expander("How This Works"):
     st.markdown("""
-    ### RAG Pipeline Flow
+    ### Complete RAG Pipeline Flow
 
-    1. **Your Query** is converted to a vector (embedding) using the same model
-       that embedded all document chunks (text-embedding-3-large).
+    1. **Query Preprocessing** (optional): Classifies your query and applies
+       transformations for better retrieval:
+       - FACTUAL queries use direct search
+       - OPEN_ENDED queries get step-back prompting (broader concepts)
+       - MULTI_HOP queries (coming soon) will be decomposed
 
-    2. **Vector Search** finds the chunks whose embeddings are most similar
-       to your query embedding (cosine similarity).
+    2. **Vector Search**: Your query is converted to an embedding and matched
+       against document chunks using cosine similarity.
 
-    3. **Reranking (Optional)**: A cross-encoder re-scores the top-50 results
-       by processing query and document together for deeper understanding.
+    3. **Hybrid Search** (default): Combines vector similarity with BM25
+       keyword matching for better term-specific retrieval.
 
-    4. **Results** show the most relevant text passages with their source.
+    4. **Answer Generation** (optional): An LLM synthesizes a coherent answer
+       from the retrieved chunks, with source citations.
+
+    ### Query Preprocessing
+
+    **Step-Back Prompting** (for open-ended questions):
+
+    Research shows that abstracting queries to broader concepts improves
+    retrieval for philosophical and wisdom-seeking questions.
+
+    Example:
+    - Original: "How should I live my life?"
+    - Step-back: "Stoic and philosophical principles for living a good life"
+
+    The broader query retrieves more diverse, relevant passages.
 
     ### Search Types
 
@@ -246,45 +413,26 @@ with st.expander("How This Works"):
     - **Hybrid**: Combines semantic search with keyword matching (BM25).
       Good for technical terms that should match exactly.
 
-    ### Cross-Encoder Reranking
+    ### Answer Generation
 
-    **Why Reranking Improves Results:**
-
-    The default search uses a **bi-encoder** that embeds query and documents
-    separately. This is fast but can miss subtle relationships.
-
-    A **cross-encoder** processes query and document *together* through a
-    transformer, enabling it to understand fine-grained semantic connections.
-
-    Example:
-    - Query: "What metaphor does Marcus Aurelius use for passions?"
-    - Document: "He likens humans to puppets moved by wires"
-
-    The bi-encoder might not connect "puppet metaphor" to "passions" because
-    they're processed separately. The cross-encoder sees both together and
-    understands that "puppets moved by wires" IS the metaphor about passions.
-
-    **Trade-off:** Reranking is slower (~1-2s) but significantly more accurate.
+    After retrieving relevant chunks, an LLM synthesizes a coherent answer:
+    - Uses query-type-specific prompts (factual vs philosophical)
+    - Cites sources by number [1], [2], etc.
+    - Configurable model selection (budget to premium)
 
     ### Technical Details
 
     - **Embedding Model**: text-embedding-3-large (3072 dimensions)
-    - **Reranking Model**: mxbai-rerank-large-v1 (560M parameters)
     - **Vector Database**: Weaviate with HNSW index
     - **Distance Metric**: Cosine similarity (1.0 = identical)
     - **Chunk Size**: ~800 tokens with 2-sentence overlap
+    - **Generation Models**: GPT-5 Nano/Mini, DeepSeek, Gemini Flash, Claude Haiku
 
-    ### Evaluation Metrics (RAGAS)
+    ### Evaluation Results (RAGAS)
 
-    - **Faithfulness**: Is the answer grounded in retrieved context?
-    - **Answer Relevancy**: Does the answer address the question?
-    - **Context Precision**: Are retrieved chunks relevant to the question?
-
-    ### Configurations to Compare
-
-    | Configuration | Relevancy | Notes |
-    |---------------|-----------|-------|
-    | Vector, top_k=5 | 0.67 | Baseline |
-    | Hybrid, top_k=10 | 0.79 | +17% improvement |
-    | Hybrid + Reranking | ??? | Expected +20-35% |
+    | Configuration | Relevancy | Faithfulness |
+    |---------------|-----------|--------------|
+    | Vector, top_k=5 | 0.67 | 0.93 |
+    | Hybrid, top_k=10 | 0.79 | 0.89 |
+    | Hybrid + Rerank | 0.79 | 0.93 |
     """)

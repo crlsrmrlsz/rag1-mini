@@ -95,6 +95,39 @@ python -m src.run_stage_7_evaluation \
 
 ---
 
+## Generation Models for RAG Answers
+
+Models used in the UI for synthesizing answers from retrieved chunks.
+
+| Model | OpenRouter ID | Input/1M | Output/1M | Best For |
+|-------|---------------|----------|-----------|----------|
+| **GPT-5 Nano** | `openai/gpt-5-nano` | $0.05 | $0.40 | Budget/testing |
+| **DeepSeek V3.2** | `deepseek/deepseek-chat` | $0.28 | $0.42 | Best value |
+| **GPT-5 Mini** | `openai/gpt-5-mini` | $0.25 | $2.00 | Balanced (default) |
+| **Gemini 3 Flash** | `google/gemini-3-flash` | $0.50 | $3.00 | Quality |
+| **Claude Haiku 4.5** | `anthropic/claude-haiku-4.5` | $1.00 | $5.00 | Premium |
+
+### Cost per Query (Estimated)
+
+Assuming ~3K input tokens (context + prompt) and ~500 output tokens per answer:
+
+| Model | Cost/Query | 100 Queries |
+|-------|-----------|-------------|
+| GPT-5 Nano | ~$0.0004 | ~$0.04 |
+| DeepSeek V3.2 | ~$0.001 | ~$0.10 |
+| GPT-5 Mini | ~$0.002 | ~$0.18 |
+| Gemini 3 Flash | ~$0.003 | ~$0.30 |
+| Claude Haiku 4.5 | ~$0.006 | ~$0.55 |
+
+### Recommendations
+
+1. **Development/Testing:** GPT-5 Nano - negligible cost
+2. **Daily Use:** GPT-5 Mini - good quality at low cost
+3. **Quality Focus:** Gemini 3 Flash - excellent reasoning
+4. **Production:** Claude Haiku 4.5 - reliable, well-calibrated
+
+---
+
 ## Sources
 
 - [OpenRouter Models](https://openrouter.ai/models)

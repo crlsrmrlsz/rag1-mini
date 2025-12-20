@@ -241,7 +241,7 @@ BOOK_CATEGORIES = {
 }
 
 # Search UI defaults
-DEFAULT_TOP_K = 5
+DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
 
 
@@ -251,13 +251,46 @@ MAX_TOP_K = 20
 
 # Model selection based on research (see memory-bank/model-selection.md)
 # Generation model: Fast, cost-effective for answer generation
-EVAL_GENERATION_MODEL = "google/gemini-2.5-flash"
+EVAL_GENERATION_MODEL = "openai/gpt-5-mini"
 
 # Evaluation model: High quality for LLM-as-judge (RAGAS metrics)
-EVAL_EVALUATION_MODEL = "anthropic/claude-sonnet-4.5"
+EVAL_EVALUATION_MODEL = "anthropic/claude-haiku-4.5"
 
 # Test questions file location
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"
 
 # Results output directory
 EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"
+
+
+# ============================================================================
+# QUERY PREPROCESSING SETTINGS
+# ============================================================================
+
+# Model for query classification and step-back prompting
+# Using fast, cheap model since these are simple classification tasks
+PREPROCESSING_MODEL = "openai/gpt-5-nano"
+
+
+# ============================================================================
+# ANSWER GENERATION SETTINGS
+# ============================================================================
+
+# Default model for answer generation (balanced quality/cost)
+GENERATION_MODEL = "openai/gpt-5-mini"
+
+# Available models for UI selection (ordered by cost)
+# See memory-bank/model-selection.md for pricing details
+AVAILABLE_GENERATION_MODELS = [
+    ("openai/gpt-5-nano", "GPT-5 Nano ($0.05/$0.40 per 1M) - Budget"),
+    ("deepseek/deepseek-chat", "DeepSeek V3.2 ($0.28/$0.42 per 1M) - Value"),
+    ("openai/gpt-5-mini", "GPT-5 Mini ($0.25/$2.00 per 1M) - Balanced"),
+    ("google/gemini-3-flash", "Gemini 3 Flash ($0.50/$3.00 per 1M) - Quality"),
+    ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5 ($1.00/$5.00 per 1M) - Premium"),
+]
+
+# Enable/disable answer generation globally (can be overridden in UI)
+ENABLE_ANSWER_GENERATION = True
+
+# Enable/disable query preprocessing (classification + step-back)
+ENABLE_QUERY_PREPROCESSING = True

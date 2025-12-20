@@ -1,6 +1,6 @@
 # RAG1-Mini Project Status
 
-**Last Updated:** December 19, 2025
+**Last Updated:** December 20, 2025
 
 ## Overview
 
@@ -57,20 +57,34 @@ Weaviate: RAG_section800_embed3large_v1
 
 **Wisdom (11 books):** Kahneman, Schopenhauer (multiple), Lao Tzu, Seneca, Confucius, Epictetus (multiple), Marcus Aurelius, Baltasar Gracian
 
-## RAGAS Evaluation Results
+## RAGAS Evaluation Results (Run 4 - Best)
 
-- **Faithfulness:** 1.0 (answers grounded in context)
-- **Answer Relevancy:** 0.96-1.0 (answers address questions)
-- **Test Set:** 10 curated questions (single concept, cross-domain, open-ended)
+- **Faithfulness:** 0.927 (answers grounded in context)
+- **Answer Relevancy:** 0.787 (answers address questions)
+- **Failures:** 1/23 questions (4%)
+- **Test Set:** 23 curated questions (neuroscience, philosophy, cross-domain)
 
-## Next Steps: Stage 8 Advanced RAG
+**Configuration:** Hybrid search, alpha=0.5, top-k=10, cross-encoder reranking
 
-| Improvement | What | Why |
-|-------------|------|-----|
-| Contextual Retrieval | Prepend LLM context to chunks | 67% reduction in retrieval failure |
-| Semantic Chunking | Chunk by semantic similarity | Preserve complete concepts |
-| Increased Top-K + Reranking | Retrieve 20, LLM reranks to 5 | Reduce noise |
-| Hybrid Search Tuning | Test alpha values (0.3, 0.5, 0.7) | Balance vector/keyword |
+**Note:** Cross-encoder reranking improves quality but is slow on CPU (~2 min/query). Disabled by default; code preserved for future GPU/API use.
+
+## Stage 8: Query Preprocessing + Answer Generation
+
+| Component | Purpose | Status |
+|-----------|---------|--------|
+| Query Classifier | Classify as FACTUAL/OPEN_ENDED/MULTI_HOP | In Progress |
+| Step-Back Prompting | Broaden open-ended queries for better retrieval | In Progress |
+| Answer Generator | Synthesize LLM answer from retrieved chunks | In Progress |
+| UI Enhancement | Display query analysis + generated answers | In Progress |
+
+## Previous Plans: Stage 8 Advanced RAG
+
+| Improvement | What | Status |
+|-------------|------|--------|
+| Hybrid Search | BM25 + vector combination | Completed (Run 2-4) |
+| Cross-Encoder Reranking | Re-score with deep model | Completed (Run 4) - CPU too slow |
+| Alpha Tuning | Test 0.3, 0.5, 0.7 | Pending |
+| API-Based Reranking | Voyage/Cohere for speed | Research done, pending |
 
 ## Run Commands
 

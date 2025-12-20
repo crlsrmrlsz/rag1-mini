@@ -88,16 +88,15 @@ Update these files when making significant changes to maintain project continuit
 
 ### Active
 - [ ] Run alpha tuning experiments (0.3, 0.5, 0.7) with RAGAS
-- [ ] Run reranking vs no-reranking comparison
+- [ ] Query decomposition for MULTI_HOP queries
 
 ### Next
-- [ ] Step-back prompting implementation
-- [ ] Query decomposition implementation
-- [ ] UI query preprocessing options
+- [ ] API-based reranking (Voyage/Cohere) for speed
+- [ ] Contextual retrieval (prepend LLM context to chunks)
 
 ### Completed Recently
-- Added alpha parameter to evaluation CLI (Dec 20)
-- Completed cross-encoder reranking integration (Dec 20)
-- Removed book selection from UI for generalization (Dec 20)
-- Created evaluation-history.md tracking 3 runs (Dec 20)
-- Added Learning Mode instructions (Dec 20)
+- Implemented query preprocessing (classification + step-back prompting) (Dec 20)
+- Implemented LLM answer generation from retrieved chunks (Dec 20)
+- Enhanced UI with query analysis and generated answers (Dec 20)
+- Added generation model selection to UI (Dec 20)
+- Updated project-status.md with Run 4 results (Dec 20)

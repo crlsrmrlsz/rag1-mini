@@ -4,11 +4,11 @@
 
 ## Overview
 
-RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid neuroscientist + philosopher** AI. It processes 19 books (8 neuroscience, 11 philosophy/wisdom) through a 7-stage pipeline to answer questions about human behavior with evidence-based, cross-domain insights.
+RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid neuroscientist + philosopher** AI. It processes 19 books (8 neuroscience, 11 philosophy/wisdom) through an 8-stage pipeline to answer questions about human behavior with evidence-based, cross-domain insights.
 
 **Core Goal:** Master RAG pipeline components while building specialized AI that provides grounded, thoughtful answers about human cognition and behavior.
 
-## Current Status: All Stages Complete
+## Current Status: Stage 8 Complete
 
 | Stage | Description | Output |
 |-------|-------------|--------|
@@ -21,6 +21,8 @@ RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid n
 | 7A. Query | `query_similar()`, `query_hybrid()` | weaviate_query.py |
 | 7B. UI | Streamlit interface | src/ui/app.py |
 | 7C. RAGAS | Evaluation framework | src/evaluation/ |
+| 8A. Preprocessing | Query classification + step-back | src/preprocessing/ |
+| 8B. Generation | LLM answer synthesis | src/generation/ |
 
 ## Data Flow
 
@@ -49,6 +51,9 @@ data/processed/06_embeddings/
 Weaviate: RAG_section800_embed3large_v1
     |
     v  Stage 7: Query + UI + Evaluation
+    |
+    v  Stage 8: Preprocessing + Generation
+User Query -> classify_query() -> step_back_prompt() -> search -> generate_answer() -> Answer
 ```
 
 ## Content
@@ -68,14 +73,18 @@ Weaviate: RAG_section800_embed3large_v1
 
 **Note:** Cross-encoder reranking improves quality but is slow on CPU (~2 min/query). Disabled by default; code preserved for future GPU/API use.
 
-## Stage 8: Query Preprocessing + Answer Generation
+## Stage 8: Query Preprocessing + Answer Generation (Completed Dec 20)
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| Query Classifier | Classify as FACTUAL/OPEN_ENDED/MULTI_HOP | In Progress |
-| Step-Back Prompting | Broaden open-ended queries for better retrieval | In Progress |
-| Answer Generator | Synthesize LLM answer from retrieved chunks | In Progress |
-| UI Enhancement | Display query analysis + generated answers | In Progress |
+| Query Classifier | Classify as FACTUAL/OPEN_ENDED/MULTI_HOP | Complete |
+| Step-Back Prompting | Broaden open-ended queries for better retrieval | Complete |
+| Answer Generator | Synthesize LLM answer from retrieved chunks | Complete |
+| UI Enhancement | Display query analysis + generated answers | Complete |
+
+**New Modules:**
+- `src/preprocessing/` - Query classification and step-back prompting
+- `src/generation/` - LLM answer synthesis with source citations
 
 ## Previous Plans: Stage 8 Advanced RAG
 

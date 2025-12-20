@@ -61,6 +61,8 @@ This is a learning project. For every code change:
 | `src/ingest/naive_chunker.py` | Section chunking | `run_section_chunking() -> Dict[str, int]` |
 | `src/ingest/embed_texts.py` | Embedding API | `embed_texts(texts) -> List[List[float]]` |
 | `src/vector_db/weaviate_client.py` | Weaviate storage | `upload_embeddings(client, name, chunks) -> int` |
+| `src/preprocessing/query_classifier.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
+| `src/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
 
 ## Configuration (src/config.py)
 
@@ -72,6 +74,8 @@ This is a learning project. For every code change:
 - `WEAVIATE_HTTP_PORT = 8080` - REST API port
 - `WEAVIATE_GRPC_PORT = 50051` - gRPC port (v4 client)
 - `get_collection_name()` - Auto-generates collection name from strategy/model/version
+- `PREPROCESSING_MODEL = "openai/gpt-5-nano"` - Query classification model
+- `GENERATION_MODEL = "openai/gpt-5-mini"` - Answer generation model
 
 ## Memory Bank
 

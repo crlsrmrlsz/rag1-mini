@@ -6,11 +6,12 @@ Tracking all RAGAS evaluation runs with configurations and metrics for future ar
 
 ## Summary Table
 
-| Run | Date | Search | Top-K | Alpha | Gen Model | Eval Model | Relevancy | Faithfulness | Failures |
-|-----|------|--------|-------|-------|-----------|------------|-----------|--------------|----------|
-| 1 | Dec 19 | Vector | 5 | - | gpt-4o-mini | gpt-4o-mini | 0.669 | 0.926 | 7/23 (30%) |
-| 2 | Dec 20 | Hybrid | 10 | 0.5 | gpt-5-mini | claude-haiku-4.5 | 0.738 | 0.929 | 1/23 (4%) |
-| 3 | Dec 20 | Hybrid | 10 | 0.5 | gpt-5-mini | claude-haiku-4.5 | 0.786 | 0.885 | 0/23 (0%) |
+| Run | Date | Search | Top-K | Alpha | Rerank | Gen Model | Eval Model | Relevancy | Faithfulness | Failures |
+|-----|------|--------|-------|-------|--------|-----------|------------|-----------|--------------|----------|
+| 1 | Dec 19 | Vector | 5 | - | No | gpt-4o-mini | gpt-4o-mini | 0.669 | 0.926 | 7/23 (30%) |
+| 2 | Dec 20 | Hybrid | 10 | 0.5 | No | gpt-5-mini | claude-haiku-4.5 | 0.738 | 0.929 | 1/23 (4%) |
+| 3 | Dec 20 | Hybrid | 10 | 0.5 | No | gpt-5-mini | claude-haiku-4.5 | 0.786 | 0.885 | 0/23 (0%) |
+| 4 | Dec 20 | Hybrid | 10 | 0.5 | Yes | gpt-5-mini | claude-haiku-4.5 | 0.787 | 0.927 | 1/23 (4%) |
 
 ---
 
@@ -135,16 +136,54 @@ Consistent hybrid configuration achieves zero failures. Philosophy category now 
 
 ---
 
+## Run 4: Cross-Encoder Reranking
+
+**Date:** December 20, 2025 (10:15:07 UTC)
+**File:** `data/evaluation/results/eval_20251220_101507.json`
+
+### Configuration
+- **Search Type:** Hybrid (BM25 + vector)
+- **Top-K:** 10
+- **Alpha:** 0.5
+- **Embedding Model:** text-embedding-3-large
+- **Generation Model:** openai/gpt-5-mini
+- **Evaluation Model:** anthropic/claude-haiku-4.5
+- **Reranking:** Yes (mxbai-rerank-large-v1, 560M params, CPU)
+
+### Results
+| Metric | Score | Change vs Run 3 |
+|--------|-------|-----------------|
+| Faithfulness | 0.927 | +4.7% |
+| Relevancy | 0.787 | +0.1% |
+| Failures | 1/23 (4%) | -1 question |
+
+### Performance Notes
+- **Reranking time:** ~2 min per question (50 docs, CPU)
+- **Total runtime:** ~47 minutes for 23 questions
+- Reranking changed top result in 13/23 queries (57%)
+
+### Failed Questions
+- `neuro_behave_01` - Behavioral neuroscience (faithfulness=0.0)
+
+### Key Learning
+Cross-encoder reranking improved faithfulness significantly (+4.7%) by surfacing more relevant chunks. However, CPU-based inference is extremely slow (~2 min/query). For production use, consider:
+1. API-based rerankers (Cohere, Voyage, Jina) for speed
+2. GPU acceleration for local inference
+3. Smaller models (ms-marco-MiniLM) for faster CPU inference
+
+---
+
 ## Improvement Opportunities
 
 Based on research in `rag-improve-research.md`:
 
 | Improvement | Expected Impact | Status |
 |-------------|-----------------|--------|
-| Cross-encoder reranking | +20-35% precision | Implemented, ready to test |
+| Cross-encoder reranking | +20-35% precision | Tested (Run 4): +4.7% faithfulness, very slow on CPU |
 | Alpha tuning (0.3, 0.7) | Find optimal balance | Ready to test |
 | Step-back prompting | +27% multi-hop | Pending |
 | Query decomposition | +36.7% MRR@10 | Pending |
+| API-based reranking | Speed + quality | Research complete (see below) |
 
 ---
 
@@ -184,3 +223,33 @@ python -m src.run_stage_7_evaluation --alpha 0.7 -o data/evaluation/results/alph
 - **Generation (gpt-5-mini):** Cost-effective, good reasoning
 - **Evaluation (claude-haiku-4.5):** RAGAS research shows Anthropic models are stable judges
 - **Embedding (text-embedding-3-large):** High-quality, 3072 dimensions
+
+---
+
+## API-Based Reranking Options (Research Dec 20)
+
+Local cross-encoder (mxbai-rerank-large-v1) is too slow on CPU (~2 min/query). API alternatives:
+
+| Provider | Model | Pricing | Speed | Notes |
+|----------|-------|---------|-------|-------|
+| **Voyage AI** | rerank-2.5 | $0.05/1M tokens | Fast | 200M free tokens, 16K context |
+| **Voyage AI** | rerank-2.5-lite | $0.02/1M tokens | Faster | 8K context, 2.5x cheaper |
+| **Cohere** | Rerank 3.5 | $2.00/1K searches | Fast | 1 search = 1 query + up to 100 docs |
+| **Jina AI** | Reranker v2 | Token-based | Fast | 10M free tokens, 100+ languages |
+| **MixedBread** | mxbai-rerank | $7.50/1K queries | Fast | Same model, cloud-hosted |
+
+### Recommendation
+For this project's scale (23 eval questions, ~50 docs each):
+
+1. **Best value:** Voyage rerank-2.5-lite ($0.02/1M tokens)
+   - Free tier covers extensive testing
+   - Token-based = predictable costs
+
+2. **Best quality:** Cohere Rerank 3.5 ($2.00/1K searches)
+   - State-of-the-art accuracy
+   - Simple search-based pricing
+
+### Integration
+OpenRouter does NOT currently offer reranking models through their unified API. Direct integration with Voyage/Cohere/Jina required.
+
+**Unified library:** `pip install "rerankers[api]"` supports Cohere, Jina, MixedBread via single API.

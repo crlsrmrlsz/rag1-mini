@@ -76,3 +76,17 @@ The `memory-bank/` directory contains project context:
 - `rag-improve-research.md` - RAG improvement strategies
 
 Update these files when making significant changes to maintain project continuity.
+
+## Current Tasks
+
+### Active
+- [ ] Implement reranking (cross-encoder) for hybrid search
+- [ ] Test hybrid search alpha values (0.3, 0.5, 0.7)
+
+### Blocked
+_(none)_
+
+### Completed Recently
+- Removed .clinerules/, updated memory-bank references (Dec 20)
+- Switched evaluation to hybrid search (Dec 19)
+- Updated RAGAS to modern API (Dec 19)

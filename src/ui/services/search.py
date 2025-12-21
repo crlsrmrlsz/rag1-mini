@@ -25,7 +25,13 @@ Two-Stage Retrieval:
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 
-from src.config import get_collection_name, DEFAULT_TOP_K
+from src.config import (
+    get_collection_name,
+    DEFAULT_TOP_K,
+    ENABLE_DIVERSITY_BALANCING,
+    DIVERSITY_MIN_SCORE,
+    DIVERSITY_BALANCE,
+)
 from src.vector_db import get_client, query_similar, query_hybrid, SearchResult
 
 # Default number of candidates to retrieve before reranking
@@ -35,14 +41,16 @@ RERANK_INITIAL_K = 50
 
 @dataclass
 class SearchOutput:
-    """Result of search operation including optional rerank data for logging.
+    """Result of search operation including optional rerank and diversity data.
 
     Attributes:
         results: List of chunk dictionaries.
         rerank_data: If reranking was used, contains RerankResult for logging.
+        diversity_data: If diversity balancing was applied, contains DiversityResult.
     """
     results: List[Dict[str, Any]] = field(default_factory=list)
     rerank_data: Optional[Any] = None  # RerankResult when reranking is used
+    diversity_data: Optional[Any] = None  # DiversityResult when balancing is used
 
 
 def search_chunks(
@@ -120,6 +128,19 @@ def search_chunks(
             results = rerank_result.results
             rerank_data = rerank_result
 
+        # Apply diversity balancing if enabled (after reranking for best scores)
+        diversity_data = None
+        if ENABLE_DIVERSITY_BALANCING and results:
+            from src.diversity import apply_diversity_balance
+            diversity_result = apply_diversity_balance(
+                results=results,
+                target_count=top_k,
+                balance=DIVERSITY_BALANCE,
+                min_score=DIVERSITY_MIN_SCORE,
+            )
+            results = diversity_result.results
+            diversity_data = diversity_result
+
         # Convert SearchResult objects to dicts for Streamlit
         result_dicts = [
             {
@@ -134,7 +155,11 @@ def search_chunks(
             for r in results
         ]
 
-        return SearchOutput(results=result_dicts, rerank_data=rerank_data)
+        return SearchOutput(
+            results=result_dicts,
+            rerank_data=rerank_data,
+            diversity_data=diversity_data,
+        )
 
     finally:
         client.close()

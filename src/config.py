@@ -246,6 +246,25 @@ MAX_TOP_K = 20
 
 
 # ============================================================================
+# DIVERSITY BALANCING SETTINGS
+# ============================================================================
+
+# Enable/disable diversity balancing globally
+ENABLE_DIVERSITY_BALANCING = True
+
+# Minimum score threshold (0.0-1.0, results below excluded)
+# Applies after reranking when scores are most accurate
+DIVERSITY_MIN_SCORE = 0.3
+
+# Target distribution by category (must sum to 1.0)
+# Used to calculate how many slots each category gets
+DIVERSITY_BALANCE = {
+    "neuroscience": 0.6,
+    "philosophy": 0.4,
+}
+
+
+# ============================================================================
 # EVALUATION SETTINGS (RAGAS)
 # ============================================================================
 

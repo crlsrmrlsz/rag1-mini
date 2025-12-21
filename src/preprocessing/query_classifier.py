@@ -172,24 +172,37 @@ def _call_chat_completion(
 # QUERY CLASSIFICATION
 # =============================================================================
 
-CLASSIFICATION_PROMPT = """You are a query classifier for a knowledge system about human behavior, mind, and life.
+CLASSIFICATION_PROMPT = """You are a query classifier for a knowledge system about human nature.
 
 The system contains:
-- Neuroscience texts: brain mechanisms, consciousness, emotions, decision-making, behavior
-- Philosophy texts: Stoicism, Taoism, wisdom traditions, meaning, ethics, the good life
+- Neuroscience: brain mechanisms, emotions, decision-making, consciousness
+- Philosophy: Stoicism, Taoism, wisdom traditions, meaning, ethics, the good life
 
-Classify the query based on what type of response would best serve the user:
+Classify based on what response type would BEST serve the user:
 
-1. "factual" - Seeks a specific fact, definition, mechanism, or what a particular author said
-   -> Direct, precise answer needed
+## FACTUAL
+Questions seeking specific, verifiable information:
+- Definitions: "What is serotonin?"
+- Specific mechanisms: "What brain region processes fear?"
+- Author quotes: "What did Marcus Aurelius say about anger?"
+- Technical details: "How many neurons are in the prefrontal cortex?"
 
-2. "open_ended" - Explores human nature, behavior, emotions, life questions, or seeks understanding
-   -> Rich, multi-perspective answer integrating science and wisdom where relevant
+## OPEN_ENDED
+Questions about human nature, life, meaning, or behavior that benefit from multiple perspectives:
+- "Why do we need approval from others to feel good?"
+- "How can I deal with anxiety?"
+- "What makes life meaningful?"
+- "Why do humans fear death?"
 
-3. "multi_hop" - Explicitly compares, contrasts, or connects concepts across sources or domains
-   -> Analytical synthesis across perspectives
+Key signal: Questions asking "why do we/humans..." about emotions, behavior, or life are almost always open_ended.
 
-When uncertain, prefer "open_ended" - most questions about human behavior benefit from integrated perspectives.
+## MULTI_HOP
+Questions that EXPLICITLY compare or connect across domains:
+- "Compare Stoic and Buddhist views on suffering"
+- "How does neuroscience explain what the Stoics called 'passion'?"
+
+## Decision Rule
+If a question could benefit from BOTH scientific AND philosophical perspectives, classify as "open_ended".
 
 Respond with JSON: {"query_type": "factual" | "open_ended" | "multi_hop"}"""
 

@@ -71,21 +71,95 @@ New collections (contextual, raptor, graphrag) will automatically appear in the 
 
 ### Evaluation (CLI Only)
 
-Evaluation stays outside the UI for simplicity. Use existing CLI:
+Evaluation stays outside the UI for simplicity. Improvements needed for `src/run_stage_7_evaluation.py`:
 
+**Current CLI arguments (already implemented):**
 ```bash
-# Run RAGAS evaluation with current config
-python -m src.run_stage_7_evaluation
+python -m src.run_stage_7_evaluation [OPTIONS]
 
-# Test specific alpha values
-python -m src.run_stage_7_evaluation --alpha 0.3
-python -m src.run_stage_7_evaluation --alpha 0.7
-
-# Disable reranking
-python -m src.run_stage_7_evaluation --no-reranking
+Options:
+  -n, --questions N         Limit to first N questions
+  -c, --category CATEGORY   Filter: neuroscience|philosophy|synthesis|open_ended
+  -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision)
+  -k, --top-k K             Chunks to retrieve (default: 10)
+  --generation-model MODEL  Answer generation model (default: openai/gpt-5-mini)
+  --evaluation-model MODEL  RAGAS judge model (default: anthropic/claude-haiku-4.5)
+  -a, --alpha ALPHA         Hybrid search: 0.0=keyword, 0.5=balanced, 1.0=vector
+  --reranking/--no-reranking  Enable/disable cross-encoder
+  -o, --output PATH         Output file path
 ```
 
-Results saved to `data/evaluation/results/` and manually updated in `memory-bank/evaluation-history.md`.
+**To add:**
+1. `--collection` argument to select which Weaviate collection (e.g., `RAG_contextual_v1`)
+2. Auto-append results to `memory-bank/evaluation-history.md`
+3. Update `data/evaluation/tracking.json` with run config
+
+**Implementation:**
+
+```python
+# Add to argparse:
+parser.add_argument(
+    "--collection",
+    type=str,
+    default=None,
+    help="Weaviate collection to evaluate (default: auto from config)",
+)
+
+# Add auto-logging function:
+def append_to_evaluation_history(results, config, output_path):
+    """Append run summary to memory-bank/evaluation-history.md"""
+    history_path = Path("memory-bank/evaluation-history.md")
+
+    # Get next run number
+    run_number = get_next_run_number(history_path)
+
+    # Format markdown
+    entry = f"""
+---
+
+## Run {run_number}: {config['collection']}
+
+**Date:** {datetime.now().strftime('%B %d, %Y')}
+**File:** `{output_path.relative_to(Path.cwd())}`
+
+### Configuration
+- **Collection:** {config['collection']}
+- **Search Type:** Hybrid
+- **Alpha:** {config['alpha']}
+- **Top-K:** {config['top_k']}
+- **Reranking:** {'Yes' if config['reranking'] else 'No'}
+- **Generation Model:** {config['generation_model']}
+- **Evaluation Model:** {config['evaluation_model']}
+
+### Results
+| Metric | Score |
+|--------|-------|
+| Faithfulness | {results['scores'].get('faithfulness', 'N/A'):.3f} |
+| Relevancy | {results['scores'].get('relevancy', 'N/A'):.3f} |
+| Context Precision | {results['scores'].get('context_precision', 'N/A'):.3f} |
+
+### Key Learning
+[Add notes about this run manually]
+"""
+
+    with open(history_path, "a") as f:
+        f.write(entry)
+
+    logger.info(f"Appended to evaluation-history.md as Run {run_number}")
+```
+
+**Example usage after improvements:**
+```bash
+# Test contextual embeddings collection
+python -m src.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
+
+# Test RAPTOR with different alpha
+python -m src.run_stage_7_evaluation --collection RAG_raptor_embed3large_v1 --alpha 0.7
+
+# Compare collections
+python -m src.run_stage_7_evaluation --collection RAG_section800_embed3large_v1
+python -m src.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
+```
 
 ---
 
@@ -372,13 +446,54 @@ Add search mode toggle:
 
 ---
 
-## Phase 4: Query Decomposition (MULTI_HOP)
+## Phase 4: Step-Back Prompt Enhancement
+
+**Expected Impact**: Improved retrieval precision through domain-specific vocabulary
+
+**Concept**: Enhance the step-back prompting technique with Chain-of-Thought examples and concrete vocabulary from the knowledge base.
+
+**Research**: See `memory-bank/step-back-prompting-research.md` for full analysis.
+
+### 4.1 Current Problem
+
+The current step-back prompt generates generic queries like:
+```
+"neuroscience of social validation; philosophical ethics of external approval"
+```
+
+This is too abstract and doesn't use vocabulary that matches chunk content.
+
+### 4.2 Improved Prompt
+
+Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_classifier.py` with a version that:
+1. Uses Chain-of-Thought examples ("Think: Core=..., Mechanisms=...")
+2. Includes domain-specific vocabulary (author names, brain regions, philosophical schools)
+3. Generates mixed-term queries for better hybrid retrieval
+
+**Expected output after improvement**:
+```
+"dopamine social reward approval seeking Stoic virtue external validation Marcus Aurelius"
+```
+
+### 4.3 Implementation
+
+**File**: `src/preprocessing/query_classifier.py` (lines 268-286)
+**Change**: Prompt text only, no code logic changes
+
+### 4.4 Future Iterations (if metrics improve)
+
+1. **Multi-Query Generation**: Generate 4 targeted queries + RRF merging
+2. **Principle Extraction**: Add explicit concept extraction step
+
+---
+
+## Phase 5: Query Decomposition (MULTI_HOP)
 
 **Expected Impact**: +36.7% MRR@10 improvement
 
 **Concept**: Break complex queries into sub-questions, retrieve for each, merge results.
 
-### 4.1 Implement Decomposition
+### 5.1 Implement Decomposition
 
 **Modify**: `src/preprocessing/query_classifier.py`
 
@@ -397,7 +512,7 @@ Return JSON array of sub-questions:
     return result  # List[str]
 ```
 
-### 4.2 Multi-Query Retrieval
+### 5.2 Multi-Query Retrieval
 
 ```python
 def retrieve_multi_hop(query: str, sub_queries: List[str], top_k: int) -> List[SearchResult]:
@@ -416,7 +531,7 @@ def retrieve_multi_hop(query: str, sub_queries: List[str], top_k: int) -> List[S
     return [m['result'] for m in merged][:top_k]
 ```
 
-### 4.3 Update Preprocessing Flow
+### 5.3 Update Preprocessing Flow
 
 ```python
 elif query_type == QueryType.MULTI_HOP:
@@ -427,9 +542,9 @@ elif query_type == QueryType.MULTI_HOP:
 
 ---
 
-## Phase 5: Quick Wins (High Impact, Low Effort)
+## Phase 6: Quick Wins (High Impact, Low Effort)
 
-### 5.1 Lost-in-the-Middle Mitigation
+### 6.1 Lost-in-the-Middle Mitigation
 
 **Impact**: +15% answer quality
 
@@ -449,7 +564,7 @@ def reorder_chunks_for_attention(chunks: List[Dict]) -> List[Dict]:
     return best + worst + second_best
 ```
 
-### 5.2 Alpha Tuning Experiments
+### 6.2 Alpha Tuning Experiments
 
 Already in task list. Run via CLI:
 
@@ -467,11 +582,15 @@ Update `evaluation-history.md` with results after each run.
 
 | Order | Phase | Effort | Impact | Files |
 |-------|-------|--------|--------|-------|
-| 1 | Phase 5.1: Lost-in-middle | Low | +15% | `answer_generator.py` |
-| 2 | Phase 1: Contextual | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
-| 3 | Phase 4: MULTI_HOP | Low | +36.7% MRR | `query_classifier.py` |
-| 4 | Phase 2: RAPTOR | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
-| 5 | Phase 3: GraphRAG | High | +70% coverage | `graph/`, Neo4j |
+| 0 | Evaluation CLI improvements | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
+| 1 | Phase 4: Step-Back Prompt Enhancement | Low | Better retrieval | `query_classifier.py` (prompt only) |
+| 2 | Phase 6.1: Lost-in-middle | Low | +15% | `answer_generator.py` |
+| 3 | Phase 1: Contextual | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
+| 4 | Phase 5: MULTI_HOP | Low | +36.7% MRR | `query_classifier.py` |
+| 5 | Phase 2: RAPTOR | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
+| 6 | Phase 3: GraphRAG | High | +70% coverage | `graph/`, Neo4j |
+
+**Note**: Phase 4 (Step-Back Prompt Enhancement) research and implementation details are in `memory-bank/step-back-prompting-research.md`.
 
 ---
 
@@ -502,11 +621,15 @@ For each improvement:
 - `src/run_stage_6b_neo4j.py` - Neo4j upload stage
 
 ### Modified Files
+- `src/run_stage_7_evaluation.py` - Add --collection arg, auto-logging to evaluation-history.md
 - `src/config.py` - Add graph config
-- `src/preprocessing/query_classifier.py` - Add query decomposition
+- `src/preprocessing/query_classifier.py` - Improve STEP_BACK_PROMPT (Phase 4), add query decomposition (Phase 5)
 - `src/generation/answer_generator.py` - Lost-in-middle fix
 - `src/vector_db/weaviate_client.py` - RAPTOR schema fields
 - `docker-compose.yml` - Add Neo4j service
+
+### Research Files
+- `memory-bank/step-back-prompting-research.md` - Full analysis of step-back technique with improved prompts
 
 ---
 

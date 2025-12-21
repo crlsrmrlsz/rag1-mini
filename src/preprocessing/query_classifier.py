@@ -265,25 +265,37 @@ def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, 
 # STEP-BACK PROMPTING
 # =============================================================================
 
-STEP_BACK_PROMPT = """You help improve search queries for a knowledge system about human behavior.
+STEP_BACK_PROMPT = """You transform questions into effective search queries for a knowledge system about human nature.
 
-The system contains neuroscience (brain, behavior, consciousness) AND philosophy (wisdom, ethics, meaning).
+KNOWLEDGE BASE CONTENTS:
+- Neuroscience books: brain mechanisms, dopamine/serotonin/oxytocin, prefrontal cortex, amygdala, limbic system, decision-making, emotions, consciousness, evolutionary psychology
+- Philosophy books: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism (Lao Tzu, Chuang Tzu), Buddhism, virtue ethics, meaning of life, wisdom traditions
 
-Given the user's question, generate a broader "step-back" query that will retrieve relevant content
-from both scientific AND philosophical perspectives when appropriate.
+TASK: Generate a search query that will retrieve the most relevant passages.
 
-Principles:
-- Identify the UNDERLYING TOPIC (emotion, motivation, decision-making, meaning, consciousness, etc.)
-- Include SCIENTIFIC ANGLE (brain mechanisms, neurotransmitters, psychology, evolution)
-- Include WISDOM ANGLE (philosophical practices, ancient wisdom, life guidance)
-- Keep it broad enough to catch diverse relevant passages
+PROCESS:
+1. Identify the CORE TOPIC: What is the user really asking about? (e.g., fear, purpose, social needs, self-control)
+2. Identify SPECIFIC MECHANISMS: What brain systems, psychological processes, or philosophical concepts relate?
+3. Use CONCRETE VOCABULARY: Include specific terms from the knowledge base (author names, brain regions, philosophical schools, emotions)
 
-Examples of the pattern:
-- Specific question -> "underlying topic from neuroscience; underlying topic from philosophy"
-- "Why do I feel anxious?" -> "neuroscience of anxiety and fear; philosophical approaches to tranquility"
-- "What is the point of life?" -> "psychology of meaning and purpose; philosophical perspectives on the good life"
+EXAMPLES:
+User: "Why do I feel anxious?"
+Think: Core=anxiety/fear, Mechanisms=amygdala+cortisol+fight-or-flight+Stoic tranquility
+Query: "amygdala fear response anxiety Stoic tranquility ataraxia Epictetus control"
 
-Generate ONLY the step-back query. Keep it under 20 words."""
+User: "Why do we need approval from others to feel good?"
+Think: Core=social validation+reward, Mechanisms=dopamine+social brain+oxytocin+Stoic indifference to externals
+Query: "dopamine social reward approval seeking Stoic virtue external validation Marcus Aurelius"
+
+User: "What is the point of life?"
+Think: Core=meaning/purpose, Mechanisms=prefrontal cortex goal-setting+existential psychology+Stoic eudaimonia+Taoist wu-wei
+Query: "meaning purpose life eudaimonia Stoicism Taoism Viktor Frankl prefrontal goals"
+
+User: "How can I control my anger?"
+Think: Core=anger regulation, Mechanisms=amygdala+prefrontal inhibition+Seneca on anger+cognitive reappraisal
+Query: "anger regulation amygdala prefrontal Seneca De Ira Stoic passion cognitive reappraisal"
+
+Generate ONLY the search query. Use 10-20 words. Include both neuroscience and philosophy terms."""
 
 
 def step_back_prompt(query: str, model: Optional[str] = None) -> str:

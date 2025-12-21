@@ -22,7 +22,8 @@ Two-Stage Retrieval:
 2. Slow cross-encoder reranks to top-k with higher accuracy
 """
 
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.config import get_collection_name, DEFAULT_TOP_K
 from src.vector_db import get_client, query_similar, query_hybrid, SearchResult
@@ -32,6 +33,18 @@ from src.vector_db import get_client, query_similar, query_hybrid, SearchResult
 RERANK_INITIAL_K = 50
 
 
+@dataclass
+class SearchOutput:
+    """Result of search operation including optional rerank data for logging.
+
+    Attributes:
+        results: List of chunk dictionaries.
+        rerank_data: If reranking was used, contains RerankResult for logging.
+    """
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    rerank_data: Optional[Any] = None  # RerankResult when reranking is used
+
+
 def search_chunks(
     query: str,
     top_k: int = DEFAULT_TOP_K,
@@ -39,7 +52,7 @@ def search_chunks(
     alpha: float = 0.5,
     collection_name: Optional[str] = None,
     use_reranking: bool = False,
-) -> List[Dict[str, Any]]:
+) -> SearchOutput:
     """
     Search Weaviate for relevant chunks with optional reranking.
 
@@ -57,19 +70,22 @@ def search_chunks(
                        This is slower but significantly improves result quality.
 
     Returns:
-        List of chunk dictionaries with text, metadata, and similarity score.
+        SearchOutput with results list and optional rerank_data for logging.
 
     Raises:
         weaviate.exceptions.WeaviateConnectionError: If Weaviate is not running.
 
     Example:
         >>> # Basic hybrid search
-        >>> results = search_chunks("What is consciousness?", search_type="hybrid")
+        >>> output = search_chunks("What is consciousness?", search_type="hybrid")
+        >>> results = output.results
         >>>
         >>> # With reranking for higher accuracy
-        >>> results = search_chunks("What is consciousness?", use_reranking=True)
+        >>> output = search_chunks("What is consciousness?", use_reranking=True)
+        >>> print(output.rerank_data.order_changes)  # See how rankings changed
     """
     collection_name = collection_name or get_collection_name()
+    rerank_data = None
 
     # Connect to Weaviate
     client = get_client()
@@ -100,10 +116,12 @@ def search_chunks(
         if use_reranking and results:
             # Import here to avoid loading 1.2GB model on startup
             from src.reranking import rerank
-            results = rerank(query, results, top_k=top_k)
+            rerank_result = rerank(query, results, top_k=top_k)
+            results = rerank_result.results
+            rerank_data = rerank_result
 
         # Convert SearchResult objects to dicts for Streamlit
-        return [
+        result_dicts = [
             {
                 "chunk_id": r.chunk_id,
                 "book_id": r.book_id,
@@ -115,6 +133,8 @@ def search_chunks(
             }
             for r in results
         ]
+
+        return SearchOutput(results=result_dicts, rerank_data=rerank_data)
 
     finally:
         client.close()

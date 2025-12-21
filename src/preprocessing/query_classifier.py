@@ -76,6 +76,8 @@ class PreprocessedQuery:
         step_back_query: For OPEN_ENDED, the abstracted broader query.
         sub_queries: For MULTI_HOP, decomposed sub-questions (future).
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
+        classification_prompt_used: The prompt sent to LLM for classification (for logging).
+        step_back_prompt_used: The prompt sent to LLM for step-back (for logging).
     """
 
     original_query: str
@@ -84,6 +86,8 @@ class PreprocessedQuery:
     step_back_query: Optional[str] = None
     sub_queries: List[str] = field(default_factory=list)
     preprocessing_time_ms: float = 0.0
+    classification_prompt_used: Optional[str] = None
+    step_back_prompt_used: Optional[str] = None
 
 
 # =============================================================================
@@ -342,10 +346,12 @@ def preprocess_query(
     # Step 2: Apply appropriate transformation
     step_back_query = None
     search_query = query
+    step_back_prompt_used = None
 
     if query_type == QueryType.OPEN_ENDED and enable_step_back:
         step_back_query = step_back_prompt(query, model=model)
         search_query = step_back_query
+        step_back_prompt_used = STEP_BACK_PROMPT
         logger.info(f"Step-back query: {step_back_query}")
 
     elif query_type == QueryType.MULTI_HOP:
@@ -361,4 +367,6 @@ def preprocess_query(
         search_query=search_query,
         step_back_query=step_back_query,
         preprocessing_time_ms=elapsed_ms,
+        classification_prompt_used=CLASSIFICATION_PROMPT,
+        step_back_prompt_used=step_back_prompt_used,
     )

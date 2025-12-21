@@ -1,8 +1,11 @@
 """RAG1-Mini Search Interface.
 
 A Streamlit application for testing the RAG system with Weaviate backend.
-Now includes query preprocessing (classification, step-back prompting) and
-LLM-based answer generation.
+Features:
+- Query preprocessing (classification, step-back prompting)
+- Hybrid/vector search with optional cross-encoder reranking
+- LLM-based answer generation
+- Pipeline logging with full prompt visibility
 
 Run with:
     streamlit run src/ui/app.py
@@ -24,12 +27,15 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 import streamlit as st
+import pandas as pd
 
 from src.config import (
     DEFAULT_TOP_K,
     MAX_TOP_K,
     AVAILABLE_GENERATION_MODELS,
+    AVAILABLE_PREPROCESSING_MODELS,
     GENERATION_MODEL,
+    PREPROCESSING_MODEL,
     ENABLE_ANSWER_GENERATION,
     ENABLE_QUERY_PREPROCESSING,
 )
@@ -70,13 +76,19 @@ if "preprocessed_query" not in st.session_state:
 if "generated_answer" not in st.session_state:
     st.session_state.generated_answer = None
 
+if "rerank_data" not in st.session_state:
+    st.session_state.rerank_data = None
+
+if "retrieval_settings" not in st.session_state:
+    st.session_state.retrieval_settings = {}
+
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
 
-def _display_chunks(chunks):
+def _display_chunks(chunks, show_indices=True):
     """Display chunk results with expandable details."""
     for i, chunk in enumerate(chunks, 1):
         # Extract author for cleaner display
@@ -84,8 +96,9 @@ def _display_chunks(chunks):
         book_title = book_parts[0].strip()
         author = book_parts[1].rstrip(")") if len(book_parts) > 1 else ""
 
+        prefix = f"[{i}] " if show_indices else ""
         with st.expander(
-            f"**[{i}]** {book_title[:50]}... | Score: {chunk['similarity']:.3f}",
+            f"**{prefix}**{book_title[:50]}... | Score: {chunk['similarity']:.3f}",
             expanded=(i <= 3 and not st.session_state.generated_answer),
         ):
             # Metadata row
@@ -103,8 +116,99 @@ def _display_chunks(chunks):
             st.markdown(chunk["text"])
 
 
+def _render_pipeline_log():
+    """Render the Pipeline Log tab with detailed prompts and transformations."""
+    prep = st.session_state.preprocessed_query
+    ans = st.session_state.generated_answer
+    rerank = st.session_state.rerank_data
+    settings = st.session_state.retrieval_settings
+
+    # Stage 1: Query Preprocessing
+    with st.expander("Stage 1: Query Preprocessing", expanded=True):
+        if prep:
+            col1, col2 = st.columns(2)
+
+            # Query type with color-coded badge
+            type_colors = {
+                QueryType.FACTUAL: "blue",
+                QueryType.OPEN_ENDED: "green",
+                QueryType.MULTI_HOP: "orange",
+            }
+            type_color = type_colors.get(prep.query_type, "gray")
+            col1.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
+            col2.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
+
+            st.markdown("**Classification Prompt:**")
+            st.code(prep.classification_prompt_used, language="text")
+
+            if prep.step_back_query and prep.step_back_query != prep.original_query:
+                st.markdown("**Step-Back Prompt:**")
+                st.code(prep.step_back_prompt_used, language="text")
+
+                st.markdown("**Step-Back Result:**")
+                st.info(f"Original: {prep.original_query}\n\nTransformed: {prep.step_back_query}")
+        else:
+            st.info("Preprocessing was disabled for this query.")
+
+    # Stage 2: Retrieval
+    with st.expander("Stage 2: Retrieval", expanded=True):
+        if settings:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Search Type", settings.get("search_type", "N/A"))
+            col2.metric("Alpha", settings.get("alpha", "N/A"))
+            col3.metric("Top-K", settings.get("top_k", "N/A"))
+
+            search_q = prep.search_query if prep else st.session_state.last_query
+            st.markdown(f"**Query Sent to Weaviate:**")
+            st.code(search_q, language="text")
+
+            st.metric("Results Retrieved", len(st.session_state.search_results))
+        else:
+            st.info("No retrieval data available.")
+
+    # Stage 3: Reranking
+    with st.expander("Stage 3: Reranking", expanded=True):
+        if rerank:
+            col1, col2 = st.columns(2)
+            col1.markdown(f"**Model:** `{rerank.model}`")
+            col2.metric("Time", f"{rerank.rerank_time_ms:.0f}ms")
+
+            if rerank.order_changes:
+                st.markdown("**Order Changes (how rankings shifted):**")
+
+                # Create a DataFrame for display
+                df = pd.DataFrame(rerank.order_changes)
+                df = df[["before_rank", "after_rank", "before_score", "after_score", "text_preview"]]
+                df.columns = ["Before Rank", "After Rank", "Before Score", "After Score", "Text Preview"]
+                df["Before Score"] = df["Before Score"].round(3)
+                df["After Score"] = df["After Score"].round(3)
+
+                st.dataframe(df, use_container_width=True)
+        else:
+            st.info("Reranking was disabled for this query.")
+
+    # Stage 4: Answer Generation
+    with st.expander("Stage 4: Answer Generation", expanded=True):
+        if ans:
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"**Model:** `{ans.model}`")
+            if ans.query_type:
+                col2.markdown(f"**Query Type:** `{ans.query_type.value}`")
+            col3.metric("Time", f"{ans.generation_time_ms:.0f}ms")
+
+            st.markdown("**System Prompt:**")
+            st.code(ans.system_prompt_used, language="text")
+
+            st.markdown("**User Prompt (with context):**")
+            st.code(ans.user_prompt_used, language="text")
+
+            st.markdown(f"**Sources Cited:** {ans.sources_used}")
+        else:
+            st.info("Answer generation was disabled for this query.")
+
+
 # ============================================================================
-# SIDEBAR - Settings and Filters
+# SIDEBAR - Settings organized by Pipeline Stage
 # ============================================================================
 
 st.sidebar.title("Settings")
@@ -119,7 +223,7 @@ except Exception as e:
 
 if available_collections:
     selected_collection = st.sidebar.selectbox(
-        "Embedding Collection",
+        "Collection",
         options=available_collections,
         help="Different collections may use different embedding models or chunking strategies.",
     )
@@ -127,10 +231,37 @@ else:
     st.sidebar.warning("No collections found. Is Weaviate running?")
     selected_collection = None
 
+st.sidebar.divider()
+
 # -----------------------------------------------------------------------------
-# Retrieval Strategy Configuration
+# STAGE 1: Query Preprocessing
 # -----------------------------------------------------------------------------
-st.sidebar.subheader("Retrieval Strategy")
+st.sidebar.markdown("### Stage 1: Query Preprocessing")
+
+enable_preprocessing = st.sidebar.checkbox(
+    "Enable Preprocessing",
+    value=ENABLE_QUERY_PREPROCESSING,
+    help="Classify queries and apply step-back prompting for open-ended questions.",
+)
+
+if enable_preprocessing:
+    prep_model_options = {model_id: label for model_id, label in AVAILABLE_PREPROCESSING_MODELS}
+    selected_prep_model = st.sidebar.selectbox(
+        "Preprocessing Model",
+        options=list(prep_model_options.keys()),
+        index=0,  # Default to first (fastest)
+        format_func=lambda x: prep_model_options[x],
+        help="Model used for query classification and step-back prompting.",
+    )
+else:
+    selected_prep_model = PREPROCESSING_MODEL
+
+st.sidebar.divider()
+
+# -----------------------------------------------------------------------------
+# STAGE 2: Retrieval
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### Stage 2: Retrieval")
 
 # Search type selector
 search_type = st.sidebar.radio(
@@ -163,26 +294,35 @@ top_k = st.sidebar.slider(
     help="How many chunks to retrieve.",
 )
 
-# -----------------------------------------------------------------------------
-# Answer Generation Configuration
-# -----------------------------------------------------------------------------
-st.sidebar.subheader("Answer Generation")
+st.sidebar.divider()
 
-# Enable answer generation
+# -----------------------------------------------------------------------------
+# STAGE 3: Reranking
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### Stage 3: Reranking")
+
+use_reranking = st.sidebar.checkbox(
+    "Enable Cross-Encoder Reranking",
+    value=False,
+    help="Re-scores results with a cross-encoder for higher accuracy.",
+)
+
+if use_reranking:
+    st.sidebar.caption("Slow on CPU (~2 min/query). Retrieves 50 candidates, reranks to top-k.")
+
+st.sidebar.divider()
+
+# -----------------------------------------------------------------------------
+# STAGE 4: Answer Generation
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### Stage 4: Answer Generation")
+
 enable_generation = st.sidebar.checkbox(
-    "Generate Answer",
+    "Enable Answer Generation",
     value=ENABLE_ANSWER_GENERATION,
     help="Use an LLM to synthesize an answer from retrieved chunks.",
 )
 
-# Enable query preprocessing
-enable_preprocessing = st.sidebar.checkbox(
-    "Query Preprocessing",
-    value=ENABLE_QUERY_PREPROCESSING,
-    help="Classify queries and apply step-back prompting for open-ended questions.",
-)
-
-# Model selection for generation
 if enable_generation:
     model_options = {model_id: label for model_id, label in AVAILABLE_GENERATION_MODELS}
     selected_model = st.sidebar.selectbox(
@@ -195,26 +335,27 @@ if enable_generation:
 else:
     selected_model = GENERATION_MODEL
 
-# Reranking toggle (disabled by default - too slow on CPU)
-with st.sidebar.expander("Advanced Options", expanded=False):
-    use_reranking = st.sidebar.checkbox(
-        "Enable Cross-Encoder Reranking",
-        value=False,
-        help="Re-scores results with a cross-encoder for higher accuracy. "
-             "Very slow on CPU (~2 min/query). Disabled by default.",
-    )
+st.sidebar.divider()
 
 # Show current configuration summary
 with st.sidebar.expander("Current Configuration", expanded=False):
     config_summary = f"""
-**Search Type:** {search_type}
-**Alpha:** {alpha if search_type == 'hybrid' else 'N/A'}
-**Top-K:** {top_k}
-**Collection:** {selected_collection if selected_collection else 'None'}
-**Preprocessing:** {'Enabled' if enable_preprocessing else 'Disabled'}
-**Generation:** {'Enabled' if enable_generation else 'Disabled'}
-**Model:** {selected_model if enable_generation else 'N/A'}
-**Reranking:** {'Enabled' if use_reranking else 'Disabled'}
+**Stage 1: Preprocessing**
+- Enabled: {'Yes' if enable_preprocessing else 'No'}
+- Model: {selected_prep_model if enable_preprocessing else 'N/A'}
+
+**Stage 2: Retrieval**
+- Type: {search_type}
+- Alpha: {alpha if search_type == 'hybrid' else 'N/A'}
+- Top-K: {top_k}
+- Collection: {selected_collection if selected_collection else 'None'}
+
+**Stage 3: Reranking**
+- Enabled: {'Yes' if use_reranking else 'No'}
+
+**Stage 4: Generation**
+- Enabled: {'Yes' if enable_generation else 'No'}
+- Model: {selected_model if enable_generation else 'N/A'}
     """
     st.markdown(config_summary.strip())
 
@@ -250,9 +391,9 @@ if search_clicked and query:
         search_query = query
 
         if enable_preprocessing:
-            with st.spinner("Analyzing query..."):
+            with st.spinner("Stage 1: Analyzing query..."):
                 try:
-                    preprocessed = preprocess_query(query)
+                    preprocessed = preprocess_query(query, model=selected_prep_model)
                     search_query = preprocessed.search_query
                     st.session_state.preprocessed_query = preprocessed
                 except Exception as e:
@@ -261,10 +402,10 @@ if search_clicked and query:
         else:
             st.session_state.preprocessed_query = None
 
-        # Step 2: Search
-        with st.spinner("Searching..."):
+        # Step 2 & 3: Search (with optional reranking)
+        with st.spinner("Stage 2: Searching..." if not use_reranking else "Stage 2-3: Searching and reranking..."):
             try:
-                results = search_chunks(
+                search_output = search_chunks(
                     query=search_query,
                     top_k=top_k,
                     search_type=search_type,
@@ -272,18 +413,25 @@ if search_clicked and query:
                     collection_name=selected_collection,
                     use_reranking=use_reranking,
                 )
-                st.session_state.search_results = results
+                st.session_state.search_results = search_output.results
+                st.session_state.rerank_data = search_output.rerank_data
                 st.session_state.last_query = query
+                st.session_state.retrieval_settings = {
+                    "search_type": search_type,
+                    "alpha": alpha,
+                    "top_k": top_k,
+                }
                 st.session_state.connection_error = None
             except Exception as e:
                 st.error(f"Search failed: {e}")
                 st.session_state.search_results = []
                 st.session_state.generated_answer = None
+                st.session_state.rerank_data = None
                 preprocessed = None
 
-        # Step 3: Answer Generation (optional)
+        # Step 4: Answer Generation (optional)
         if enable_generation and st.session_state.search_results:
-            with st.spinner("Generating answer..."):
+            with st.spinner("Stage 4: Generating answer..."):
                 try:
                     query_type = preprocessed.query_type if preprocessed else QueryType.FACTUAL
                     answer = generate_answer(
@@ -301,65 +449,73 @@ if search_clicked and query:
 
 
 # ============================================================================
-# RESULTS DISPLAY
+# RESULTS DISPLAY - Tabs: Answer | Pipeline Log | Chunks
 # ============================================================================
 
 if st.session_state.search_results:
     st.divider()
     st.subheader(f"Results for: \"{st.session_state.last_query}\"")
 
-    # -------------------------------------------------------------------------
-    # Query Analysis Section (if preprocessing was enabled)
-    # -------------------------------------------------------------------------
-    if st.session_state.preprocessed_query:
-        prep = st.session_state.preprocessed_query
-        with st.expander("Query Analysis", expanded=True):
-            col1, col2 = st.columns(2)
-
-            # Query type with color-coded badge
-            type_colors = {
-                QueryType.FACTUAL: "blue",
-                QueryType.OPEN_ENDED: "green",
-                QueryType.MULTI_HOP: "orange",
-            }
-            type_color = type_colors.get(prep.query_type, "gray")
-            col1.markdown(f"**Type:** :{type_color}[{prep.query_type.value.upper()}]")
-            col2.markdown(f"**Preprocessing Time:** {prep.preprocessing_time_ms:.0f}ms")
-
-            # Show step-back query if applied
-            if prep.step_back_query and prep.step_back_query != prep.original_query:
-                st.markdown("**Step-Back Query:**")
-                st.info(prep.step_back_query)
+    # Create tabs for different views
+    tab_answer, tab_log, tab_chunks = st.tabs(["Answer", "Pipeline Log", "Retrieved Chunks"])
 
     # -------------------------------------------------------------------------
-    # Generated Answer Section (if generation was enabled)
+    # TAB 1: Answer
     # -------------------------------------------------------------------------
-    if st.session_state.generated_answer:
-        ans = st.session_state.generated_answer
-        st.markdown("### Generated Answer")
+    with tab_answer:
+        # Query Analysis Section (if preprocessing was enabled)
+        if st.session_state.preprocessed_query:
+            prep = st.session_state.preprocessed_query
+            with st.container():
+                st.markdown("#### Query Analysis")
+                col1, col2, col3 = st.columns(3)
 
-        # Display the answer
-        st.markdown(ans.answer)
+                # Query type with color-coded badge
+                type_colors = {
+                    QueryType.FACTUAL: "blue",
+                    QueryType.OPEN_ENDED: "green",
+                    QueryType.MULTI_HOP: "orange",
+                }
+                type_color = type_colors.get(prep.query_type, "gray")
+                col1.markdown(f"**Type:** :{type_color}[{prep.query_type.value.upper()}]")
+                col2.markdown(f"**Time:** {prep.preprocessing_time_ms:.0f}ms")
 
-        # Show metadata
-        col1, col2, col3 = st.columns(3)
-        col1.caption(f"Model: {ans.model}")
-        col2.caption(f"Sources cited: {ans.sources_used}")
-        col3.caption(f"Generated in {ans.generation_time_ms:.0f}ms")
+                # Show step-back query if applied
+                if prep.step_back_query and prep.step_back_query != prep.original_query:
+                    st.info(f"**Step-Back Query:** {prep.step_back_query}")
 
-        st.divider()
+                st.divider()
+
+        # Generated Answer Section (if generation was enabled)
+        if st.session_state.generated_answer:
+            ans = st.session_state.generated_answer
+            st.markdown("### Generated Answer")
+
+            # Display the answer
+            st.markdown(ans.answer)
+
+            # Show metadata
+            col1, col2, col3 = st.columns(3)
+            col1.caption(f"Model: {ans.model}")
+            col2.caption(f"Sources cited: {ans.sources_used}")
+            col3.caption(f"Generated in {ans.generation_time_ms:.0f}ms")
+
+        else:
+            st.info("Answer generation is disabled. Enable it in the sidebar to see synthesized answers.")
 
     # -------------------------------------------------------------------------
-    # Retrieved Chunks Section
+    # TAB 2: Pipeline Log
     # -------------------------------------------------------------------------
-    chunks_header = f"Retrieved Chunks ({len(st.session_state.search_results)})"
+    with tab_log:
+        st.markdown("### Pipeline Execution Log")
+        st.caption("Full visibility into what happened at each stage of the RAG pipeline.")
+        _render_pipeline_log()
 
-    # Make chunks collapsible if answer was generated (focus on answer)
-    if st.session_state.generated_answer:
-        with st.expander(chunks_header, expanded=False):
-            _display_chunks(st.session_state.search_results)
-    else:
-        st.markdown(f"### {chunks_header}")
+    # -------------------------------------------------------------------------
+    # TAB 3: Retrieved Chunks
+    # -------------------------------------------------------------------------
+    with tab_chunks:
+        st.markdown(f"### Retrieved Chunks ({len(st.session_state.search_results)})")
         _display_chunks(st.session_state.search_results)
 
 elif query and not st.session_state.search_results:
@@ -389,7 +545,10 @@ with st.expander("How This Works"):
     3. **Hybrid Search** (default): Combines vector similarity with BM25
        keyword matching for better term-specific retrieval.
 
-    4. **Answer Generation** (optional): An LLM synthesizes a coherent answer
+    4. **Cross-Encoder Reranking** (optional): Re-scores retrieved chunks using
+       a model that sees query and document together for higher accuracy.
+
+    5. **Answer Generation** (optional): An LLM synthesizes a coherent answer
        from the retrieved chunks, with source citations.
 
     ### Query Preprocessing
@@ -413,19 +572,13 @@ with st.expander("How This Works"):
     - **Hybrid**: Combines semantic search with keyword matching (BM25).
       Good for technical terms that should match exactly.
 
-    ### Answer Generation
-
-    After retrieving relevant chunks, an LLM synthesizes a coherent answer:
-    - Uses query-type-specific prompts (factual vs philosophical)
-    - Cites sources by number [1], [2], etc.
-    - Configurable model selection (budget to premium)
-
     ### Technical Details
 
     - **Embedding Model**: text-embedding-3-large (3072 dimensions)
     - **Vector Database**: Weaviate with HNSW index
     - **Distance Metric**: Cosine similarity (1.0 = identical)
     - **Chunk Size**: ~800 tokens with 2-sentence overlap
+    - **Reranking Model**: mxbai-rerank-large-v1 (MixedBread AI)
     - **Generation Models**: GPT-5 Nano/Mini, DeepSeek, Gemini Flash, Claude Haiku
 
     ### Evaluation Results (RAGAS)

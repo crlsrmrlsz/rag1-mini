@@ -52,6 +52,8 @@ class GeneratedAnswer:
         model: Model ID used for generation.
         generation_time_ms: Time taken in milliseconds.
         query_type: The query type used for prompt selection.
+        system_prompt_used: The system prompt sent to LLM (for logging).
+        user_prompt_used: The user prompt with context sent to LLM (for logging).
     """
 
     answer: str
@@ -59,6 +61,8 @@ class GeneratedAnswer:
     model: str = ""
     generation_time_ms: float = 0.0
     query_type: Optional[QueryType] = None
+    system_prompt_used: Optional[str] = None
+    user_prompt_used: Optional[str] = None
 
 
 # =============================================================================
@@ -324,4 +328,6 @@ Please answer based on the context above, citing sources by number [1], [2], etc
         model=model,
         generation_time_ms=elapsed_ms,
         query_type=query_type,
+        system_prompt_used=system_prompt,
+        user_prompt_used=user_message,
     )

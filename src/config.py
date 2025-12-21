@@ -271,6 +271,13 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"
 # Using fast, cheap model since these are simple classification tasks
 PREPROCESSING_MODEL = "openai/gpt-5-nano"
 
+# Available models for preprocessing selection in UI (ordered by speed/cost)
+AVAILABLE_PREPROCESSING_MODELS = [
+    ("openai/gpt-5-nano", "GPT-5 Nano ($0.05/$0.40 per 1M) - Fast"),
+    ("deepseek/deepseek-chat", "DeepSeek V3.2 ($0.28/$0.42 per 1M) - Value"),
+    ("openai/gpt-5-mini", "GPT-5 Mini ($0.25/$2.00 per 1M) - Quality"),
+]
+
 
 # ============================================================================
 # ANSWER GENERATION SETTINGS

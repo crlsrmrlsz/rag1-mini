@@ -32,24 +32,24 @@ PREPROCESSING_CURATED: Dict[str, List[str]] = {
     # Simple tasks: classification, step-back prompting
     # Prioritize speed and cost over deep reasoning
     "Budget": [
+        "deepseek/deepseek-v3.2",
         "deepseek/deepseek-chat",
         "mistralai/ministral-8b-latest",
-        "mistralai/mistral-small-latest",
     ],
     "Value": [
+        "google/gemini-3-flash-preview",
         "openai/gpt-4o-mini",
         "google/gemini-2.0-flash-001",
-        "anthropic/claude-3-haiku",
     ],
     "Quality": [
-        "google/gemini-2.0-flash-001",
-        "anthropic/claude-3-5-haiku-latest",
+        "anthropic/claude-haiku-4.5",
+        "google/gemini-3-flash-preview",
         "openai/gpt-4o-mini",
     ],
     "Premium": [
-        "anthropic/claude-3-5-haiku-latest",
-        "openai/gpt-4o",
-        "anthropic/claude-3-5-sonnet-latest",
+        "anthropic/claude-opus-4.5",
+        "openai/gpt-5.2-chat",
+        "anthropic/claude-haiku-4.5",
     ],
 }
 
@@ -57,24 +57,24 @@ GENERATION_CURATED: Dict[str, List[str]] = {
     # Complex tasks: answer synthesis, reasoning across sources
     # Quality matters more than speed
     "Budget": [
+        "deepseek/deepseek-v3.2",
         "deepseek/deepseek-chat",
         "openai/gpt-4o-mini",
-        "mistralai/mistral-small-latest",
     ],
     "Value": [
+        "google/gemini-3-flash-preview",
         "openai/gpt-4o-mini",
-        "google/gemini-2.0-flash-001",
-        "deepseek/deepseek-chat",
+        "deepseek/deepseek-v3.2",
     ],
     "Quality": [
-        "anthropic/claude-3-5-haiku-latest",
-        "google/gemini-2.0-flash-001",
-        "openai/gpt-4o",
+        "anthropic/claude-haiku-4.5",
+        "openai/gpt-5.2-chat",
+        "google/gemini-3-flash-preview",
     ],
     "Premium": [
-        "anthropic/claude-3-5-sonnet-latest",
-        "openai/gpt-4o",
-        "anthropic/claude-3-5-haiku-latest",
+        "anthropic/claude-opus-4.5",
+        "google/gemini-3-pro-preview",
+        "openai/gpt-5.2-chat",
     ],
 }
 
@@ -84,17 +84,17 @@ GENERATION_CURATED: Dict[str, List[str]] = {
 # =============================================================================
 
 FALLBACK_PREPROCESSING_MODELS: List[Tuple[str, str]] = [
-    ("deepseek/deepseek-chat", "Budget: DeepSeek V3"),
-    ("openai/gpt-4o-mini", "Value: GPT-4o Mini"),
-    ("google/gemini-2.0-flash-001", "Quality: Gemini 2.0 Flash"),
-    ("anthropic/claude-3-5-haiku-latest", "Premium: Claude 3.5 Haiku"),
+    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
+    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
 ]
 
 FALLBACK_GENERATION_MODELS: List[Tuple[str, str]] = [
-    ("deepseek/deepseek-chat", "Budget: DeepSeek V3"),
-    ("openai/gpt-4o-mini", "Value: GPT-4o Mini"),
-    ("anthropic/claude-3-5-haiku-latest", "Quality: Claude 3.5 Haiku"),
-    ("anthropic/claude-3-5-sonnet-latest", "Premium: Claude 3.5 Sonnet"),
+    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
+    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
 ]
 
 

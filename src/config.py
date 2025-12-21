@@ -251,7 +251,7 @@ MAX_TOP_K = 20
 
 # Model selection based on research (see memory-bank/model-selection.md)
 # Generation model: Fast, cost-effective for answer generation
-EVAL_GENERATION_MODEL = "openai/gpt-5-mini"
+EVAL_GENERATION_MODEL = "google/gemini-3-flash-preview"
 
 # Evaluation model: High quality for LLM-as-judge (RAGAS metrics)
 EVAL_EVALUATION_MODEL = "anthropic/claude-haiku-4.5"
@@ -269,14 +269,15 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"
 
 # Model for query classification and step-back prompting
 # Using fast, cheap model since these are simple classification tasks
-PREPROCESSING_MODEL = "deepseek/deepseek-chat"
+PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"
 
 # Fallback models for preprocessing (used if dynamic fetch fails)
 # These are updated manually when OpenRouter availability changes
 AVAILABLE_PREPROCESSING_MODELS = [
-    ("deepseek/deepseek-chat", "DeepSeek V3 - Cheapest"),
-    ("openai/gpt-4o-mini", "GPT-4o Mini - Fast"),
-    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Quality"),
+    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
+    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
 ]
 
 
@@ -285,14 +286,14 @@ AVAILABLE_PREPROCESSING_MODELS = [
 # ============================================================================
 
 # Default model for answer generation (balanced quality/cost)
-GENERATION_MODEL = "openai/gpt-4o-mini"
+GENERATION_MODEL = "google/gemini-3-flash-preview"
 
 # Fallback models for generation (used if dynamic fetch fails)
 AVAILABLE_GENERATION_MODELS = [
-    ("deepseek/deepseek-chat", "DeepSeek V3 - Value"),
-    ("openai/gpt-4o-mini", "GPT-4o Mini - Balanced"),
-    ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash - Fast"),
-    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Premium"),
+    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
+    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
 ]
 
 # Enable/disable answer generation globally (can be overridden in UI)

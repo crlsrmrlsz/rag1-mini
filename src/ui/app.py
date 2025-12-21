@@ -503,6 +503,19 @@ if search_clicked and query:
         else:
             st.session_state.generated_answer = None
 
+        # Auto-save successful queries to log
+        if st.session_state.search_results:
+            from src.utils.query_logger import log_query
+            log_query(
+                query=query,
+                preprocessed=preprocessed,
+                retrieval_settings=st.session_state.retrieval_settings,
+                search_results=st.session_state.search_results,
+                rerank_data=st.session_state.rerank_data,
+                generated_answer=st.session_state.generated_answer,
+                collection_name=selected_collection,
+            )
+
 
 # ============================================================================
 # RESULTS DISPLAY - Tabs: Answer | Pipeline Log | Chunks

@@ -6,8 +6,6 @@ Provides:
 - Retrieval and generation functions for the evaluation pipeline
 """
 
-import time
-import requests
 from typing import List, Dict, Any, Optional, Callable
 
 from ragas import evaluate, EvaluationDataset
@@ -32,88 +30,13 @@ from src.config import (
 from src.vector_db import get_client, query_hybrid
 from src.reranking import rerank
 from src.utils.file_utils import setup_logging
+from src.utils.openrouter_client import call_simple_prompt
 
 logger = setup_logging(__name__)
 
 
-# ============================================================================
-# OPENROUTER CHAT CLIENT
-# ============================================================================
-
 # Default model for answer generation (can be overridden)
 DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
-
-
-def call_openrouter_chat(
-    prompt: str,
-    model: str = DEFAULT_CHAT_MODEL,
-    max_tokens: int = 1024,
-    temperature: float = 0.1,
-    max_retries: int = 3,
-    backoff_base: float = 1.5,
-) -> str:
-    """
-    Call OpenRouter chat completions API.
-
-    Args:
-        prompt: The prompt to send to the model.
-        model: OpenRouter model ID (e.g., "openai/gpt-4o-mini").
-        max_tokens: Maximum tokens in response.
-        temperature: Sampling temperature (0-2).
-        max_retries: Number of retries on failure.
-        backoff_base: Backoff multiplier for retries.
-
-    Returns:
-        The model's response text.
-
-    Raises:
-        requests.RequestException: If all retries fail.
-    """
-    url = f"{OPENROUTER_BASE_URL}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
-
-    attempt = 0
-    while True:
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
-
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
-            # Rate limit or server errors
-            if response.status_code >= 500 or response.status_code == 429:
-                attempt += 1
-                if attempt > max_retries:
-                    response.raise_for_status()
-                delay = backoff_base ** attempt
-                logger.warning(
-                    f"Server error {response.status_code}, retry {attempt} after {delay:.1f}s"
-                )
-                time.sleep(delay)
-                continue
-
-            # Hard failure
-            response.raise_for_status()
-
-        except requests.RequestException as exc:
-            attempt += 1
-            if attempt > max_retries:
-                raise
-            delay = backoff_base ** attempt
-            logger.warning(f"Request failed ({exc}), retry {attempt} in {delay:.1f}s")
-            time.sleep(delay)
-            continue
 
 
 # ============================================================================
@@ -246,7 +169,7 @@ Question: {question}
 
 Answer:"""
 
-    return call_openrouter_chat(prompt, model=model)
+    return call_simple_prompt(prompt, model=model)
 
 
 # ============================================================================

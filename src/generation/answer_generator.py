@@ -29,15 +29,10 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
-import requests
-
-from src.config import (
-    OPENROUTER_API_KEY,
-    OPENROUTER_BASE_URL,
-    GENERATION_MODEL,
-)
+from src.config import GENERATION_MODEL
 from src.preprocessing import QueryType
 from src.utils.file_utils import setup_logging
+from src.utils.openrouter_client import call_chat_completion
 
 logger = setup_logging(__name__)
 
@@ -153,72 +148,6 @@ def _format_context(chunks: List[Dict[str, Any]]) -> str:
     return "\n\n---\n\n".join(context_parts)
 
 
-def _call_chat_completion(
-    messages: List[dict],
-    model: str,
-    temperature: float = 0.3,
-    max_tokens: int = 1024,
-) -> str:
-    """Call OpenRouter chat completion API.
-
-    Args:
-        messages: List of message dicts with role and content.
-        model: Model ID (e.g., "openai/gpt-5-mini").
-        temperature: Sampling temperature.
-        max_tokens: Maximum tokens to generate.
-
-    Returns:
-        The assistant's response text.
-
-    Raises:
-        requests.RequestException: On API errors after retries.
-    """
-    url = f"{OPENROUTER_BASE_URL}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
-    max_retries = 3
-    backoff_base = 1.5
-
-    for attempt in range(max_retries + 1):
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
-
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
-            if response.status_code >= 500 or response.status_code == 429:
-                if attempt < max_retries:
-                    delay = backoff_base ** (attempt + 1)
-                    logger.warning(
-                        f"API error {response.status_code}, retry {attempt + 1} after {delay:.1f}s"
-                    )
-                    time.sleep(delay)
-                    continue
-
-            response.raise_for_status()
-
-        except requests.RequestException as exc:
-            if attempt < max_retries:
-                delay = backoff_base ** (attempt + 1)
-                logger.warning(f"Request failed ({exc}), retry {attempt + 1} in {delay:.1f}s")
-                time.sleep(delay)
-                continue
-            raise
-
-    raise requests.RequestException("Max retries exceeded")
-
-
 def _extract_source_citations(answer: str, num_chunks: int) -> List[int]:
     """Extract source citation numbers from the answer text.
 
@@ -309,7 +238,7 @@ Please answer based on the context above, citing sources by number [1], [2], etc
 
     # Generate answer
     logger.info(f"Generating answer with {model} for {query_type.value} query")
-    answer_text = _call_chat_completion(
+    answer_text = call_chat_completion(
         messages=messages,
         model=model,
         temperature=temperature,

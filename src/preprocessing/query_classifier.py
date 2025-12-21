@@ -35,14 +35,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, List, Dict, Any
 
-import requests
-
-from src.config import (
-    OPENROUTER_API_KEY,
-    OPENROUTER_BASE_URL,
-    PREPROCESSING_MODEL,
-)
+from src.config import PREPROCESSING_MODEL
 from src.utils.file_utils import setup_logging
+from src.utils.openrouter_client import call_chat_completion
 
 logger = setup_logging(__name__)
 
@@ -108,82 +103,6 @@ class PreprocessedQuery:
     # Decomposition fields (for MULTI_HOP)
     decomposition_prompt_used: Optional[str] = None
     decomposition_response: Optional[str] = None
-
-
-# =============================================================================
-# LLM API CALLS
-# =============================================================================
-
-
-def _call_chat_completion(
-    messages: List[dict],
-    model: str,
-    temperature: float = 0.0,
-    max_tokens: int = 256,
-    json_mode: bool = False,
-) -> str:
-    """Call OpenRouter chat completion API.
-
-    Args:
-        messages: List of message dicts with role and content.
-        model: Model ID (e.g., "openai/gpt-5-nano").
-        temperature: Sampling temperature (0.0 = deterministic).
-        max_tokens: Maximum tokens to generate.
-        json_mode: If True, request JSON response format.
-
-    Returns:
-        The assistant's response text.
-
-    Raises:
-        requests.RequestException: On API errors after retries.
-    """
-    url = f"{OPENROUTER_BASE_URL}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-
-    max_retries = 3
-    backoff_base = 1.5
-
-    for attempt in range(max_retries + 1):
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-
-            if response.status_code >= 500 or response.status_code == 429:
-                if attempt < max_retries:
-                    delay = backoff_base ** (attempt + 1)
-                    logger.warning(
-                        f"API error {response.status_code}, retry {attempt + 1} after {delay:.1f}s"
-                    )
-                    time.sleep(delay)
-                    continue
-
-            response.raise_for_status()
-
-        except requests.RequestException as exc:
-            if attempt < max_retries:
-                delay = backoff_base ** (attempt + 1)
-                logger.warning(f"Request failed ({exc}), retry {attempt + 1} in {delay:.1f}s")
-                time.sleep(delay)
-                continue
-            raise
-
-    raise requests.RequestException("Max retries exceeded")
 
 
 # =============================================================================
@@ -253,7 +172,7 @@ def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, 
     ]
 
     try:
-        response = _call_chat_completion(
+        response = call_chat_completion(
             messages=messages,
             model=model,
             temperature=0.0,
@@ -446,7 +365,7 @@ def step_back_prompt(query: str, model: Optional[str] = None) -> str:
     ]
 
     try:
-        response = _call_chat_completion(
+        response = call_chat_completion(
             messages=messages,
             model=model,
             temperature=0.3,  # Slight creativity for better abstraction
@@ -493,7 +412,7 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
     ]
 
     try:
-        response = _call_chat_completion(
+        response = call_chat_completion(
             messages=messages,
             model=model,
             temperature=0.0,
@@ -557,7 +476,7 @@ def generate_multi_queries(
     ]
 
     try:
-        response = _call_chat_completion(
+        response = call_chat_completion(
             messages=messages,
             model=model,
             temperature=0.3,  # Slight creativity for query variation
@@ -608,7 +527,7 @@ def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str],
     ]
 
     try:
-        response = _call_chat_completion(
+        response = call_chat_completion(
             messages=messages,
             model=model,
             temperature=0.3,  # Slight creativity for varied sub-questions

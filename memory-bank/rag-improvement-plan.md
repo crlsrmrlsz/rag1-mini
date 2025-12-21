@@ -26,9 +26,9 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 │  │ ├─ RAG_contextual_v1  │  │  └─────────────────────────────┘ │
 │  │ ├─ RAG_raptor_v1      │  │                                   │
 │  │ └─ RAG_graphrag_v1    │  │  Evaluation Tab:                  │
-│  │                       │  │  ├─ Question selector             │
-│  │ Stage 1-4 Controls    │  │  ├─ Config (models, metrics)      │
-│  │ (existing)            │  │  ├─ Run Evaluation button         │
+│  │                       │  │  ├─ Model selectors (gen/eval)    │
+│  │ Stage 1-4 Controls    │  │  ├─ Run Evaluation button         │
+│  │ (existing)            │  │  ├─ Progress bar + results table  │
 │  └───────────────────────┘  │  └─ Auto-save to history          │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -75,13 +75,29 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 
 ### 0.2 Evaluation Tab
 
-New tab in main area (alongside Answer, Pipeline Log, Retrieved Chunks) with:
+New tab in main area (alongside Answer, Pipeline Log, Retrieved Chunks).
+
+**Evaluation is MANUAL, not automatic:**
+- User clicks "Run Evaluation" button to trigger a full RAGAS run
+- Runs all 23 test questions from `src/evaluation/test_questions.json`
+- Uses current sidebar settings (collection, alpha, top_k, reranking)
+- Takes several minutes to complete (LLM calls for each question)
+- Results auto-saved to `evaluation-history.md` after completion
+
+**Why manual, not per-query automatic:**
+- RAGAS evaluation is expensive (LLM judge calls)
+- Test questions are curated for consistent comparison
+- Per-query evaluation would be slow and inconsistent
+- Goal is A/B testing of configurations, not real-time monitoring
+
+**Tab contents:**
 - Model selectors: generation_model, evaluation_model
-- Config display: current collection, alpha, top_k, reranking (uses sidebar settings)
-- **Run Evaluation** button with progress bar (runs all 23 questions)
+- Config display: shows current sidebar settings that will be used
+- **Run Evaluation** button
+- Progress bar showing "Question 5/23..."
 - Results table with per-question metrics
-- Aggregate metrics display (all 4 RAGAS metrics always computed: faithfulness, relevancy, context_precision, context_recall)
-- Auto-save confirmation banner
+- Aggregate metrics (all 4 RAGAS metrics: faithfulness, relevancy, context_precision, context_recall)
+- Auto-save confirmation: "Saved to evaluation-history.md as Run 5"
 
 **Note:** Collection selector already exists in sidebar (lines 220-235 in app.py). Evaluation uses whatever collection is currently selected.
 

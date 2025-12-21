@@ -27,10 +27,10 @@ from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
 )
-from src.vector_db import get_client, query_hybrid
-from src.reranking import rerank
-from src.utils.file_utils import setup_logging
-from src.utils.openrouter_client import call_simple_prompt
+from src.rag_pipeline.indexing import get_client, query_hybrid
+from src.rag_pipeline.retrieval.reranking import rerank
+from src.shared.file_utils import setup_logging
+from src.shared.openrouter_client import call_simple_prompt
 
 logger = setup_logging(__name__)
 
@@ -241,7 +241,7 @@ def run_evaluation(
         # Apply preprocessing if enabled
         search_query = question
         if preprocessing_strategy != "none":
-            from src.preprocessing import preprocess_query
+            from src.rag_pipeline.retrieval.preprocessing import preprocess_query
             try:
                 preprocessed = preprocess_query(
                     query=question,

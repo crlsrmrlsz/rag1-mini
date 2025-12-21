@@ -32,14 +32,14 @@ from src.config import (
     DIVERSITY_MIN_SCORE,
     DIVERSITY_BALANCE,
 )
-from src.vector_db import get_client, query_similar, query_hybrid, SearchResult
+from src.rag_pipeline.indexing import get_client, query_similar, query_hybrid, SearchResult
 
 # Default number of candidates to retrieve before reranking
 # Higher = more accurate but slower (50 is a good balance)
 RERANK_INITIAL_K = 50
 
 # Import RRF for multi-query merging
-from src.retrieval import reciprocal_rank_fusion, RRFResult
+from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion, RRFResult
 
 
 @dataclass
@@ -191,7 +191,7 @@ def search_chunks(
 
         # Apply cross-encoder reranking to merged results
         if use_reranking and results:
-            from src.reranking import rerank
+            from src.rag_pipeline.retrieval.reranking import rerank
             rerank_result = rerank(query, results, top_k=top_k)
             results = rerank_result.results
             rerank_data = rerank_result
@@ -223,7 +223,7 @@ def search_chunks(
 
             # Apply cross-encoder reranking if enabled
             if use_reranking and results:
-                from src.reranking import rerank
+                from src.rag_pipeline.retrieval.reranking import rerank
                 rerank_result = rerank(query, results, top_k=top_k)
                 results = rerank_result.results
                 rerank_data = rerank_result
@@ -234,7 +234,7 @@ def search_chunks(
     # Apply diversity balancing if enabled (works for both paths)
     diversity_data = None
     if ENABLE_DIVERSITY_BALANCING and results:
-        from src.diversity import apply_diversity_balance
+        from src.rag_pipeline.retrieval.diversification import apply_diversity_balance
         diversity_result = apply_diversity_balance(
             results=results,
             target_count=top_k,

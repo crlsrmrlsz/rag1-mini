@@ -42,9 +42,9 @@ from src.config import (
     ENABLE_QUERY_PREPROCESSING,
 )
 from src.ui.services.search import search_chunks, list_collections
-from src.preprocessing import preprocess_query, QueryType
-from src.generation import generate_answer
-from src.utils.openrouter_models import (
+from src.rag_pipeline.retrieval.preprocessing import preprocess_query, QueryType
+from src.rag_pipeline.generation.answer_generator import generate_answer
+from src.shared.openrouter_models import (
     fetch_available_models,
     get_preprocessing_models,
     get_generation_models,
@@ -622,7 +622,7 @@ if search_clicked and query:
 
         # Auto-save successful queries to log
         if st.session_state.search_results:
-            from src.utils.query_logger import log_query
+            from src.shared.query_logger import log_query
             log_query(
                 query=query,
                 preprocessed=preprocessed,

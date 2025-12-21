@@ -174,10 +174,11 @@ def _render_pipeline_log():
             classification_full = f"[System]\n{prep.classification_prompt_used}\n\n[User]\n{prep.original_query}"
             st.code(classification_full, language="text")
 
-            # Show classification LLM response
-            if prep.classification_response:
+            # Show classification LLM response (use getattr for backward compat with cached objects)
+            classification_response = getattr(prep, 'classification_response', None)
+            if classification_response:
                 st.markdown("**LLM Response:**")
-                st.code(prep.classification_response, language="json")
+                st.code(classification_response, language="json")
 
             if prep.step_back_query and prep.step_back_query != prep.original_query:
                 st.divider()
@@ -187,10 +188,11 @@ def _render_pipeline_log():
                 step_back_full = f"[System]\n{prep.step_back_prompt_used}\n\n[User]\n{prep.original_query}"
                 st.code(step_back_full, language="text")
 
-                # Show step-back LLM response
-                if prep.step_back_response:
+                # Show step-back LLM response (use getattr for backward compat with cached objects)
+                step_back_response = getattr(prep, 'step_back_response', None)
+                if step_back_response:
                     st.markdown("**LLM Response (Step-Back Query):**")
-                    st.code(prep.step_back_response, language="text")
+                    st.code(step_back_response, language="text")
 
                 st.markdown("**Final Search Query:**")
                 st.info(prep.step_back_query)

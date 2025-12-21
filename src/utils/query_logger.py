@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional, List
 
 from src.config import PROJECT_ROOT
 
-QUERY_LOG_FILE = PROJECT_ROOT / "data" / "evaluation" / "query_log.json"
+QUERY_LOG_FILE = PROJECT_ROOT / "data" / "evaluation" / "ui_query_traces.json"
 
 
 def log_query(

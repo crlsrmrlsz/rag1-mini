@@ -279,7 +279,7 @@ EVAL_EVALUATION_MODEL = "anthropic/claude-haiku-4.5"
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"
 
 # Results output directory
-EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"
+EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 
 
 # ============================================================================

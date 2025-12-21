@@ -94,7 +94,7 @@ logger = setup_logging(__name__)
 TEST_QUESTIONS_FILE = EVAL_TEST_QUESTIONS_FILE
 RESULTS_DIR = EVAL_RESULTS_DIR
 EVALUATION_HISTORY_FILE = PROJECT_ROOT / "memory-bank" / "evaluation-history.md"
-TRACKING_JSON_FILE = PROJECT_ROOT / "data" / "evaluation" / "tracking.json"
+EVALUATION_RUNS_FILE = PROJECT_ROOT / "data" / "evaluation" / "evaluation_runs.json"
 
 
 # ============================================================================
@@ -305,8 +305,8 @@ def update_tracking_json(
         output_path: Path where JSON results were saved.
     """
     # Load existing tracking data
-    if TRACKING_JSON_FILE.exists():
-        with open(TRACKING_JSON_FILE, "r") as f:
+    if EVALUATION_RUNS_FILE.exists():
+        with open(EVALUATION_RUNS_FILE, "r") as f:
             tracking = json.load(f)
     else:
         tracking = {
@@ -388,10 +388,10 @@ def update_tracking_json(
     tracking["runs"].append(run_entry)
 
     # Write updated tracking
-    with open(TRACKING_JSON_FILE, "w") as f:
+    with open(EVALUATION_RUNS_FILE, "w") as f:
         json.dump(tracking, f, indent=2)
 
-    logger.info(f"Updated {TRACKING_JSON_FILE} with run {run_id}")
+    logger.info(f"Updated {EVALUATION_RUNS_FILE} with run {run_id}")
 
 
 # ============================================================================

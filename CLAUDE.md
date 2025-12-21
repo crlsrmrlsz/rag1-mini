@@ -93,6 +93,11 @@ Update these files when making significant changes to maintain project continuit
 
 ### RAG Improvement Plan (see memory-bank/rag-improvement-plan.md)
 
+**Phase 0: Evaluation CLI** - COMPLETE
+- [x] Add --collection argument to run_stage_7_evaluation.py
+- [x] Auto-append results to evaluation-history.md
+- [x] Update tracking.json with run config
+
 **Phase 1: Quick Wins**
 - [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
 - [ ] Alpha tuning experiments (0.3, 0.5, 0.7) via CLI
@@ -119,8 +124,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Phase 0: Evaluation CLI with --collection arg and auto-logging (Dec 21)
 - Created comprehensive RAG improvement plan (Dec 21)
 - Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)
 - Added full prompt logging for preprocessing, generation, and reranking (Dec 21)
 - Implemented query preprocessing (classification + step-back prompting) (Dec 20)
-- Implemented LLM answer generation from retrieved chunks (Dec 20)

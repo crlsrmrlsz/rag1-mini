@@ -17,12 +17,13 @@ conda activate rag1-mini
 ### Run Pipeline Stages
 
 ```bash
-python -m src.run_stage_1_extraction   # PDF to Markdown
-python -m src.run_stage_2_processing   # Markdown cleaning
-python -m src.run_stage_3_segmentation # NLP sentence segmentation
-python -m src.run_stage_4_chunking     # Section-aware chunking (800 tokens, 2-sentence overlap)
-python -m src.run_stage_5_embedding    # Generate embeddings (requires OpenRouter API key)
-python -m src.run_stage_6_weaviate     # Upload to Weaviate (requires running Weaviate)
+python -m src.stages.run_stage_1_extraction   # PDF to Markdown
+python -m src.stages.run_stage_2_processing   # Markdown cleaning
+python -m src.stages.run_stage_3_segmentation # NLP sentence segmentation
+python -m src.stages.run_stage_4_chunking     # Section-aware chunking (800 tokens, 2-sentence overlap)
+python -m src.stages.run_stage_5_embedding    # Generate embeddings (requires OpenRouter API key)
+python -m src.stages.run_stage_6_weaviate     # Upload to Weaviate (requires running Weaviate)
+python -m src.stages.run_stage_7_evaluation   # RAGAS evaluation
 ```
 
 ## Code Standards
@@ -34,7 +35,7 @@ python -m src.run_stage_6_weaviate     # Upload to Weaviate (requires running We
 - **Absolute imports**: Always use `from src.module import ...`
 
 ### Logging
-- Use `logger` from `src.utils.setup_logging()` for all output
+- Use `logger` from `src.shared.setup_logging()` for all output
 - No emoji in log messages
 - No `print()` statements
 
@@ -51,18 +52,48 @@ This is a learning project. For every code change:
 2. **Show the library** - What libraries are used and why? (1 paragraph)
 3. **Trace the flow** - How does data move through the change? (1 paragraph)
 
+## Project Structure
+
+The codebase is organized into two main phases for learners:
+
+```
+src/
+├── content_preparation/          # Phase 1: Book -> Text (Stages 1-3)
+│   ├── extraction/               # Stage 1: PDF -> Markdown
+│   ├── cleaning/                 # Stage 2: Clean Markdown
+│   └── segmentation/             # Stage 3: Sentence splits
+│
+├── rag_pipeline/                 # Phase 2: RAG System (Stages 4-8)
+│   ├── chunking/                 # Stage 4: Text -> Chunks
+│   ├── embedding/                # Stage 5: Chunks -> Vectors
+│   ├── indexing/                 # Stage 6: Vector DB
+│   ├── retrieval/                # Stage 7: Query -> Chunks
+│   │   ├── preprocessing/        # Query transformation
+│   │   ├── reranking.py          # Cross-encoder
+│   │   ├── diversification.py    # Source balancing
+│   │   └── rrf.py                # Multi-query fusion
+│   └── generation/               # Stage 8: Chunks -> Answer
+│
+├── evaluation/                   # RAGAS framework
+├── ui/                           # Streamlit app
+├── shared/                       # Common utilities
+├── stages/                       # Pipeline stage runners
+└── config.py                     # Configuration
+```
+
 ## Key Modules
 
 | Module | Purpose | Interface |
 |--------|---------|-----------|
-| `src/extractors/docling_parser.py` | PDF extraction | `extract_pdf(path) -> str` |
-| `src/processors/text_cleaner.py` | Markdown cleaning | `run_structural_cleaning(text, name) -> (str, log)` |
-| `src/processors/nlp_segmenter.py` | Sentence segmentation | `segment_document(text, name) -> List[Dict]` |
-| `src/ingest/naive_chunker.py` | Section chunking | `run_section_chunking() -> Dict[str, int]` |
-| `src/ingest/embed_texts.py` | Embedding API | `embed_texts(texts) -> List[List[float]]` |
-| `src/vector_db/weaviate_client.py` | Weaviate storage | `upload_embeddings(client, name, chunks) -> int` |
-| `src/preprocessing/query_classifier.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
-| `src/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
+| `src/content_preparation/extraction/docling_parser.py` | PDF extraction | `extract_pdf(path) -> str` |
+| `src/content_preparation/cleaning/text_cleaner.py` | Markdown cleaning | `run_structural_cleaning(text, name) -> (str, log)` |
+| `src/content_preparation/segmentation/nlp_segmenter.py` | Sentence segmentation | `segment_document(text, name) -> List[Dict]` |
+| `src/rag_pipeline/chunking/section_chunker.py` | Section chunking | `run_section_chunking() -> Dict[str, int]` |
+| `src/rag_pipeline/embedding/embed_texts.py` | Embedding API | `embed_texts(texts) -> List[List[float]]` |
+| `src/rag_pipeline/indexing/weaviate_client.py` | Weaviate storage | `upload_embeddings(client, name, chunks) -> int` |
+| `src/rag_pipeline/retrieval/preprocessing/query_classifier.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
+| `src/rag_pipeline/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
+| `src/shared/openrouter_client.py` | Unified LLM API | `call_chat_completion(messages, model) -> str` |
 
 ## Configuration (src/config.py)
 
@@ -142,11 +173,11 @@ Update these files when making significant changes to maintain project continuit
 - [ ] Create src/graph/ module (extractor, neo4j_client, query)
 - [ ] Create graph extraction and upload stages
 
-**Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
+**Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Major codebase refactoring: Two-phase architecture (content_preparation/, rag_pipeline/) for pedagogical clarity (Dec 21)
+- Unified OpenRouter API client (src/shared/openrouter_client.py) replacing 3 duplicate implementations (Dec 21)
 - Phase 4: Query Decomposition for MULTI_HOP queries (Dec 21)
 - Phase 3: Multi-Query Strategy with RRF merging (Dec 21)
 - Phase 1: Preprocessing Strategy Infrastructure with UI dropdown and CLI integration (Dec 21)
-- Phase 0: Evaluation CLI with --collection arg and auto-logging (Dec 21)
-- Created comprehensive RAG improvement plan (Dec 21)

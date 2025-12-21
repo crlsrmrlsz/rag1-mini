@@ -1,8 +1,11 @@
-"""Fetch available models from OpenRouter API.
+"""Fetch available models from OpenRouter API with curated selection.
 
-Provides dynamic model loading with fallback to stored defaults.
-Models are filtered and categorized for preprocessing (cheap/fast)
-and generation (quality) tasks.
+Provides dynamic model loading with category-based curation.
+Each task (preprocessing, generation) gets 4-5 curated options:
+- Budget: Cheapest viable option
+- Value: Best quality/price ratio
+- Quality: Higher quality, moderate cost
+- Premium: Best available for those who want top results
 """
 
 import os
@@ -20,58 +23,78 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 
 
 # =============================================================================
+# CURATED MODEL PRIORITIES
+# =============================================================================
+# Each category has a list of model IDs in order of preference.
+# The first available model in each category is selected.
+
+PREPROCESSING_CURATED: Dict[str, List[str]] = {
+    # Simple tasks: classification, step-back prompting
+    # Prioritize speed and cost over deep reasoning
+    "Budget": [
+        "deepseek/deepseek-chat",
+        "mistralai/ministral-8b-latest",
+        "mistralai/mistral-small-latest",
+    ],
+    "Value": [
+        "openai/gpt-4o-mini",
+        "google/gemini-2.0-flash-001",
+        "anthropic/claude-3-haiku",
+    ],
+    "Quality": [
+        "google/gemini-2.0-flash-001",
+        "anthropic/claude-3-5-haiku-latest",
+        "openai/gpt-4o-mini",
+    ],
+    "Premium": [
+        "anthropic/claude-3-5-haiku-latest",
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-sonnet-latest",
+    ],
+}
+
+GENERATION_CURATED: Dict[str, List[str]] = {
+    # Complex tasks: answer synthesis, reasoning across sources
+    # Quality matters more than speed
+    "Budget": [
+        "deepseek/deepseek-chat",
+        "openai/gpt-4o-mini",
+        "mistralai/mistral-small-latest",
+    ],
+    "Value": [
+        "openai/gpt-4o-mini",
+        "google/gemini-2.0-flash-001",
+        "deepseek/deepseek-chat",
+    ],
+    "Quality": [
+        "anthropic/claude-3-5-haiku-latest",
+        "google/gemini-2.0-flash-001",
+        "openai/gpt-4o",
+    ],
+    "Premium": [
+        "anthropic/claude-3-5-sonnet-latest",
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-haiku-latest",
+    ],
+}
+
+
+# =============================================================================
 # FALLBACK MODELS (used if API fetch fails)
 # =============================================================================
 
 FALLBACK_PREPROCESSING_MODELS: List[Tuple[str, str]] = [
-    ("deepseek/deepseek-chat", "DeepSeek V3 - Cheapest"),
-    ("openai/gpt-4o-mini", "GPT-4o Mini - Fast"),
-    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Quality"),
+    ("deepseek/deepseek-chat", "Budget: DeepSeek V3"),
+    ("openai/gpt-4o-mini", "Value: GPT-4o Mini"),
+    ("google/gemini-2.0-flash-001", "Quality: Gemini 2.0 Flash"),
+    ("anthropic/claude-3-5-haiku-latest", "Premium: Claude 3.5 Haiku"),
 ]
 
 FALLBACK_GENERATION_MODELS: List[Tuple[str, str]] = [
-    ("deepseek/deepseek-chat", "DeepSeek V3 - Value"),
-    ("openai/gpt-4o-mini", "GPT-4o Mini - Balanced"),
-    ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash - Fast"),
-    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Premium"),
-]
-
-# Models we're interested in (by provider/prefix)
-PREFERRED_PROVIDERS = [
-    "deepseek/",
-    "openai/",
-    "anthropic/",
-    "google/",
-    "mistralai/",
-]
-
-# Models suitable for cheap/fast classification tasks
-PREPROCESSING_MODEL_PATTERNS = [
-    "deepseek/deepseek-chat",
-    "deepseek/deepseek-v3",
-    "openai/gpt-4o-mini",
-    "openai/gpt-4.1-mini",
-    "openai/gpt-4.1-nano",
-    "anthropic/claude-3-5-haiku",
-    "anthropic/claude-3-haiku",
-    "google/gemini-2.0-flash",
-    "google/gemini-flash",
-    "mistralai/mistral-small",
-    "mistralai/ministral",
-]
-
-# Models suitable for answer generation (higher quality)
-GENERATION_MODEL_PATTERNS = [
-    "deepseek/deepseek-chat",
-    "deepseek/deepseek-v3",
-    "openai/gpt-4o-mini",
-    "openai/gpt-4o",
-    "openai/gpt-4.1",
-    "anthropic/claude-3-5-haiku",
-    "anthropic/claude-3-5-sonnet",
-    "google/gemini-2.0-flash",
-    "google/gemini-2.5-flash",
-    "google/gemini-pro",
+    ("deepseek/deepseek-chat", "Budget: DeepSeek V3"),
+    ("openai/gpt-4o-mini", "Value: GPT-4o Mini"),
+    ("anthropic/claude-3-5-haiku-latest", "Quality: Claude 3.5 Haiku"),
+    ("anthropic/claude-3-5-sonnet-latest", "Premium: Claude 3.5 Sonnet"),
 ]
 
 
@@ -110,18 +133,16 @@ def _format_price(price_per_token: float) -> str:
         return "free"
     price_per_million = price_per_token * 1_000_000
     if price_per_million < 0.01:
-        return f"${price_per_million:.4f}"
-    return f"${price_per_million:.2f}"
+        return f"${price_per_million:.3f}"
+    elif price_per_million < 1:
+        return f"${price_per_million:.2f}"
+    else:
+        return f"${price_per_million:.1f}"
 
 
-def _model_matches_patterns(model_id: str, patterns: List[str]) -> bool:
-    """Check if model ID matches any of the patterns."""
-    return any(model_id.startswith(pattern) for pattern in patterns)
-
-
-def _format_model_label(model: Dict[str, Any]) -> str:
-    """Create a human-readable label for a model."""
-    name = model.get("name", model["id"])
+def _format_curated_label(category: str, model: Dict[str, Any]) -> str:
+    """Create a curated label: 'Category: Name ($in/$out)'."""
+    name = model.get("name", model["id"].split("/")[-1])
     pricing = model.get("pricing", {})
 
     prompt_price = float(pricing.get("prompt", 0))
@@ -130,38 +151,36 @@ def _format_model_label(model: Dict[str, Any]) -> str:
     prompt_str = _format_price(prompt_price)
     completion_str = _format_price(completion_price)
 
-    return f"{name} ({prompt_str}/{completion_str} per 1M)"
+    return f"{category}: {name} ({prompt_str}/{completion_str})"
 
 
-def _filter_models(
-    models: List[Dict[str, Any]],
-    patterns: List[str],
-    max_prompt_price: float = 0.000005,  # $5 per 1M tokens
+def _get_curated_models(
+    all_models: List[Dict[str, Any]],
+    curated_priorities: Dict[str, List[str]],
 ) -> List[Tuple[str, str]]:
-    """Filter models by patterns and price, return as (id, label) tuples."""
+    """Select one model per category from curated priorities.
+
+    For each category (Budget, Value, Quality, Premium), finds the first
+    available model from the priority list and includes it with live pricing.
+
+    Args:
+        all_models: List of all models from OpenRouter API.
+        curated_priorities: Dict mapping category -> list of model IDs.
+
+    Returns:
+        List of (model_id, "Category: Name ($X/$Y)") tuples.
+    """
+    # Build lookup for quick access
+    models_by_id = {m["id"]: m for m in all_models}
     result = []
 
-    for model in models:
-        model_id = model.get("id", "")
-
-        # Check if model matches our patterns
-        if not _model_matches_patterns(model_id, patterns):
-            continue
-
-        # Check price limit
-        pricing = model.get("pricing", {})
-        prompt_price = float(pricing.get("prompt", 0))
-        if prompt_price > max_prompt_price:
-            continue
-
-        label = _format_model_label(model)
-        result.append((model_id, label))
-
-    # Sort by prompt price (cheapest first)
-    result.sort(key=lambda x: float(
-        next((m.get("pricing", {}).get("prompt", 999)
-              for m in models if m.get("id") == x[0]), 999)
-    ))
+    for category, candidates in curated_priorities.items():
+        for model_id in candidates:
+            if model_id in models_by_id:
+                model = models_by_id[model_id]
+                label = _format_curated_label(category, model)
+                result.append((model_id, label))
+                break  # Found one for this category, move to next
 
     return result
 
@@ -174,9 +193,10 @@ def _filter_models(
 def get_preprocessing_models(
     cached_models: Optional[List[Dict[str, Any]]] = None
 ) -> List[Tuple[str, str]]:
-    """Get models suitable for preprocessing (classification, step-back).
+    """Get curated models for preprocessing (classification, step-back).
 
-    These should be cheap and fast since they're used for simple tasks.
+    Returns 4 options: Budget, Value, Quality, Premium.
+    Each option is the best available model in that category.
 
     Args:
         cached_models: Optional pre-fetched models to avoid repeat API calls.
@@ -189,21 +209,17 @@ def get_preprocessing_models(
     if not models:
         return FALLBACK_PREPROCESSING_MODELS
 
-    filtered = _filter_models(
-        models,
-        PREPROCESSING_MODEL_PATTERNS,
-        max_prompt_price=0.000002,  # Max $2 per 1M for preprocessing
-    )
-
-    return filtered if filtered else FALLBACK_PREPROCESSING_MODELS
+    curated = _get_curated_models(models, PREPROCESSING_CURATED)
+    return curated if curated else FALLBACK_PREPROCESSING_MODELS
 
 
 def get_generation_models(
     cached_models: Optional[List[Dict[str, Any]]] = None
 ) -> List[Tuple[str, str]]:
-    """Get models suitable for answer generation.
+    """Get curated models for answer generation.
 
-    These can be slightly more expensive for better quality.
+    Returns 4 options: Budget, Value, Quality, Premium.
+    Generation benefits from higher quality models for reasoning.
 
     Args:
         cached_models: Optional pre-fetched models to avoid repeat API calls.
@@ -216,10 +232,5 @@ def get_generation_models(
     if not models:
         return FALLBACK_GENERATION_MODELS
 
-    filtered = _filter_models(
-        models,
-        GENERATION_MODEL_PATTERNS,
-        max_prompt_price=0.000010,  # Max $10 per 1M for generation
-    )
-
-    return filtered if filtered else FALLBACK_GENERATION_MODELS
+    curated = _get_curated_models(models, GENERATION_CURATED)
+    return curated if curated else FALLBACK_GENERATION_MODELS

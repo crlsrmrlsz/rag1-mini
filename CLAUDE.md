@@ -87,6 +87,16 @@ The `memory-bank/` directory contains project context:
 
 Update these files when making significant changes to maintain project continuity.
 
+## MCP Server Usage
+
+### Context7
+Always use Context7 when code generation, setup or configuration steps, or library/API documentation is needed. Automatically use the Context7 MCP tools to resolve library id and get library docs without being explicitly asked.
+
+When working with any library or framework:
+1. First use `resolve-library-id` to find the correct Context7 library ID
+2. Then use `get-library-docs` to fetch up-to-date documentation
+3. Use this documentation to inform code generation and answers
+
 ## Current Tasks
 <!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 

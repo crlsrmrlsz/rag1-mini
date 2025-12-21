@@ -110,9 +110,12 @@ Update these files when making significant changes to maintain project continuit
 - [ ] Compare metrics and document in evaluation-history.md
 - [ ] Test step-back prompt improvements from step-back-prompting-research.md
 
-**Phase 3: Multi-Query Strategy** (future)
-- [ ] Implement multi_query_strategy in strategies.py
-- [ ] Add RRF merging for multiple queries
+**Phase 3: Multi-Query Strategy** - COMPLETE
+- [x] Implement multi_query_strategy in strategies.py
+- [x] Add RRF merging for multiple queries
+- [x] Create src/retrieval/rrf.py with RRF algorithm
+- [x] Add principle extraction + 4 targeted queries generation
+- [x] Update UI to display multi-query results
 
 **Phase 4: Query Decomposition** (MULTI_HOP, +36.7% MRR)
 - [ ] Implement decomposition_strategy in strategies.py
@@ -139,8 +142,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Phase 3: Multi-Query Strategy with RRF merging (Dec 21)
 - Phase 1: Preprocessing Strategy Infrastructure with UI dropdown and CLI integration (Dec 21)
 - Phase 0: Evaluation CLI with --collection arg and auto-logging (Dec 21)
 - Created comprehensive RAG improvement plan (Dec 21)
 - Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)
-- Added full prompt logging for preprocessing, generation, and reranking (Dec 21)

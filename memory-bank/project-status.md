@@ -99,9 +99,9 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 |-------|-------------|--------|
 | 0 | Evaluation CLI (--collection, auto-logging) | COMPLETE |
 | 1 | Preprocessing Strategy Infrastructure | COMPLETE |
-| 2 | Test Preprocessing Strategies (none, baseline, step_back, multi_query) | TODO |
+| 2 | Test Preprocessing Strategies (none, baseline, step_back, multi_query, decomposition) | TODO |
 | 3 | Multi-Query Strategy (+RRF merging) | COMPLETE |
-| 4 | Query Decomposition (MULTI_HOP) | TODO |
+| 4 | Query Decomposition (MULTI_HOP) | COMPLETE |
 | 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
 | 6 | Contextual Chunking (+35% failure reduction) | TODO |
 | 7 | RAPTOR (hierarchical summarization) | TODO |
@@ -163,6 +163,7 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `baseline` - Classify query type only
 - `step_back` - Classify + step-back prompting for OPEN_ENDED queries
 - `multi_query` - Generate 5 queries (original + 4 targeted) + RRF merge
+- `decomposition` - Decompose MULTI_HOP into 2-4 sub-questions + RRF merge
 
 ### To Implement: Chunking Strategies
 

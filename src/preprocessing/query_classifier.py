@@ -105,6 +105,9 @@ class PreprocessedQuery:
     principle_extraction: Optional[Dict[str, Any]] = None
     principle_extraction_prompt_used: Optional[str] = None
     multi_query_prompt_used: Optional[str] = None
+    # Decomposition fields (for MULTI_HOP)
+    decomposition_prompt_used: Optional[str] = None
+    decomposition_response: Optional[str] = None
 
 
 # =============================================================================
@@ -370,6 +373,54 @@ Respond with JSON:
 }}"""
 
 
+# =============================================================================
+# DECOMPOSITION PROMPTS
+# =============================================================================
+
+DECOMPOSITION_PROMPT = """You break down complex questions into simpler sub-questions for a knowledge retrieval system.
+
+The knowledge base contains:
+- NEUROSCIENCE: Brain mechanisms, neurotransmitters, emotions, decision-making, consciousness
+- PHILOSOPHY: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism, Buddhism, virtue ethics, wisdom traditions
+
+TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently.
+
+RULES:
+1. Each sub-question should be self-contained and answerable from a single domain
+2. Include a synthesis question if the original asks for comparison or integration
+3. Use specific terminology from the knowledge base
+4. Keep sub-questions focused (not too broad)
+
+EXAMPLES:
+
+Question: "Compare Stoic and Buddhist approaches to suffering"
+Sub-questions:
+1. "What is the Stoic view on suffering and how to overcome it?"
+2. "What is the Buddhist teaching on suffering and its cessation?"
+3. "How do Stoic and Buddhist approaches to suffering differ?"
+
+Question: "How does neuroscience explain what philosophers call akrasia?"
+Sub-questions:
+1. "What is akrasia in philosophy and which philosophers discussed it?"
+2. "What brain mechanisms are involved in self-control failures?"
+3. "How do prefrontal-limbic interactions relate to weakness of will?"
+
+Question: "What do both science and ancient wisdom say about anger management?"
+Sub-questions:
+1. "What brain mechanisms underlie anger and its regulation?"
+2. "What did Seneca and the Stoics teach about managing anger?"
+3. "How do modern psychology findings align with ancient anger management wisdom?"
+
+Now decompose this question:
+Question: "{query}"
+
+Respond with JSON:
+{{
+  "sub_questions": ["...", "...", "..."],
+  "reasoning": "Brief explanation of decomposition"
+}}"""
+
+
 def step_back_prompt(query: str, model: Optional[str] = None) -> str:
     """Transform an open-ended query into a broader, more retrievable form.
 
@@ -521,6 +572,63 @@ def generate_multi_queries(
         logger.warning(f"Multi-query generation parse error: {e}")
         # Fallback: return original query as single query
         return [{"type": "original", "query": query}]
+
+
+# =============================================================================
+# QUERY DECOMPOSITION
+# =============================================================================
+
+
+def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str], str]:
+    """Decompose a MULTI_HOP query into sub-questions.
+
+    Breaks complex comparison or multi-aspect questions into simpler
+    sub-questions that can be answered independently. Each sub-question
+    is then used for retrieval, with results merged using RRF.
+
+    Args:
+        query: The user's original query (should be MULTI_HOP type).
+        model: Override model (defaults to PREPROCESSING_MODEL).
+
+    Returns:
+        Tuple of (list of sub-questions, raw LLM response string).
+
+    Example:
+        >>> sub_qs, resp = decompose_query("Compare Stoic and Buddhist views on suffering")
+        >>> len(sub_qs)
+        3
+        >>> sub_qs[0]
+        "What is the Stoic view on suffering and how to overcome it?"
+    """
+    model = model or PREPROCESSING_MODEL
+    prompt = DECOMPOSITION_PROMPT.format(query=query)
+
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+
+    try:
+        response = _call_chat_completion(
+            messages=messages,
+            model=model,
+            temperature=0.3,  # Slight creativity for varied sub-questions
+            max_tokens=400,
+            json_mode=True,
+        )
+
+        result = json.loads(response)
+        sub_questions = result.get("sub_questions", [])
+
+        if not sub_questions or not isinstance(sub_questions, list):
+            logger.warning("[decompose] No sub-questions extracted, using original")
+            return [query], response
+
+        logger.info(f"[decompose] Generated {len(sub_questions)} sub-questions")
+        return sub_questions, response
+
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"[decompose] Parse error: {e}, using original query")
+        return [query], str(e)
 
 
 # =============================================================================

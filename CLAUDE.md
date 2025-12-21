@@ -117,8 +117,11 @@ Update these files when making significant changes to maintain project continuit
 - [x] Add principle extraction + 4 targeted queries generation
 - [x] Update UI to display multi-query results
 
-**Phase 4: Query Decomposition** (MULTI_HOP, +36.7% MRR)
-- [ ] Implement decomposition_strategy in strategies.py
+**Phase 4: Query Decomposition** - COMPLETE
+- [x] Add DECOMPOSITION_PROMPT and decompose_query() function
+- [x] Implement decomposition_strategy in strategies.py
+- [x] Register decomposition in STRATEGIES dict
+- [x] Update config, CLI, logger, and UI
 
 **Phase 5: Quick Wins**
 - [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
@@ -142,8 +145,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Phase 4: Query Decomposition for MULTI_HOP queries (Dec 21)
 - Phase 3: Multi-Query Strategy with RRF merging (Dec 21)
 - Phase 1: Preprocessing Strategy Infrastructure with UI dropdown and CLI integration (Dec 21)
 - Phase 0: Evaluation CLI with --collection arg and auto-logging (Dec 21)
 - Created comprehensive RAG improvement plan (Dec 21)
-- Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)

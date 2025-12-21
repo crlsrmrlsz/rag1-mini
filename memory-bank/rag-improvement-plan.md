@@ -588,7 +588,7 @@ Update `evaluation-history.md` with results after each run.
 | 1 | Preprocessing Strategy Infrastructure | DONE | Medium | Enables A/B testing | `strategies.py`, `config.py`, UI, CLI |
 | 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_classifier.py` (prompt only) |
 | 3 | Implement Multi-Query Strategy | DONE | Medium | +coverage | `strategies.py`, `rrf.py` |
-| 4 | Implement Query Decomposition (MULTI_HOP) | TODO | Medium | +36.7% MRR | `strategies.py` |
+| 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_classifier.py` |
 | 5 | Lost-in-middle mitigation | TODO | Low | +15% | `answer_generator.py` |
 | 6 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
 | 7 | Contextual Chunking | TODO | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
@@ -957,6 +957,7 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 | `baseline` | Baseline | Classify query type only, no transformation | Track query types |
 | `step_back` | Step-Back | Classify + step-back for OPEN_ENDED queries | Production default |
 | `multi_query` | Multi-Query | Generate 4 targeted queries + RRF merge | Best coverage |
+| `decomposition` | Decomposition | Break MULTI_HOP into sub-questions + RRF merge | Comparison queries |
 
 ### B.3 Usage Examples
 
@@ -979,6 +980,7 @@ python -m src.run_stage_7_evaluation --preprocessing none
 python -m src.run_stage_7_evaluation --preprocessing baseline
 python -m src.run_stage_7_evaluation --preprocessing step_back
 python -m src.run_stage_7_evaluation --preprocessing multi_query
+python -m src.run_stage_7_evaluation --preprocessing decomposition
 ```
 
 ### B.4 Adding New Preprocessing Strategy

@@ -241,6 +241,23 @@ def _render_pipeline_log():
                     q_type = q.get("type", "unknown")
                     q_text = q.get("query", "")
                     st.markdown(f"**{i+1}. {q_type}:** {q_text}")
+
+            # Show decomposition section if decomposition strategy was used
+            sub_queries = getattr(prep, 'sub_queries', None)
+            if sub_queries and len(sub_queries) > 0:
+                st.divider()
+                st.markdown("#### Query Decomposition (MULTI_HOP)")
+
+                # Show decomposition prompt
+                decomposition_prompt = getattr(prep, 'decomposition_prompt_used', None)
+                if decomposition_prompt:
+                    st.markdown("**Decomposition Prompt:**")
+                    st.code(decomposition_prompt, language="text")
+
+                # Show sub-questions
+                st.markdown("**Sub-Questions:**")
+                for i, sq in enumerate(sub_queries, 1):
+                    st.markdown(f"**{i}.** {sq}")
         else:
             st.info("Preprocessing was disabled for this query.")
 

@@ -558,7 +558,7 @@ def main():
         "--preprocessing",
         "-p",
         type=str,
-        choices=["none", "baseline", "step_back"],
+        choices=["none", "baseline", "step_back", "multi_query", "decomposition"],
         default="none",
         help="Query preprocessing strategy (default: none for clean baseline)",
     )

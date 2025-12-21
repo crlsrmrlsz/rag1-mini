@@ -32,12 +32,14 @@ from src.preprocessing.query_classifier import (
     STEP_BACK_PROMPT,
     PRINCIPLE_EXTRACTION_PROMPT,
     MULTI_QUERY_PROMPT,
+    DECOMPOSITION_PROMPT,
     PreprocessedQuery,
     QueryType,
     classify_query,
     step_back_prompt as _step_back_prompt_fn,
     extract_principles,
     generate_multi_queries,
+    decompose_query,
 )
 from src.utils.file_utils import setup_logging
 
@@ -244,6 +246,73 @@ def multi_query_strategy(query: str, model: Optional[str] = None) -> Preprocesse
 
 
 # =============================================================================
+# DECOMPOSITION STRATEGY
+# =============================================================================
+
+
+def decomposition_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
+    """Decompose MULTI_HOP queries into sub-questions for RRF merging.
+
+    This strategy specifically handles comparison and multi-aspect questions:
+    1. Classifies the query type
+    2. If MULTI_HOP, decomposes into 2-4 sub-questions
+    3. Sub-questions are used for RRF-merged retrieval
+
+    Based on Query Decomposition research showing +36.7% MRR@10 improvement
+    for complex multi-hop queries.
+
+    Args:
+        query: The user's original query.
+        model: Model for LLM calls.
+
+    Returns:
+        PreprocessedQuery with sub_queries populated for MULTI_HOP.
+    """
+    start_time = time.time()
+    model = model or PREPROCESSING_MODEL
+
+    # Step 1: Classify the query
+    query_type, classification_response = classify_query(query, model=model)
+    logger.info(f"[decomposition] Query classified as: {query_type.value}")
+
+    # Step 2: Decompose if MULTI_HOP
+    sub_queries = []
+    decomposition_response = None
+    decomposition_prompt_used = None
+
+    if query_type == QueryType.MULTI_HOP:
+        sub_queries, decomposition_response = decompose_query(query, model=model)
+        decomposition_prompt_used = DECOMPOSITION_PROMPT.format(query=query)
+        logger.info(f"[decomposition] Decomposed into {len(sub_queries)} sub-queries")
+    else:
+        # For non-MULTI_HOP, just use original query
+        logger.info("[decomposition] Not MULTI_HOP, using original query")
+
+    # Build generated_queries format for search compatibility
+    # This allows reuse of existing RRF merging infrastructure
+    generated_queries = [{"type": "original", "query": query}]
+    for i, sq in enumerate(sub_queries):
+        generated_queries.append({"type": f"sub_{i+1}", "query": sq})
+
+    elapsed_ms = (time.time() - start_time) * 1000
+
+    return PreprocessedQuery(
+        original_query=query,
+        query_type=query_type,
+        search_query=query,  # Keep original for display
+        sub_queries=sub_queries,
+        strategy_used="decomposition",
+        preprocessing_time_ms=elapsed_ms,
+        model=model,
+        classification_prompt_used=CLASSIFICATION_PROMPT,
+        classification_response=classification_response,
+        generated_queries=generated_queries,  # For search/RRF compatibility
+        decomposition_prompt_used=decomposition_prompt_used,
+        decomposition_response=decomposition_response,
+    )
+
+
+# =============================================================================
 # STRATEGY REGISTRY
 # =============================================================================
 
@@ -253,6 +322,7 @@ STRATEGIES: Dict[str, StrategyFunction] = {
     "baseline": baseline_strategy,
     "step_back": step_back_strategy,
     "multi_query": multi_query_strategy,
+    "decomposition": decomposition_strategy,
 }
 
 
@@ -260,7 +330,7 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
     """Get strategy function by ID.
 
     Args:
-        strategy_id: One of "none", "baseline", "step_back", "multi_query".
+        strategy_id: One of "none", "baseline", "step_back", "multi_query", "decomposition".
 
     Returns:
         Strategy function that takes (query, model) and returns PreprocessedQuery.
@@ -269,10 +339,10 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
         ValueError: If strategy_id is not registered.
 
     Example:
-        >>> strategy_fn = get_strategy("step_back")
-        >>> result = strategy_fn("How should I live?", model="openai/gpt-4o-mini")
+        >>> strategy_fn = get_strategy("decomposition")
+        >>> result = strategy_fn("Compare Stoic and Buddhist views", model="openai/gpt-4o-mini")
         >>> result.strategy_used
-        "step_back"
+        "decomposition"
     """
     if strategy_id not in STRATEGIES:
         available = list(STRATEGIES.keys())
@@ -284,22 +354,6 @@ def list_strategies() -> List[str]:
     """List all registered strategy IDs.
 
     Returns:
-        List of strategy IDs (e.g., ["none", "baseline", "step_back", "multi_query"]).
+        List of strategy IDs (e.g., ["none", "baseline", "step_back", "multi_query", "decomposition"]).
     """
     return list(STRATEGIES.keys())
-
-
-# =============================================================================
-# FUTURE STRATEGY STUBS
-# =============================================================================
-
-# TODO (Phase 4): Implement decomposition_strategy
-# - Detect MULTI_HOP queries (comparisons, multi-aspect questions)
-# - Break into sub-questions
-# - Retrieve for each sub-question
-# - Merge results with RRF
-# - Expected improvement: +36.7% MRR@10 per research
-#
-# def decomposition_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-#     """Query decomposition for MULTI_HOP questions."""
-#     pass

@@ -92,6 +92,11 @@ def _build_preprocessing(prep) -> Dict:
     if principle_extraction:
         result["principle_extraction"] = principle_extraction
 
+    # Add decomposition sub-queries if present
+    sub_queries = getattr(prep, "sub_queries", None)
+    if sub_queries:
+        result["sub_queries"] = sub_queries
+
     return result
 
 

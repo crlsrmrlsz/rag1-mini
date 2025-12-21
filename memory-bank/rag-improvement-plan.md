@@ -667,3 +667,351 @@ For each improvement:
 | RAPTOR clustering quality | Test with different k values, use HDBSCAN |
 | Neo4j complexity | Start with simple entity types, expand gradually |
 | Over-engineering | Implement in order, stop when targets met |
+
+---
+
+## Appendix A: Strategy Pattern Template
+
+This section documents the exact pattern used for preprocessing strategies. **Copy this pattern** when implementing chunking, embedding, or retrieval strategies.
+
+### A.1 Pattern Overview
+
+The Strategy Pattern with Registry provides:
+1. **Modularity** - Each strategy is an isolated function
+2. **Testability** - Switch strategies via UI/CLI for A/B testing
+3. **Extensibility** - Add new strategies without modifying existing code
+4. **Traceability** - All results track which strategy was used
+
+### A.2 File Structure
+
+```
+src/{domain}/
+├── __init__.py          # Export strategy list and main function
+├── {main_module}.py     # Contains dispatcher and result dataclass
+└── strategies.py        # Strategy registry and implementations
+```
+
+### A.3 Code Templates
+
+#### A.3.1 Config (src/config.py)
+
+```python
+# =============================================================================
+# {DOMAIN} STRATEGY CONFIGURATION
+# =============================================================================
+
+# List of (id, display_name, description) tuples
+# UI dropdowns and CLI choices are generated from this list
+AVAILABLE_{DOMAIN}_STRATEGIES = [
+    ("strategy_a", "Strategy A", "Description of strategy A"),
+    ("strategy_b", "Strategy B", "Description of strategy B"),
+]
+
+# Default strategy when none specified
+DEFAULT_{DOMAIN}_STRATEGY = "strategy_a"
+```
+
+#### A.3.2 Strategies Module (src/{domain}/strategies.py)
+
+```python
+"""Strategy implementations for {domain}.
+
+Each strategy has the same signature:
+    def strategy_name(input: InputType, **kwargs) -> ResultType
+
+Add new strategies by:
+1. Implement the function
+2. Add to STRATEGIES dict
+3. Add to AVAILABLE_{DOMAIN}_STRATEGIES in config.py
+"""
+
+from typing import Dict, Callable, Optional
+from src.{domain}.{main_module} import ResultType
+
+# Type alias for strategy functions
+StrategyFunction = Callable[..., ResultType]
+
+
+def strategy_a(input: InputType, **kwargs) -> ResultType:
+    """Strategy A implementation.
+
+    Args:
+        input: The input to process.
+        **kwargs: Additional options (model, etc.)
+
+    Returns:
+        ResultType with strategy_used="strategy_a"
+    """
+    # Implementation
+    return ResultType(
+        # ... fields ...
+        strategy_used="strategy_a",
+    )
+
+
+def strategy_b(input: InputType, **kwargs) -> ResultType:
+    """Strategy B implementation."""
+    # Implementation
+    return ResultType(
+        # ... fields ...
+        strategy_used="strategy_b",
+    )
+
+
+# =============================================================================
+# STRATEGY REGISTRY
+# =============================================================================
+
+STRATEGIES: Dict[str, StrategyFunction] = {
+    "strategy_a": strategy_a,
+    "strategy_b": strategy_b,
+}
+
+
+def get_strategy(strategy_id: str) -> StrategyFunction:
+    """Get strategy function by ID.
+
+    Args:
+        strategy_id: One of the keys in STRATEGIES dict.
+
+    Returns:
+        The strategy function.
+
+    Raises:
+        ValueError: If strategy_id not found in registry.
+    """
+    if strategy_id not in STRATEGIES:
+        available = list(STRATEGIES.keys())
+        raise ValueError(f"Unknown strategy '{strategy_id}'. Available: {available}")
+    return STRATEGIES[strategy_id]
+```
+
+#### A.3.3 Result Dataclass (src/{domain}/{main_module}.py)
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ResultType:
+    """Result of {domain} processing.
+
+    Attributes:
+        # ... domain-specific fields ...
+        strategy_used: ID of the strategy that produced this result.
+        processing_time_ms: Time taken for processing.
+    """
+    # Domain-specific fields
+    output: Any
+
+    # Strategy tracking (REQUIRED)
+    strategy_used: str = ""
+    processing_time_ms: float = 0.0
+```
+
+#### A.3.4 Dispatcher Function (src/{domain}/{main_module}.py)
+
+```python
+def process_{domain}(
+    input: InputType,
+    strategy: Optional[str] = None,
+    **kwargs,
+) -> ResultType:
+    """Main entry point for {domain} processing.
+
+    Routes to appropriate strategy based on strategy parameter.
+    If strategy is None, uses DEFAULT_{DOMAIN}_STRATEGY from config.
+
+    Args:
+        input: The input to process.
+        strategy: Strategy ID (e.g., "strategy_a", "strategy_b").
+        **kwargs: Passed to strategy function.
+
+    Returns:
+        ResultType with strategy_used field set.
+    """
+    from src.config import DEFAULT_{DOMAIN}_STRATEGY
+    from src.{domain}.strategies import get_strategy
+
+    if strategy is None:
+        strategy = DEFAULT_{DOMAIN}_STRATEGY
+
+    strategy_fn = get_strategy(strategy)
+    return strategy_fn(input, **kwargs)
+```
+
+#### A.3.5 Module __init__.py
+
+```python
+"""Exports for {domain} module."""
+
+from src.{domain}.{main_module} import (
+    process_{domain},
+    ResultType,
+)
+
+from src.config import AVAILABLE_{DOMAIN}_STRATEGIES
+
+__all__ = [
+    "process_{domain}",
+    "ResultType",
+    "AVAILABLE_{DOMAIN}_STRATEGIES",
+]
+```
+
+### A.4 UI Integration (src/ui/app.py)
+
+```python
+from src.config import AVAILABLE_{DOMAIN}_STRATEGIES, DEFAULT_{DOMAIN}_STRATEGY
+
+# Build dropdown options
+strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_{DOMAIN}_STRATEGIES}
+strategy_ids = list(strategy_options.keys())
+default_idx = strategy_ids.index(DEFAULT_{DOMAIN}_STRATEGY)
+
+# Streamlit selectbox
+selected_strategy = st.sidebar.selectbox(
+    "Strategy",
+    options=strategy_ids,
+    index=default_idx,
+    format_func=lambda x: strategy_options[x][0],  # Display name
+    help=strategy_options[strategy_ids[0]][1],  # Show description
+)
+
+# Pass to processing function
+result = process_{domain}(input, strategy=selected_strategy)
+```
+
+### A.5 CLI Integration (src/run_stage_*.py)
+
+```python
+import argparse
+from src.config import AVAILABLE_{DOMAIN}_STRATEGIES
+
+# Get strategy IDs for CLI choices
+strategy_choices = [s[0] for s in AVAILABLE_{DOMAIN}_STRATEGIES]
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--{domain}-strategy",
+    type=str,
+    choices=strategy_choices,
+    default="none",  # or DEFAULT_{DOMAIN}_STRATEGY
+    help="{Domain} strategy to use",
+)
+
+args = parser.parse_args()
+
+# Use in processing
+result = process_{domain}(input, strategy=args.{domain}_strategy)
+```
+
+### A.6 Logging Integration (src/utils/*_logger.py)
+
+```python
+def _build_{domain}_section(result) -> Dict:
+    """Build {domain} section from ResultType."""
+    if not result:
+        return {"enabled": False}
+    return {
+        "enabled": True,
+        "strategy": result.strategy_used,
+        # ... other fields ...
+        "time_ms": round(result.processing_time_ms, 1),
+    }
+```
+
+### A.7 Checklist for New Strategy Domain
+
+When adding a new strategy domain (e.g., chunking), follow these steps:
+
+- [ ] Add `AVAILABLE_{DOMAIN}_STRATEGIES` to `src/config.py`
+- [ ] Add `DEFAULT_{DOMAIN}_STRATEGY` to `src/config.py`
+- [ ] Create `src/{domain}/strategies.py` with registry
+- [ ] Add `strategy_used` field to result dataclass
+- [ ] Add `strategy` parameter to main dispatcher function
+- [ ] Update `src/{domain}/__init__.py` exports
+- [ ] Add dropdown to UI (if applicable)
+- [ ] Add CLI argument (if applicable)
+- [ ] Add to logging/tracking (if applicable)
+- [ ] Test each strategy independently
+- [ ] Run RAGAS evaluation to compare
+
+---
+
+## Appendix B: Preprocessing Strategy Reference
+
+### B.1 Current Implementation
+
+**Files:**
+- `src/config.py` (lines 300-310)
+- `src/preprocessing/strategies.py`
+- `src/preprocessing/query_classifier.py`
+- `src/ui/app.py` (Stage 1 sidebar)
+- `src/run_stage_7_evaluation.py`
+
+### B.2 Available Strategies
+
+| ID | Display | Description | When Used |
+|----|---------|-------------|-----------|
+| `none` | None | Return original query unchanged | Baseline testing |
+| `baseline` | Baseline | Classify query type only, no transformation | Track query types |
+| `step_back` | Step-Back | Classify + step-back for OPEN_ENDED queries | Production default |
+
+### B.3 Usage Examples
+
+```python
+# In code
+from src.preprocessing import preprocess_query
+
+# Use default strategy (step_back)
+result = preprocess_query("Why do humans procrastinate?")
+print(result.strategy_used)  # "step_back"
+
+# Explicit strategy
+result = preprocess_query("Why do humans procrastinate?", strategy="baseline")
+print(result.strategy_used)  # "baseline"
+```
+
+```bash
+# From CLI
+python -m src.run_stage_7_evaluation --preprocessing none
+python -m src.run_stage_7_evaluation --preprocessing baseline
+python -m src.run_stage_7_evaluation --preprocessing step_back
+```
+
+### B.4 Adding New Preprocessing Strategy
+
+Example: Adding a `multi_query` strategy that generates multiple search queries.
+
+1. Add to config:
+```python
+AVAILABLE_PREPROCESSING_STRATEGIES = [
+    # ... existing ...
+    ("multi_query", "Multi-Query", "Generate 4 queries + RRF merge"),
+]
+```
+
+2. Implement in strategies.py:
+```python
+def multi_query_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
+    """Generate multiple queries for RRF merging."""
+    # 1. Classify query
+    classification = classify_query(query, model=model)
+
+    # 2. Generate multiple search queries
+    queries = generate_multi_queries(query, model=model)
+
+    return PreprocessedQuery(
+        original_query=query,
+        query_type=classification.query_type,
+        search_query=queries[0],  # Primary query
+        sub_queries=queries[1:],  # Additional queries
+        strategy_used="multi_query",
+        # ...
+    )
+
+# Add to registry
+STRATEGIES["multi_query"] = multi_query_strategy
+```
+
+3. Update retrieval to use `sub_queries` if present

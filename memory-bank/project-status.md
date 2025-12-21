@@ -1,6 +1,6 @@
 # RAG1-Mini Project Status
 
-**Last Updated:** December 20, 2025
+**Last Updated:** December 21, 2025
 
 ## Overview
 
@@ -8,7 +8,7 @@ RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid n
 
 **Core Goal:** Master RAG pipeline components while building specialized AI that provides grounded, thoughtful answers about human cognition and behavior.
 
-## Current Status: Stage 8 Complete
+## Current Status: Phase 1 Infrastructure Complete
 
 | Stage | Description | Output |
 |-------|-------------|--------|
@@ -93,14 +93,94 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 - Principle-based examples (patterns, not exhaustive lists)
 - Science explains HOW we work; philosophy guides what to DO
 
-## Previous Plans: Stage 8 Advanced RAG
+## RAG Improvement Phases
 
-| Improvement | What | Status |
-|-------------|------|--------|
-| Hybrid Search | BM25 + vector combination | Completed (Run 2-4) |
-| Cross-Encoder Reranking | Re-score with deep model | Completed (Run 4) - CPU too slow |
-| Alpha Tuning | Test 0.3, 0.5, 0.7 | Pending |
-| API-Based Reranking | Voyage/Cohere for speed | Research done, pending |
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 0 | Evaluation CLI (--collection, auto-logging) | COMPLETE |
+| 1 | Preprocessing Strategy Infrastructure | COMPLETE |
+| 2 | Test Preprocessing Strategies (none, baseline, step_back) | TODO |
+| 3 | Multi-Query Strategy (+RRF merging) | TODO |
+| 4 | Query Decomposition (MULTI_HOP) | TODO |
+| 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
+| 6 | Contextual Chunking (+35% failure reduction) | TODO |
+| 7 | RAPTOR (hierarchical summarization) | TODO |
+| 8 | GraphRAG (Neo4j integration) | TODO |
+
+See `memory-bank/rag-improvement-plan.md` for detailed implementation plans.
+
+## Strategy Pattern Architecture
+
+The project uses a **Strategy Pattern with Registry** for modular, testable RAG components. This pattern is implemented for preprocessing and will be applied to chunking, embedding, and retrieval.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    STRATEGY PATTERN FLOW                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   config.py                    strategies.py                    │
+│   ┌──────────────────┐        ┌──────────────────────────────┐ │
+│   │ AVAILABLE_*      │───────▶│ STRATEGIES = {               │ │
+│   │ DEFAULT_*        │        │   "none": none_strategy,     │ │
+│   └──────────────────┘        │   "baseline": baseline_...,  │ │
+│            │                  │   "step_back": step_back_...,│ │
+│            ▼                  │ }                            │ │
+│   ┌──────────────────┐        │                              │ │
+│   │ UI Dropdown      │        │ def get_strategy(id) -> fn   │ │
+│   │ CLI --arg        │        └──────────────────────────────┘ │
+│   └────────┬─────────┘                     │                   │
+│            │                               │                   │
+│            └──────────────────▶ dispatcher() ◀─────────────────┘
+│                                     │                          │
+│                                     ▼                          │
+│                            Result dataclass                    │
+│                            (with strategy_used)                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Pattern Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **Config** | `src/config.py` | `AVAILABLE_*_STRATEGIES` list, `DEFAULT_*_STRATEGY` |
+| **Registry** | `src/*/strategies.py` | `STRATEGIES` dict mapping ID → function |
+| **Dispatcher** | Main module | `process_*(strategy=...)` routes to correct function |
+| **Result** | Dataclass | Contains `strategy_used` field for tracking |
+| **UI** | `src/ui/app.py` | Dropdown populated from `AVAILABLE_*` |
+| **CLI** | `src/run_stage_*.py` | `--strategy` argument with choices |
+| **Logging** | `src/utils/query_logger.py` | Records `strategy` in JSON logs |
+
+### Implemented: Preprocessing Strategies
+
+**Files:**
+- `src/config.py:AVAILABLE_PREPROCESSING_STRATEGIES`
+- `src/preprocessing/strategies.py` (registry)
+- `src/preprocessing/query_classifier.py` (dispatcher)
+
+**Available strategies:**
+- `none` - No transformation, use original query
+- `baseline` - Classify query type only
+- `step_back` - Classify + step-back prompting for OPEN_ENDED queries
+
+### To Implement: Chunking Strategies
+
+Same pattern for `src/ingest/chunking_strategies.py`:
+- `naive` - Current 800-token section-aware chunks
+- `contextual` - Anthropic-style context prepending
+- `raptor` - Hierarchical summarization tree
+
+### To Implement: Embedding Strategies
+
+Same pattern for `src/ingest/embedding_strategies.py`:
+- `text-embedding-3-large` - Current OpenAI model
+- `voyage-3` - Higher quality, different pricing
+
+### To Implement: Retrieval Strategies
+
+Same pattern for `src/vector_db/retrieval_strategies.py`:
+- `vector` - Pure semantic search
+- `hybrid` - BM25 + vector with alpha
+- `graphrag` - Graph-augmented retrieval
 
 ## Run Commands
 

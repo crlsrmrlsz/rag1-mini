@@ -263,14 +263,17 @@ def run_evaluation(
     collection_name: Optional[str] = None,
     use_reranking: bool = True,
     alpha: float = 0.5,
+    preprocessing_strategy: str = "none",
+    preprocessing_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run RAGAS evaluation on test questions.
 
     This function:
-    1. Retrieves contexts for each question (with optional cross-encoder reranking)
-    2. Generates answers using the RAG pipeline
-    3. Evaluates using RAGAS metrics
+    1. Optionally preprocesses each question (classification, step-back, etc.)
+    2. Retrieves contexts for each question (with optional cross-encoder reranking)
+    3. Generates answers using the RAG pipeline
+    4. Evaluates using RAGAS metrics
 
     Args:
         test_questions: List of dicts with 'question' and optionally 'reference' keys.
@@ -287,6 +290,9 @@ def run_evaluation(
         use_reranking: If True, apply cross-encoder reranking to improve retrieval.
                        Default: True (enabled for best accuracy).
         alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
+        preprocessing_strategy: Query preprocessing strategy ("none", "baseline", "step_back").
+                               Default: "none" for clean baseline evaluation.
+        preprocessing_model: Model for preprocessing LLM calls (default from config).
 
     Returns:
         Dict with:
@@ -309,9 +315,25 @@ def run_evaluation(
 
         logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question[:50]}...")
 
+        # Apply preprocessing if enabled
+        search_query = question
+        if preprocessing_strategy != "none":
+            from src.preprocessing import preprocess_query
+            try:
+                preprocessed = preprocess_query(
+                    query=question,
+                    strategy=preprocessing_strategy,
+                    model=preprocessing_model,
+                )
+                search_query = preprocessed.search_query
+                logger.info(f"  Preprocessed ({preprocessing_strategy}): {search_query[:50]}...")
+            except Exception as e:
+                logger.warning(f"  Preprocessing failed: {e}. Using original query.")
+                search_query = question
+
         # Retrieve contexts (with optional reranking for improved precision)
         contexts = retrieve_contexts(
-            question=question,
+            question=search_query,  # Use preprocessed query for retrieval
             top_k=top_k,
             collection_name=collection_name,
             use_reranking=use_reranking,

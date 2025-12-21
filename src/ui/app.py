@@ -34,6 +34,8 @@ from src.config import (
     MAX_TOP_K,
     AVAILABLE_GENERATION_MODELS,
     AVAILABLE_PREPROCESSING_MODELS,
+    AVAILABLE_PREPROCESSING_STRATEGIES,
+    DEFAULT_PREPROCESSING_STRATEGY,
     GENERATION_MODEL,
     PREPROCESSING_MODEL,
     ENABLE_ANSWER_GENERATION,
@@ -157,11 +159,15 @@ def _render_pipeline_log():
     # Stage 1: Query Preprocessing
     with st.expander("Stage 1: Query Preprocessing", expanded=True):
         if prep:
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
+
+            # Strategy used (with backward compat for cached objects)
+            strategy_used = getattr(prep, 'strategy_used', 'N/A')
+            col1.markdown(f"**Strategy:** `{strategy_used}`")
 
             # Model used (with backward compat for cached objects)
             prep_model = getattr(prep, 'model', 'N/A')
-            col1.markdown(f"**Model:** `{prep_model}`")
+            col2.markdown(f"**Model:** `{prep_model}`")
 
             # Query type with color-coded badge
             type_colors = {
@@ -170,8 +176,8 @@ def _render_pipeline_log():
                 QueryType.MULTI_HOP: "orange",
             }
             type_color = type_colors.get(prep.query_type, "gray")
-            col2.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
-            col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
+            col3.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
+            col4.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
 
             # Show complete classification prompt (system + user)
             st.markdown("**Classification Prompt (sent to LLM):**")
@@ -297,10 +303,23 @@ st.sidebar.markdown("### Stage 1: Query Preprocessing")
 enable_preprocessing = st.sidebar.checkbox(
     "Enable Preprocessing",
     value=ENABLE_QUERY_PREPROCESSING,
-    help="Classify queries and apply step-back prompting for open-ended questions.",
+    help="Classify queries and apply preprocessing strategy.",
 )
 
 if enable_preprocessing:
+    # Strategy selector
+    strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES if s[0] != "none"}
+    strategy_ids = list(strategy_options.keys())
+    default_idx = strategy_ids.index(DEFAULT_PREPROCESSING_STRATEGY) if DEFAULT_PREPROCESSING_STRATEGY in strategy_ids else 0
+    selected_strategy = st.sidebar.selectbox(
+        "Strategy",
+        options=strategy_ids,
+        index=default_idx,
+        format_func=lambda x: strategy_options[x][0],  # Display label
+        help="Preprocessing strategy: Baseline=classify only, Step-Back=classify+transform for open-ended.",
+    )
+
+    # Model selector
     prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
     selected_prep_model = st.sidebar.selectbox(
         "Preprocessing Model",
@@ -310,6 +329,7 @@ if enable_preprocessing:
         help="Model used for query classification and step-back prompting. (Fetched from OpenRouter)",
     )
 else:
+    selected_strategy = "none"
     selected_prep_model = PREPROCESSING_MODEL
 
 st.sidebar.divider()
@@ -449,7 +469,9 @@ if search_clicked and query:
         if enable_preprocessing:
             with st.spinner("Stage 1: Analyzing query..."):
                 try:
-                    preprocessed = preprocess_query(query, model=selected_prep_model)
+                    preprocessed = preprocess_query(
+                        query, model=selected_prep_model, strategy=selected_strategy
+                    )
                     search_query = preprocessed.search_query
                     st.session_state.preprocessed_query = preprocessed
                 except Exception as e:

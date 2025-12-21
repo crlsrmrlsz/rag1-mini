@@ -75,6 +75,7 @@ class PreprocessedQuery:
         search_query: The query to use for retrieval (may be transformed).
         step_back_query: For OPEN_ENDED, the abstracted broader query.
         sub_queries: For MULTI_HOP, decomposed sub-questions (future).
+        strategy_used: The preprocessing strategy that was applied.
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
         model: Model ID used for preprocessing (for logging).
         classification_prompt_used: The prompt sent to LLM for classification (for logging).
@@ -86,6 +87,7 @@ class PreprocessedQuery:
     search_query: str
     step_back_query: Optional[str] = None
     sub_queries: List[str] = field(default_factory=list)
+    strategy_used: str = ""  # Strategy ID that was applied (none, baseline, step_back)
     preprocessing_time_ms: float = 0.0
     model: str = ""  # Model ID used for preprocessing
     classification_prompt_used: Optional[str] = None
@@ -345,66 +347,46 @@ def step_back_prompt(query: str, model: Optional[str] = None) -> str:
 def preprocess_query(
     query: str,
     model: Optional[str] = None,
-    enable_step_back: bool = True,
+    strategy: Optional[str] = None,
+    enable_step_back: bool = True,  # DEPRECATED: Use strategy parameter instead
 ) -> PreprocessedQuery:
     """Preprocess a query for optimal retrieval.
 
-    Main entry point for query preprocessing. Classifies the query and applies
-    appropriate transformations based on query type.
+    Main entry point for query preprocessing. Dispatches to the appropriate
+    strategy based on the strategy parameter.
 
     Args:
         query: The user's original query.
         model: Override model for LLM calls.
-        enable_step_back: If True, apply step-back prompting for open-ended queries.
+        strategy: Preprocessing strategy ID. Options:
+            - "none": Return original query unchanged (no LLM calls)
+            - "baseline": Classify only, no transformation
+            - "step_back": Classify + step-back for open-ended (default)
+        enable_step_back: DEPRECATED. Use strategy="baseline" to skip step-back.
+            Kept for backward compatibility with existing callers.
 
     Returns:
-        PreprocessedQuery with classification and transformed query.
+        PreprocessedQuery with classification, transformed query, and strategy_used.
 
     Example:
-        >>> result = preprocess_query("How should I live?")
+        >>> result = preprocess_query("How should I live?", strategy="step_back")
         >>> result.query_type
         QueryType.OPEN_ENDED
-        >>> result.search_query
-        "Stoic and philosophical principles for living a good life"
+        >>> result.strategy_used
+        "step_back"
     """
-    start_time = time.time()
+    # Import here to avoid circular imports
+    from src.config import DEFAULT_PREPROCESSING_STRATEGY
+    from src.preprocessing.strategies import get_strategy
 
-    # Resolve model for tracking (same default as classify_query/step_back_prompt)
-    model = model or PREPROCESSING_MODEL
+    # Handle strategy selection with backward compatibility
+    if strategy is None:
+        if enable_step_back:
+            strategy = DEFAULT_PREPROCESSING_STRATEGY
+        else:
+            # enable_step_back=False maps to baseline (classify only)
+            strategy = "baseline"
 
-    # Step 1: Classify the query (returns tuple with raw response)
-    query_type, classification_response = classify_query(query, model=model)
-    logger.info(f"Query classified as: {query_type.value}")
-
-    # Step 2: Apply appropriate transformation
-    step_back_query = None
-    search_query = query
-    step_back_prompt_used = None
-    step_back_response = None
-
-    if query_type == QueryType.OPEN_ENDED and enable_step_back:
-        step_back_query = step_back_prompt(query, model=model)
-        step_back_response = step_back_query  # The LLM response IS the step-back query
-        search_query = step_back_query
-        step_back_prompt_used = STEP_BACK_PROMPT
-        logger.info(f"Step-back query: {step_back_query}")
-
-    elif query_type == QueryType.MULTI_HOP:
-        # Future: Implement query decomposition
-        # For now, use original query
-        logger.info("Multi-hop query detected (decomposition not yet implemented)")
-
-    elapsed_ms = (time.time() - start_time) * 1000
-
-    return PreprocessedQuery(
-        original_query=query,
-        query_type=query_type,
-        search_query=search_query,
-        step_back_query=step_back_query,
-        preprocessing_time_ms=elapsed_ms,
-        model=model,
-        classification_prompt_used=CLASSIFICATION_PROMPT,
-        step_back_prompt_used=step_back_prompt_used,
-        classification_response=classification_response,
-        step_back_response=step_back_response,
-    )
+    # Get and execute the strategy function
+    strategy_fn = get_strategy(strategy)
+    return strategy_fn(query, model=model)

@@ -42,8 +42,18 @@ services:
     # Restart policy
     # on-failure:0 = don't restart on failure (good for debugging)
     # Other options: always, unless-stopped
-    restart: on-failure:0
-    
+    # restart: on-failure:0
+    # Change restart policy (line 45)
+    restart: unless-stopped
+
+    # Add after environment section (new block)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s   
+      
     # Environment variables configure Weaviate's behavior
     environment:
       # Default limit for query results

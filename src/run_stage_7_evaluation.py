@@ -244,6 +244,11 @@ def append_to_evaluation_history(
     rel_str = f"{relevancy:.3f}" if isinstance(relevancy, (int, float)) else str(relevancy)
     cp_str = f"{context_precision:.3f}" if isinstance(context_precision, (int, float)) else str(context_precision)
 
+    # Format preprocessing info
+    prep_strategy = config.get('preprocessing_strategy', 'none')
+    prep_model = config.get('preprocessing_model', 'default')
+    prep_str = f"{prep_strategy}" + (f" ({prep_model})" if prep_model else "")
+
     entry = f"""
 ---
 
@@ -258,6 +263,7 @@ def append_to_evaluation_history(
 - **Alpha:** {config.get('alpha', 0.5)}
 - **Top-K:** {config.get('top_k', 10)}
 - **Reranking:** {'Yes' if config.get('reranking', False) else 'No'}
+- **Preprocessing:** {prep_str}
 - **Generation Model:** {config.get('generation_model', 'unknown')}
 - **Evaluation Model:** {config.get('evaluation_model', 'unknown')}
 
@@ -365,7 +371,8 @@ def update_tracking_json(
             "evaluation_model": config.get("evaluation_model", "unknown"),
             "reranking": config.get("reranking", False),
             "rerank_model": "mxbai-rerank-large-v1" if config.get("reranking") else None,
-            "query_preprocessing": "none",
+            "preprocessing_strategy": config.get("preprocessing_strategy", "none"),
+            "preprocessing_model": config.get("preprocessing_model"),
         },
         "metrics": {
             "faithfulness": round(scores.get("faithfulness", 0), 3),
@@ -547,6 +554,20 @@ def main():
         default=False,
         help="Skip auto-logging to evaluation-history.md and tracking.json",
     )
+    parser.add_argument(
+        "--preprocessing",
+        "-p",
+        type=str,
+        choices=["none", "baseline", "step_back"],
+        default="none",
+        help="Query preprocessing strategy (default: none for clean baseline)",
+    )
+    parser.add_argument(
+        "--preprocessing-model",
+        type=str,
+        default=None,
+        help="Model for preprocessing (default: from config)",
+    )
 
     args = parser.parse_args()
 
@@ -573,6 +594,7 @@ def main():
     logger.info(f"Top-K: {args.top_k}")
     logger.info(f"Alpha: {args.alpha}")
     logger.info(f"Reranking: {args.reranking}")
+    logger.info(f"Preprocessing: {args.preprocessing}")
     logger.info(f"Generation model: {args.generation_model}")
     logger.info(f"Evaluation model: {args.evaluation_model}")
 
@@ -586,6 +608,8 @@ def main():
             collection_name=collection_name,
             use_reranking=args.reranking,
             alpha=args.alpha,
+            preprocessing_strategy=args.preprocessing,
+            preprocessing_model=args.preprocessing_model,
         )
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
@@ -604,6 +628,8 @@ def main():
             "alpha": args.alpha,
             "top_k": args.top_k,
             "reranking": args.reranking,
+            "preprocessing_strategy": args.preprocessing,
+            "preprocessing_model": args.preprocessing_model,
             "generation_model": args.generation_model,
             "evaluation_model": args.evaluation_model,
         }

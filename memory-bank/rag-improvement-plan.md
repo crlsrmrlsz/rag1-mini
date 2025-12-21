@@ -580,17 +580,32 @@ Update `evaluation-history.md` with results after each run.
 
 ## Implementation Order
 
-| Order | Phase | Effort | Impact | Files |
-|-------|-------|--------|--------|-------|
-| 0 | Evaluation CLI improvements | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
-| 1 | Phase 4: Step-Back Prompt Enhancement | Low | Better retrieval | `query_classifier.py` (prompt only) |
-| 2 | Phase 6.1: Lost-in-middle | Low | +15% | `answer_generator.py` |
-| 3 | Phase 1: Contextual | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
-| 4 | Phase 5: MULTI_HOP | Low | +36.7% MRR | `query_classifier.py` |
-| 5 | Phase 2: RAPTOR | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
-| 6 | Phase 3: GraphRAG | High | +70% coverage | `graph/`, Neo4j |
+**Strategy**: Test all query preprocessing techniques BEFORE chunking/embedding changes. Preprocessing changes are lower risk (prompt-only in many cases) and faster to test than chunking changes (which require re-embedding entire collections).
 
-**Note**: Phase 4 (Step-Back Prompt Enhancement) research and implementation details are in `memory-bank/step-back-prompting-research.md`.
+| Order | Phase | Status | Effort | Impact | Files |
+|-------|-------|--------|--------|--------|-------|
+| 0 | Evaluation CLI improvements | DONE | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
+| 1 | Preprocessing Strategy Infrastructure | DONE | Medium | Enables A/B testing | `strategies.py`, `config.py`, UI, CLI |
+| 2 | Test Step-Back Prompt Improvements | TODO | Low | Better retrieval | `query_classifier.py` (prompt only) |
+| 3 | Implement Multi-Query Strategy | TODO | Medium | +coverage | `strategies.py` |
+| 4 | Implement Query Decomposition (MULTI_HOP) | TODO | Medium | +36.7% MRR | `strategies.py` |
+| 5 | Lost-in-middle mitigation | TODO | Low | +15% | `answer_generator.py` |
+| 6 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
+| 7 | Contextual Chunking | TODO | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
+| 8 | RAPTOR | TODO | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
+| 9 | GraphRAG | TODO | High | +70% coverage | `graph/`, Neo4j |
+
+**Preprocessing Strategies Testing Workflow**:
+```bash
+# Test each strategy
+python -m src.run_stage_7_evaluation --preprocessing none      # Baseline
+python -m src.run_stage_7_evaluation --preprocessing baseline  # Classify only
+python -m src.run_stage_7_evaluation --preprocessing step_back # Current default
+
+# Compare results in memory-bank/evaluation-history.md
+```
+
+**Note**: Step-Back Prompt research and improvements are in `memory-bank/step-back-prompting-research.md`.
 
 ---
 

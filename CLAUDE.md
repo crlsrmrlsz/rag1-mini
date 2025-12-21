@@ -98,25 +98,40 @@ Update these files when making significant changes to maintain project continuit
 - [x] Auto-append results to evaluation-history.md
 - [x] Update tracking.json with run config
 
-**Phase 1: Quick Wins**
+**Phase 1: Preprocessing Strategy Infrastructure** - COMPLETE
+- [x] Create strategies.py module with registry pattern
+- [x] Add strategy selector to UI Stage 1
+- [x] Add --preprocessing argument to evaluation CLI
+- [x] Track strategy in evaluation logs
+
+**Phase 2: Test Preprocessing Strategies** - IN PROGRESS
+- [ ] Run evaluation with --preprocessing none (baseline)
+- [ ] Run evaluation with --preprocessing step_back
+- [ ] Compare metrics and document in evaluation-history.md
+- [ ] Test step-back prompt improvements from step-back-prompting-research.md
+
+**Phase 3: Multi-Query Strategy** (future)
+- [ ] Implement multi_query_strategy in strategies.py
+- [ ] Add RRF merging for multiple queries
+
+**Phase 4: Query Decomposition** (MULTI_HOP, +36.7% MRR)
+- [ ] Implement decomposition_strategy in strategies.py
+
+**Phase 5: Quick Wins**
 - [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
 - [ ] Alpha tuning experiments (0.3, 0.5, 0.7) via CLI
 
-**Phase 2: Contextual Retrieval** (Anthropic-style, +35% failure reduction)
+**Phase 6: Contextual Retrieval** (Anthropic-style, +35% failure reduction)
 - [ ] Create contextual_chunker.py (prepend LLM context to chunks)
 - [ ] Create run_stage_4_contextual.py
 - [ ] Test with RAGAS via CLI
 
-**Phase 3: Query Decomposition** (MULTI_HOP, +36.7% MRR)
-- [ ] Implement decompose_query() in query_classifier.py
-- [ ] Add multi-query retrieval with RRF merging
-
-**Phase 4: RAPTOR** (Hierarchical summarization, +20% comprehension)
+**Phase 7: RAPTOR** (Hierarchical summarization, +20% comprehension)
 - [ ] Create raptor_chunker.py (hierarchical tree building)
 - [ ] Create run_stage_4_raptor.py
 - [ ] Add RAPTOR query strategy
 
-**Phase 5: GraphRAG** (Neo4j, +70% comprehensiveness)
+**Phase 8: GraphRAG** (Neo4j, +70% comprehensiveness)
 - [ ] Add Neo4j to docker-compose.yml
 - [ ] Create src/graph/ module (extractor, neo4j_client, query)
 - [ ] Create graph extraction and upload stages
@@ -124,8 +139,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Phase 1: Preprocessing Strategy Infrastructure with UI dropdown and CLI integration (Dec 21)
 - Phase 0: Evaluation CLI with --collection arg and auto-logging (Dec 21)
 - Created comprehensive RAG improvement plan (Dec 21)
 - Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)
 - Added full prompt logging for preprocessing, generation, and reranking (Dec 21)
-- Implemented query preprocessing (classification + step-back prompting) (Dec 20)

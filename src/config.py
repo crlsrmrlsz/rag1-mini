@@ -320,3 +320,22 @@ ENABLE_ANSWER_GENERATION = True
 
 # Enable/disable query preprocessing (classification + step-back)
 ENABLE_QUERY_PREPROCESSING = True
+
+
+# ============================================================================
+# PREPROCESSING STRATEGY SETTINGS
+# ============================================================================
+
+# Available preprocessing strategies
+# Format: (strategy_id, display_label, description)
+AVAILABLE_PREPROCESSING_STRATEGIES = [
+    ("none", "None", "No preprocessing, use original query"),
+    ("baseline", "Baseline", "Classify query type only, no transformation"),
+    ("step_back", "Step-Back", "Classify + step-back prompting for open-ended queries"),
+    # Future strategies (placeholders):
+    # ("multi_query", "Multi-Query", "Generate multiple query variants + RRF"),
+    # ("decomposition", "Decomposition", "Break MULTI_HOP into sub-queries"),
+]
+
+# Default strategy for UI and preprocess_query() when not specified
+DEFAULT_PREPROCESSING_STRATEGY = "step_back"

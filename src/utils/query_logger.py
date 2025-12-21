@@ -71,6 +71,7 @@ def _build_preprocessing(prep) -> Dict:
         return {"enabled": False}
     return {
         "enabled": True,
+        "strategy": getattr(prep, "strategy_used", "unknown"),
         "model": getattr(prep, "model", ""),
         "query_type": prep.query_type.value,
         "search_query": prep.search_query,

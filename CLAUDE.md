@@ -87,16 +87,6 @@ The `memory-bank/` directory contains project context:
 
 Update these files when making significant changes to maintain project continuity.
 
-## MCP Server Usage
-
-### Context7
-Always use Context7 when code generation, setup or configuration steps, or library/API documentation is needed. Automatically use the Context7 MCP tools to resolve library id and get library docs without being explicitly asked.
-
-When working with any library or framework:
-1. First use `resolve-library-id` to find the correct Context7 library ID
-2. Then use `get-library-docs` to fetch up-to-date documentation
-3. Use this documentation to inform code generation and answers
-
 ## Current Tasks
 <!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 
@@ -105,12 +95,11 @@ When working with any library or framework:
 - [ ] Query decomposition for MULTI_HOP queries
 
 ### Next
-- [ ] API-based reranking (Voyage/Cohere) for speed
 - [ ] Contextual retrieval (prepend LLM context to chunks)
 
 ### Completed Recently
-- Improved prompts for integrated human behavior understanding (Dec 20)
+- Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)
+- Added full prompt logging for preprocessing, generation, and reranking (Dec 21)
 - Implemented query preprocessing (classification + step-back prompting) (Dec 20)
 - Implemented LLM answer generation from retrieved chunks (Dec 20)
-- Enhanced UI with query analysis and generated answers (Dec 20)
-- Added generation model selection to UI (Dec 20)
+- Improved prompts for integrated human behavior understanding (Dec 20)

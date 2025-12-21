@@ -138,12 +138,16 @@ def _render_pipeline_log():
             col1.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
             col2.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
 
-            st.markdown("**Classification Prompt:**")
-            st.code(prep.classification_prompt_used, language="text")
+            # Show complete classification prompt (system + user)
+            st.markdown("**Classification Prompt (sent to LLM):**")
+            classification_full = f"[System]\n{prep.classification_prompt_used}\n\n[User]\n{prep.original_query}"
+            st.code(classification_full, language="text")
 
             if prep.step_back_query and prep.step_back_query != prep.original_query:
-                st.markdown("**Step-Back Prompt:**")
-                st.code(prep.step_back_prompt_used, language="text")
+                # Show complete step-back prompt (system + user)
+                st.markdown("**Step-Back Prompt (sent to LLM):**")
+                step_back_full = f"[System]\n{prep.step_back_prompt_used}\n\n[User]\n{prep.original_query}"
+                st.code(step_back_full, language="text")
 
                 st.markdown("**Step-Back Result:**")
                 st.info(f"Original: {prep.original_query}\n\nTransformed: {prep.step_back_query}")
@@ -196,11 +200,10 @@ def _render_pipeline_log():
                 col2.markdown(f"**Query Type:** `{ans.query_type.value}`")
             col3.metric("Time", f"{ans.generation_time_ms:.0f}ms")
 
-            st.markdown("**System Prompt:**")
-            st.code(ans.system_prompt_used, language="text")
-
-            st.markdown("**User Prompt (with context):**")
-            st.code(ans.user_prompt_used, language="text")
+            # Show complete generation prompt (system + user)
+            st.markdown("**Generation Prompt (sent to LLM):**")
+            generation_full = f"[System]\n{ans.system_prompt_used}\n\n[User]\n{ans.user_prompt_used}"
+            st.code(generation_full, language="text")
 
             st.markdown(f"**Sources Cited:** {ans.sources_used}")
         else:
@@ -525,67 +528,3 @@ else:
     st.info("Enter a query above to search the knowledge base.")
 
 
-# ============================================================================
-# FOOTER - Educational Notes
-# ============================================================================
-
-with st.expander("How This Works"):
-    st.markdown("""
-    ### Complete RAG Pipeline Flow
-
-    1. **Query Preprocessing** (optional): Classifies your query and applies
-       transformations for better retrieval:
-       - FACTUAL queries use direct search
-       - OPEN_ENDED queries get step-back prompting (broader concepts)
-       - MULTI_HOP queries (coming soon) will be decomposed
-
-    2. **Vector Search**: Your query is converted to an embedding and matched
-       against document chunks using cosine similarity.
-
-    3. **Hybrid Search** (default): Combines vector similarity with BM25
-       keyword matching for better term-specific retrieval.
-
-    4. **Cross-Encoder Reranking** (optional): Re-scores retrieved chunks using
-       a model that sees query and document together for higher accuracy.
-
-    5. **Answer Generation** (optional): An LLM synthesizes a coherent answer
-       from the retrieved chunks, with source citations.
-
-    ### Query Preprocessing
-
-    **Step-Back Prompting** (for open-ended questions):
-
-    Research shows that abstracting queries to broader concepts improves
-    retrieval for philosophical and wisdom-seeking questions.
-
-    Example:
-    - Original: "How should I live my life?"
-    - Step-back: "Stoic and philosophical principles for living a good life"
-
-    The broader query retrieves more diverse, relevant passages.
-
-    ### Search Types
-
-    - **Semantic (Vector)**: Finds chunks with similar *meaning*, even if
-      they use different words. Good for concepts and ideas.
-
-    - **Hybrid**: Combines semantic search with keyword matching (BM25).
-      Good for technical terms that should match exactly.
-
-    ### Technical Details
-
-    - **Embedding Model**: text-embedding-3-large (3072 dimensions)
-    - **Vector Database**: Weaviate with HNSW index
-    - **Distance Metric**: Cosine similarity (1.0 = identical)
-    - **Chunk Size**: ~800 tokens with 2-sentence overlap
-    - **Reranking Model**: mxbai-rerank-large-v1 (MixedBread AI)
-    - **Generation Models**: GPT-5 Nano/Mini, DeepSeek, Gemini Flash, Claude Haiku
-
-    ### Evaluation Results (RAGAS)
-
-    | Configuration | Relevancy | Faithfulness |
-    |---------------|-----------|--------------|
-    | Vector, top_k=5 | 0.67 | 0.93 |
-    | Hybrid, top_k=10 | 0.79 | 0.89 |
-    | Hybrid + Rerank | 0.79 | 0.93 |
-    """)

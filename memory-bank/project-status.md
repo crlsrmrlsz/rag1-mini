@@ -99,8 +99,8 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 |-------|-------------|--------|
 | 0 | Evaluation CLI (--collection, auto-logging) | COMPLETE |
 | 1 | Preprocessing Strategy Infrastructure | COMPLETE |
-| 2 | Test Preprocessing Strategies (none, baseline, step_back) | TODO |
-| 3 | Multi-Query Strategy (+RRF merging) | TODO |
+| 2 | Test Preprocessing Strategies (none, baseline, step_back, multi_query) | TODO |
+| 3 | Multi-Query Strategy (+RRF merging) | COMPLETE |
 | 4 | Query Decomposition (MULTI_HOP) | TODO |
 | 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
 | 6 | Contextual Chunking (+35% failure reduction) | TODO |
@@ -156,11 +156,13 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `src/config.py:AVAILABLE_PREPROCESSING_STRATEGIES`
 - `src/preprocessing/strategies.py` (registry)
 - `src/preprocessing/query_classifier.py` (dispatcher)
+- `src/retrieval/rrf.py` (RRF merging for multi_query)
 
 **Available strategies:**
 - `none` - No transformation, use original query
 - `baseline` - Classify query type only
 - `step_back` - Classify + step-back prompting for OPEN_ENDED queries
+- `multi_query` - Generate 5 queries (original + 4 targeted) + RRF merge
 
 ### To Implement: Chunking Strategies
 

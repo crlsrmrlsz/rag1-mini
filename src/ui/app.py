@@ -112,6 +112,9 @@ if "generated_answer" not in st.session_state:
 if "rerank_data" not in st.session_state:
     st.session_state.rerank_data = None
 
+if "rrf_data" not in st.session_state:
+    st.session_state.rrf_data = None
+
 if "retrieval_settings" not in st.session_state:
     st.session_state.retrieval_settings = {}
 
@@ -206,6 +209,38 @@ def _render_pipeline_log():
 
                 st.markdown("**Final Search Query:**")
                 st.info(prep.step_back_query)
+
+            # Show multi-query section if multi_query strategy was used
+            generated_queries = getattr(prep, 'generated_queries', None)
+            if generated_queries and len(generated_queries) > 1:
+                st.divider()
+                st.markdown("#### Multi-Query Generation")
+
+                # Show principle extraction
+                principle_extraction = getattr(prep, 'principle_extraction', None)
+                if principle_extraction:
+                    st.markdown("**Extracted Principles:**")
+                    import json as json_module
+                    st.code(json_module.dumps(principle_extraction, indent=2), language="json")
+
+                # Show principle extraction prompt
+                principle_prompt = getattr(prep, 'principle_extraction_prompt_used', None)
+                if principle_prompt:
+                    st.markdown("**Principle Extraction Prompt:**")
+                    st.code(principle_prompt, language="text")
+
+                # Show multi-query prompt
+                multi_query_prompt = getattr(prep, 'multi_query_prompt_used', None)
+                if multi_query_prompt:
+                    st.markdown("**Multi-Query Generation Prompt:**")
+                    st.code(multi_query_prompt, language="text")
+
+                # Show generated queries
+                st.markdown("**Generated Queries:**")
+                for i, q in enumerate(generated_queries):
+                    q_type = q.get("type", "unknown")
+                    q_text = q.get("query", "")
+                    st.markdown(f"**{i+1}. {q_type}:** {q_text}")
         else:
             st.info("Preprocessing was disabled for this query.")
 
@@ -224,6 +259,35 @@ def _render_pipeline_log():
             st.metric("Results Retrieved", len(st.session_state.search_results))
         else:
             st.info("No retrieval data available.")
+
+    # Stage 2.5: RRF Merging (if multi-query was used)
+    rrf = st.session_state.rrf_data
+    with st.expander("Stage 2.5: RRF Merging", expanded=True):
+        if rrf:
+            col1, col2, col3 = st.columns(3)
+            num_queries = len(rrf.query_contributions) if hasattr(rrf, 'query_contributions') and rrf.query_contributions else 0
+            col1.metric("Unique Chunks Found", num_queries)
+            col2.metric("Queries Merged", len(prep.generated_queries) if prep and hasattr(prep, 'generated_queries') else 0)
+            col3.metric("Merge Time", f"{rrf.merge_time_ms:.0f}ms")
+
+            # Show which queries contributed to top results
+            if hasattr(rrf, 'query_contributions') and rrf.query_contributions:
+                st.markdown("**Query Contributions (which queries found each chunk):**")
+
+                # Build contribution summary for top 10 results
+                contrib_data = []
+                for chunk_id, query_types in list(rrf.query_contributions.items())[:10]:
+                    contrib_data.append({
+                        "Chunk ID": chunk_id[:30] + "..." if len(chunk_id) > 30 else chunk_id,
+                        "Found By": ", ".join(query_types),
+                        "Query Count": len(query_types),
+                    })
+
+                if contrib_data:
+                    df = pd.DataFrame(contrib_data)
+                    st.dataframe(df, use_container_width=True)
+        else:
+            st.info("RRF merging was not used (single-query search or non-multi_query strategy).")
 
     # Stage 3: Reranking
     with st.expander("Stage 3: Reranking", expanded=True):
@@ -480,8 +544,19 @@ if search_clicked and query:
         else:
             st.session_state.preprocessed_query = None
 
-        # Step 2 & 3: Search (with optional reranking)
-        with st.spinner("Stage 2: Searching..." if not use_reranking else "Stage 2-3: Searching and reranking..."):
+        # Step 2 & 3: Search (with optional reranking and RRF for multi-query)
+        # Check if multi-query strategy was used
+        multi_queries = None
+        if preprocessed and preprocessed.generated_queries:
+            multi_queries = preprocessed.generated_queries
+
+        spinner_msg = "Stage 2: Searching..."
+        if multi_queries and len(multi_queries) > 1:
+            spinner_msg = f"Stage 2: Searching ({len(multi_queries)} queries + RRF)..."
+        if use_reranking:
+            spinner_msg = spinner_msg.replace("...", " + reranking...")
+
+        with st.spinner(spinner_msg):
             try:
                 search_output = search_chunks(
                     query=search_query,
@@ -490,9 +565,11 @@ if search_clicked and query:
                     alpha=alpha,
                     collection_name=selected_collection,
                     use_reranking=use_reranking,
+                    multi_queries=multi_queries,
                 )
                 st.session_state.search_results = search_output.results
                 st.session_state.rerank_data = search_output.rerank_data
+                st.session_state.rrf_data = search_output.rrf_data
                 st.session_state.last_query = query
                 st.session_state.retrieval_settings = {
                     "search_type": search_type,
@@ -505,6 +582,7 @@ if search_clicked and query:
                 st.session_state.search_results = []
                 st.session_state.generated_answer = None
                 st.session_state.rerank_data = None
+                st.session_state.rrf_data = None
                 preprocessed = None
 
         # Step 4: Answer Generation (optional)
@@ -536,6 +614,7 @@ if search_clicked and query:
                 rerank_data=st.session_state.rerank_data,
                 generated_answer=st.session_state.generated_answer,
                 collection_name=selected_collection,
+                rrf_data=st.session_state.rrf_data,
             )
 
 

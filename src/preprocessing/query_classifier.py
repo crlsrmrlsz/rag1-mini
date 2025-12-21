@@ -33,7 +33,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 import requests
 
@@ -80,6 +80,12 @@ class PreprocessedQuery:
         model: Model ID used for preprocessing (for logging).
         classification_prompt_used: The prompt sent to LLM for classification (for logging).
         step_back_prompt_used: The prompt sent to LLM for step-back (for logging).
+        classification_response: Raw JSON from classification LLM.
+        step_back_response: Raw step-back query from LLM.
+        generated_queries: List of {type, query} dicts for multi-query retrieval.
+        principle_extraction: Raw principle extraction result for logging.
+        principle_extraction_prompt_used: Prompt for principle extraction.
+        multi_query_prompt_used: Prompt for multi-query generation.
     """
 
     original_query: str
@@ -87,13 +93,18 @@ class PreprocessedQuery:
     search_query: str
     step_back_query: Optional[str] = None
     sub_queries: List[str] = field(default_factory=list)
-    strategy_used: str = ""  # Strategy ID that was applied (none, baseline, step_back)
+    strategy_used: str = ""  # Strategy ID that was applied
     preprocessing_time_ms: float = 0.0
     model: str = ""  # Model ID used for preprocessing
     classification_prompt_used: Optional[str] = None
     step_back_prompt_used: Optional[str] = None
-    classification_response: Optional[str] = None  # Raw JSON from classification LLM
-    step_back_response: Optional[str] = None  # Raw step-back query from LLM
+    classification_response: Optional[str] = None
+    step_back_response: Optional[str] = None
+    # Multi-query fields
+    generated_queries: List[Dict[str, str]] = field(default_factory=list)
+    principle_extraction: Optional[Dict[str, Any]] = None
+    principle_extraction_prompt_used: Optional[str] = None
+    multi_query_prompt_used: Optional[str] = None
 
 
 # =============================================================================
@@ -300,6 +311,65 @@ Query: "anger regulation amygdala prefrontal Seneca De Ira Stoic passion cogniti
 Generate ONLY the search query. Use 10-20 words. Include both neuroscience and philosophy terms."""
 
 
+# =============================================================================
+# MULTI-QUERY PROMPTS
+# =============================================================================
+
+PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question about human nature for a knowledge retrieval system.
+
+KNOWLEDGE BASE CONTENTS:
+- Neuroscience books: brain mechanisms, neurotransmitters (dopamine, serotonin, oxytocin), brain regions (prefrontal cortex, amygdala, insula), emotions, decision-making, consciousness, evolutionary psychology
+- Philosophy books: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism (Lao Tzu, Chuang Tzu), Buddhism, wisdom traditions, virtue ethics, meaning of life
+
+Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages:
+
+Question: "{query}"
+
+Identify:
+1. CORE TOPIC: What is the fundamental subject? (e.g., "social reward", "anxiety", "purpose")
+2. NEUROSCIENCE CONCEPTS: Specific mechanisms, brain regions, or processes (2-3 items)
+3. PHILOSOPHICAL CONCEPTS: Relevant schools, authors, or ideas (2-3 items)
+4. RELATED TERMS: Vocabulary likely to appear in relevant passages (3-5 items)
+
+Respond with JSON:
+{{
+  "core_topic": "...",
+  "neuroscience_concepts": ["...", "..."],
+  "philosophical_concepts": ["...", "..."],
+  "related_terms": ["...", "..."]
+}}"""
+
+
+MULTI_QUERY_PROMPT = """Generate targeted search queries for a hybrid neuroscience + philosophy knowledge base.
+
+Original question: "{query}"
+
+Extracted concepts:
+- Core topic: {core_topic}
+- Neuroscience: {neuro_concepts}
+- Philosophy: {philo_concepts}
+- Related terms: {related_terms}
+
+Generate 4 search queries that will retrieve diverse, relevant passages:
+
+1. NEUROSCIENCE query: Use specific brain regions, neurotransmitters, psychological mechanisms
+2. PHILOSOPHY query: Use specific traditions, authors, philosophical concepts
+3. BRIDGING query: Connect scientific and philosophical perspectives
+4. BROAD query: Use the core topic in accessible language
+
+Each query should be 8-15 words. Mix conceptual phrases with specific vocabulary.
+
+Respond with JSON:
+{{
+  "queries": [
+    {{"type": "neuroscience", "query": "..."}},
+    {{"type": "philosophy", "query": "..."}},
+    {{"type": "bridging", "query": "..."}},
+    {{"type": "broad", "query": "..."}}
+  ]
+}}"""
+
+
 def step_back_prompt(query: str, model: Optional[str] = None) -> str:
     """Transform an open-ended query into a broader, more retrievable form.
 
@@ -337,6 +407,120 @@ def step_back_prompt(query: str, model: Optional[str] = None) -> str:
     except requests.RequestException as e:
         logger.warning(f"Step-back prompt failed: {e}, using original query")
         return query
+
+
+# =============================================================================
+# MULTI-QUERY FUNCTIONS
+# =============================================================================
+
+
+def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any]:
+    """Extract underlying principles and concepts from a query.
+
+    This is the first step of multi-query generation, identifying the
+    core concepts that should inform query generation.
+
+    Args:
+        query: The user's original query.
+        model: Override model (defaults to PREPROCESSING_MODEL).
+
+    Returns:
+        Dictionary with core_topic, neuroscience_concepts,
+        philosophical_concepts, and related_terms.
+
+    Example:
+        >>> result = extract_principles("Why do we need approval?")
+        >>> result["core_topic"]
+        "social validation and emotional reward"
+    """
+    model = model or PREPROCESSING_MODEL
+
+    prompt = PRINCIPLE_EXTRACTION_PROMPT.format(query=query)
+
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+
+    try:
+        response = _call_chat_completion(
+            messages=messages,
+            model=model,
+            temperature=0.0,
+            max_tokens=300,
+            json_mode=True,
+        )
+
+        result = json.loads(response)
+        return result
+
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"Principle extraction parse error: {e}")
+        # Return minimal default
+        return {
+            "core_topic": query,
+            "neuroscience_concepts": [],
+            "philosophical_concepts": [],
+            "related_terms": [],
+        }
+
+
+def generate_multi_queries(
+    query: str,
+    principles: Dict[str, Any],
+    model: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """Generate multiple targeted search queries from extracted principles.
+
+    Creates 4 diverse queries targeting different aspects of the knowledge base:
+    - neuroscience: Brain regions, neurotransmitters, mechanisms
+    - philosophy: Traditions, authors, concepts
+    - bridging: Connecting scientific and philosophical perspectives
+    - broad: Core topic in accessible language
+
+    Args:
+        query: Original user query.
+        principles: Output from extract_principles().
+        model: Override model.
+
+    Returns:
+        List of dicts with 'type' and 'query' keys.
+
+    Example:
+        >>> principles = extract_principles("Why do we fear death?")
+        >>> queries = generate_multi_queries("Why do we fear death?", principles)
+        >>> len(queries)
+        4
+    """
+    model = model or PREPROCESSING_MODEL
+
+    prompt = MULTI_QUERY_PROMPT.format(
+        query=query,
+        core_topic=principles.get("core_topic", query),
+        neuro_concepts=", ".join(principles.get("neuroscience_concepts", [])),
+        philo_concepts=", ".join(principles.get("philosophical_concepts", [])),
+        related_terms=", ".join(principles.get("related_terms", [])),
+    )
+
+    messages = [
+        {"role": "user", "content": prompt},
+    ]
+
+    try:
+        response = _call_chat_completion(
+            messages=messages,
+            model=model,
+            temperature=0.3,  # Slight creativity for query variation
+            max_tokens=400,
+            json_mode=True,
+        )
+
+        result = json.loads(response)
+        return result.get("queries", [])
+
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"Multi-query generation parse error: {e}")
+        # Fallback: return original query as single query
+        return [{"type": "original", "query": query}]
 
 
 # =============================================================================

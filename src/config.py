@@ -332,8 +332,8 @@ AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
     ("baseline", "Baseline", "Classify query type only, no transformation"),
     ("step_back", "Step-Back", "Classify + step-back prompting for open-ended queries"),
-    # Future strategies (placeholders):
-    # ("multi_query", "Multi-Query", "Generate multiple query variants + RRF"),
+    ("multi_query", "Multi-Query", "Generate 4 targeted queries + RRF merge"),
+    # Future strategies:
     # ("decomposition", "Decomposition", "Break MULTI_HOP into sub-queries"),
 ]
 

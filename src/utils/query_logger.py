@@ -25,6 +25,7 @@ def log_query(
     rerank_data: Optional[Any],
     generated_answer: Optional[Any],
     collection_name: str = "",
+    rrf_data: Optional[Any] = None,
 ) -> str:
     """Log a query execution to JSON file.
 
@@ -36,6 +37,7 @@ def log_query(
         rerank_data: RerankResult object (or None if disabled).
         generated_answer: GeneratedAnswer object (or None if disabled).
         collection_name: Weaviate collection name.
+        rrf_data: RRFResult object (or None if multi-query not used).
 
     Returns:
         Query ID (UUID string).
@@ -46,6 +48,7 @@ def log_query(
         "input": {"query": query},
         "preprocessing": _build_preprocessing(preprocessed),
         "retrieval": _build_retrieval(retrieval_settings, search_results, collection_name),
+        "rrf_merging": _build_rrf(rrf_data),
         "reranking": _build_reranking(rerank_data),
         "generation": _build_generation(generated_answer),
     }
@@ -69,7 +72,8 @@ def _build_preprocessing(prep) -> Dict:
     """Build preprocessing section from PreprocessedQuery."""
     if not prep:
         return {"enabled": False}
-    return {
+
+    result = {
         "enabled": True,
         "strategy": getattr(prep, "strategy_used", "unknown"),
         "model": getattr(prep, "model", ""),
@@ -78,6 +82,17 @@ def _build_preprocessing(prep) -> Dict:
         "step_back_query": prep.step_back_query,
         "time_ms": round(prep.preprocessing_time_ms, 1),
     }
+
+    # Add multi-query fields if present
+    generated_queries = getattr(prep, "generated_queries", None)
+    if generated_queries:
+        result["generated_queries"] = generated_queries
+
+    principle_extraction = getattr(prep, "principle_extraction", None)
+    if principle_extraction:
+        result["principle_extraction"] = principle_extraction
+
+    return result
 
 
 def _build_retrieval(settings: Dict, results: List[Dict], collection: str) -> Dict:
@@ -110,6 +125,24 @@ def _build_reranking(rerank) -> Dict:
         "model": rerank.model,
         "time_ms": round(rerank.rerank_time_ms, 1),
         "order_changes": rerank.order_changes,
+    }
+
+
+def _build_rrf(rrf_data) -> Dict:
+    """Build RRF merging section from RRFResult."""
+    if not rrf_data:
+        return {"enabled": False}
+
+    # Get query contributions summary (top 10)
+    contributions = {}
+    if hasattr(rrf_data, "query_contributions") and rrf_data.query_contributions:
+        contributions = dict(list(rrf_data.query_contributions.items())[:10])
+
+    return {
+        "enabled": True,
+        "queries_merged": len(rrf_data.query_contributions) if hasattr(rrf_data, "query_contributions") else 0,
+        "time_ms": round(getattr(rrf_data, "merge_time_ms", 0), 1),
+        "query_contributions": contributions,
     }
 
 

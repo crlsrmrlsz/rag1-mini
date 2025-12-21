@@ -93,18 +93,14 @@ Update these files when making significant changes to maintain project continuit
 
 ### RAG Improvement Plan (see memory-bank/rag-improvement-plan.md)
 
-**Phase 0: UI Foundation** (Prerequisite)
-- [ ] Add Evaluation tab to UI (run all 23 questions, auto-save to history)
-- [ ] Implement auto-logging to evaluation-history.md
-
 **Phase 1: Quick Wins**
 - [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
-- [ ] Alpha tuning experiments (0.3, 0.5, 0.7)
+- [ ] Alpha tuning experiments (0.3, 0.5, 0.7) via CLI
 
 **Phase 2: Contextual Retrieval** (Anthropic-style, +35% failure reduction)
 - [ ] Create contextual_chunker.py (prepend LLM context to chunks)
 - [ ] Create run_stage_4_contextual.py
-- [ ] Test with RAGAS
+- [ ] Test with RAGAS via CLI
 
 **Phase 3: Query Decomposition** (MULTI_HOP, +36.7% MRR)
 - [ ] Implement decompose_query() in query_classifier.py
@@ -119,6 +115,8 @@ Update these files when making significant changes to maintain project continuit
 - [ ] Add Neo4j to docker-compose.yml
 - [ ] Create src/graph/ module (extractor, neo4j_client, query)
 - [ ] Create graph extraction and upload stages
+
+**Note:** Evaluation runs via CLI (`python -m src.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
 - Created comprehensive RAG improvement plan (Dec 21)

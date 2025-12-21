@@ -22,14 +22,14 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 │  Sidebar                    │  Main Area                        │
 │  ┌───────────────────────┐  │  ┌─────────────────────────────┐ │
 │  │ Collection Selector   │  │  │ Tabs: Answer | Pipeline |   │ │
-│  │ ├─ RAG_section800_v1  │  │  │       Chunks | Evaluation   │ │
+│  │ ├─ RAG_section800_v1  │  │  │       Chunks               │ │
 │  │ ├─ RAG_contextual_v1  │  │  └─────────────────────────────┘ │
 │  │ ├─ RAG_raptor_v1      │  │                                   │
-│  │ └─ RAG_graphrag_v1    │  │  Evaluation Tab:                  │
-│  │                       │  │  ├─ Model selectors (gen/eval)    │
-│  │ Stage 1-4 Controls    │  │  ├─ Run Evaluation button         │
-│  │ (existing)            │  │  ├─ Progress bar + results table  │
-│  └───────────────────────┘  │  └─ Auto-save to history          │
+│  │ └─ RAG_graphrag_v1    │  │  (Evaluation runs via CLI:        │
+│  │                       │  │   python -m src.run_stage_7_...)  │
+│  │ Stage 1-4 Controls    │  │                                   │
+│  │ (existing)            │  │                                   │
+│  └───────────────────────┘  │                                   │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -56,82 +56,36 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 
 ---
 
-## Phase 0: UI Foundation (Prerequisite)
+## Phase 0: UI Foundation
 
-**Files to modify:**
-- `src/ui/app.py` - Add collection selector, evaluation tab
-- `src/ui/services/search.py` - Already has `list_collections()`
-- `src/ui/services/evaluation.py` - NEW: Evaluation service
-- `src/config.py` - Add evaluation config
+**No UI changes needed!**
 
-### 0.1 Collection Selector in Sidebar
+### Collection Selector
 
 **Already implemented** at `src/ui/app.py:220-235`:
 - Lists all `RAG_*` collections from Weaviate via `list_collections()`
 - Dropdown at top of sidebar
 - Selected collection passed to `search_chunks()` via `collection_name` parameter
 
-**No changes needed** - new collections (contextual, raptor, graphrag) will automatically appear in the dropdown after running Stage 6.
+New collections (contextual, raptor, graphrag) will automatically appear in the dropdown after running Stage 6.
 
-### 0.2 Evaluation Tab
+### Evaluation (CLI Only)
 
-New tab in main area (alongside Answer, Pipeline Log, Retrieved Chunks).
+Evaluation stays outside the UI for simplicity. Use existing CLI:
 
-**Evaluation is MANUAL, not automatic:**
-- User clicks "Run Evaluation" button to trigger a full RAGAS run
-- Runs all 23 test questions from `src/evaluation/test_questions.json`
-- Uses current sidebar settings (collection, alpha, top_k, reranking)
-- Takes several minutes to complete (LLM calls for each question)
-- Results auto-saved to `evaluation-history.md` after completion
+```bash
+# Run RAGAS evaluation with current config
+python -m src.run_stage_7_evaluation
 
-**Why manual, not per-query automatic:**
-- RAGAS evaluation is expensive (LLM judge calls)
-- Test questions are curated for consistent comparison
-- Per-query evaluation would be slow and inconsistent
-- Goal is A/B testing of configurations, not real-time monitoring
+# Test specific alpha values
+python -m src.run_stage_7_evaluation --alpha 0.3
+python -m src.run_stage_7_evaluation --alpha 0.7
 
-**Tab contents:**
-- Model selectors: generation_model, evaluation_model
-- Config display: shows current sidebar settings that will be used
-- **Run Evaluation** button
-- Progress bar showing "Question 5/23..."
-- Results table with per-question metrics
-- Aggregate metrics (all 4 RAGAS metrics: faithfulness, relevancy, context_precision, context_recall)
-- Auto-save confirmation: "Saved to evaluation-history.md as Run 5"
-
-**Note:** Collection selector already exists in sidebar (lines 220-235 in app.py). Evaluation uses whatever collection is currently selected.
-
-### 0.3 Auto-Logging to evaluation-history.md
-
-After each evaluation run:
-1. Save JSON to `data/evaluation/results/eval_TIMESTAMP.json`
-2. Append entry to `data/evaluation/tracking.json`
-3. Parse and append markdown summary to `memory-bank/evaluation-history.md`
-
-```python
-def append_to_evaluation_history(result: EvaluationResult, config: dict):
-    """Auto-append run summary to evaluation-history.md"""
-    run_id = f"Run {get_next_run_number()}"
-    markdown = f"""
-## {run_id}: {config['strategy_name']}
-
-**Date:** {datetime.now().strftime('%B %d, %Y')}
-**Collection:** {config['collection_name']}
-
-### Configuration
-- **Search Type:** {config['search_type']}
-- **Alpha:** {config['alpha']}
-- **Reranking:** {config['reranking']}
-
-### Results
-| Metric | Score |
-|--------|-------|
-| Faithfulness | {result.faithfulness:.3f} |
-| Relevancy | {result.relevancy:.3f} |
-| Failures | {result.failures}/{result.total} |
-"""
-    # Append to file
+# Disable reranking
+python -m src.run_stage_7_evaluation --no-reranking
 ```
+
+Results saved to `data/evaluation/results/` and manually updated in `memory-bank/evaluation-history.md`.
 
 ---
 
@@ -497,12 +451,15 @@ def reorder_chunks_for_attention(chunks: List[Dict]) -> List[Dict]:
 
 ### 5.2 Alpha Tuning Experiments
 
-Already in task list. Run from UI evaluation tab:
-- Alpha 0.3 (keyword-heavy) - Philosophy terminology
-- Alpha 0.5 (balanced) - Current default
-- Alpha 0.7 (vector-heavy) - Conceptual queries
+Already in task list. Run via CLI:
 
-Each experiment auto-logged to evaluation-history.md.
+```bash
+python -m src.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
+python -m src.run_stage_7_evaluation --alpha 0.5  # Balanced (default)
+python -m src.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
+```
+
+Update `evaluation-history.md` with results after each run.
 
 ---
 
@@ -510,12 +467,11 @@ Each experiment auto-logged to evaluation-history.md.
 
 | Order | Phase | Effort | Impact | Files |
 |-------|-------|--------|--------|-------|
-| 1 | Phase 0: UI Foundation | Medium | Enables testing | `app.py`, `evaluation.py` |
-| 2 | Phase 5.1: Lost-in-middle | Low | +15% | `answer_generator.py` |
-| 3 | Phase 1: Contextual | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
-| 4 | Phase 4: MULTI_HOP | Low | +36.7% MRR | `query_classifier.py` |
-| 5 | Phase 2: RAPTOR | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
-| 6 | Phase 3: GraphRAG | High | +70% coverage | `graph/`, Neo4j |
+| 1 | Phase 5.1: Lost-in-middle | Low | +15% | `answer_generator.py` |
+| 2 | Phase 1: Contextual | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
+| 3 | Phase 4: MULTI_HOP | Low | +36.7% MRR | `query_classifier.py` |
+| 4 | Phase 2: RAPTOR | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
+| 5 | Phase 3: GraphRAG | High | +70% coverage | `graph/`, Neo4j |
 
 ---
 
@@ -523,11 +479,11 @@ Each experiment auto-logged to evaluation-history.md.
 
 For each improvement:
 
-1. **Create new collection** (run Stage 4-6 outside UI)
+1. **Create new collection** (run Stage 4-6 via CLI)
 2. **Select collection** in UI dropdown
-3. **Run manual queries** to verify basic functionality
-4. **Trigger RAGAS evaluation** from UI
-5. **Review auto-logged results** in evaluation-history.md
+3. **Run manual queries** in UI to verify basic functionality
+4. **Run RAGAS evaluation** via CLI: `python -m src.run_stage_7_evaluation`
+5. **Update evaluation-history.md** with results
 6. **Compare to baseline** (Run 3: 0.786 relevancy, 0.885 faithfulness)
 
 ---
@@ -535,7 +491,6 @@ For each improvement:
 ## Files to Create/Modify
 
 ### New Files
-- `src/ui/services/evaluation.py` - Evaluation service
 - `src/ingest/contextual_chunker.py` - Contextual enrichment
 - `src/ingest/raptor_chunker.py` - RAPTOR tree building
 - `src/run_stage_4_contextual.py` - Contextual chunking stage
@@ -547,8 +502,7 @@ For each improvement:
 - `src/run_stage_6b_neo4j.py` - Neo4j upload stage
 
 ### Modified Files
-- `src/ui/app.py` - Collection selector, evaluation tab
-- `src/config.py` - Add graph/evaluation config
+- `src/config.py` - Add graph config
 - `src/preprocessing/query_classifier.py` - Add query decomposition
 - `src/generation/answer_generator.py` - Lost-in-middle fix
 - `src/vector_db/weaviate_client.py` - RAPTOR schema fields

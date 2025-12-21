@@ -143,14 +143,26 @@ def _render_pipeline_log():
             classification_full = f"[System]\n{prep.classification_prompt_used}\n\n[User]\n{prep.original_query}"
             st.code(classification_full, language="text")
 
+            # Show classification LLM response
+            if prep.classification_response:
+                st.markdown("**LLM Response:**")
+                st.code(prep.classification_response, language="json")
+
             if prep.step_back_query and prep.step_back_query != prep.original_query:
+                st.divider()
+
                 # Show complete step-back prompt (system + user)
                 st.markdown("**Step-Back Prompt (sent to LLM):**")
                 step_back_full = f"[System]\n{prep.step_back_prompt_used}\n\n[User]\n{prep.original_query}"
                 st.code(step_back_full, language="text")
 
-                st.markdown("**Step-Back Result:**")
-                st.info(f"Original: {prep.original_query}\n\nTransformed: {prep.step_back_query}")
+                # Show step-back LLM response
+                if prep.step_back_response:
+                    st.markdown("**LLM Response (Step-Back Query):**")
+                    st.code(prep.step_back_response, language="text")
+
+                st.markdown("**Final Search Query:**")
+                st.info(prep.step_back_query)
         else:
             st.info("Preprocessing was disabled for this query.")
 
@@ -204,6 +216,10 @@ def _render_pipeline_log():
             st.markdown("**Generation Prompt (sent to LLM):**")
             generation_full = f"[System]\n{ans.system_prompt_used}\n\n[User]\n{ans.user_prompt_used}"
             st.code(generation_full, language="text")
+
+            # Show LLM response (the generated answer)
+            st.markdown("**LLM Response:**")
+            st.code(ans.answer, language="text")
 
             st.markdown(f"**Sources Cited:** {ans.sources_used}")
         else:

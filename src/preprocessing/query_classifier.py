@@ -88,6 +88,8 @@ class PreprocessedQuery:
     preprocessing_time_ms: float = 0.0
     classification_prompt_used: Optional[str] = None
     step_back_prompt_used: Optional[str] = None
+    classification_response: Optional[str] = None  # Raw JSON from classification LLM
+    step_back_response: Optional[str] = None  # Raw step-back query from LLM
 
 
 # =============================================================================
@@ -192,7 +194,7 @@ When uncertain, prefer "open_ended" - most questions about human behavior benefi
 Respond with JSON: {"query_type": "factual" | "open_ended" | "multi_hop"}"""
 
 
-def classify_query(query: str, model: Optional[str] = None) -> QueryType:
+def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, str]:
     """Classify a query into FACTUAL, OPEN_ENDED, or MULTI_HOP.
 
     Uses an LLM to analyze the query intent and classify it appropriately.
@@ -203,13 +205,14 @@ def classify_query(query: str, model: Optional[str] = None) -> QueryType:
         model: Override model (defaults to PREPROCESSING_MODEL from config).
 
     Returns:
-        QueryType enum value.
+        Tuple of (QueryType enum value, raw LLM response string).
 
     Example:
-        >>> classify_query("What is serotonin?")
+        >>> query_type, response = classify_query("What is serotonin?")
+        >>> query_type
         QueryType.FACTUAL
-        >>> classify_query("How should I live my life?")
-        QueryType.OPEN_ENDED
+        >>> response
+        '{"query_type": "factual"}'
     """
     model = model or PREPROCESSING_MODEL
 
@@ -236,11 +239,11 @@ def classify_query(query: str, model: Optional[str] = None) -> QueryType:
             "multi_hop": QueryType.MULTI_HOP,
         }
 
-        return type_map.get(query_type_str, QueryType.FACTUAL)
+        return type_map.get(query_type_str, QueryType.FACTUAL), response
 
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning(f"Classification parse error: {e}, defaulting to FACTUAL")
-        return QueryType.FACTUAL
+        return QueryType.FACTUAL, str(e)
 
 
 # =============================================================================
@@ -339,17 +342,19 @@ def preprocess_query(
     """
     start_time = time.time()
 
-    # Step 1: Classify the query
-    query_type = classify_query(query, model=model)
+    # Step 1: Classify the query (returns tuple with raw response)
+    query_type, classification_response = classify_query(query, model=model)
     logger.info(f"Query classified as: {query_type.value}")
 
     # Step 2: Apply appropriate transformation
     step_back_query = None
     search_query = query
     step_back_prompt_used = None
+    step_back_response = None
 
     if query_type == QueryType.OPEN_ENDED and enable_step_back:
         step_back_query = step_back_prompt(query, model=model)
+        step_back_response = step_back_query  # The LLM response IS the step-back query
         search_query = step_back_query
         step_back_prompt_used = STEP_BACK_PROMPT
         logger.info(f"Step-back query: {step_back_query}")
@@ -369,4 +374,6 @@ def preprocess_query(
         preprocessing_time_ms=elapsed_ms,
         classification_prompt_used=CLASSIFICATION_PROMPT,
         step_back_prompt_used=step_back_prompt_used,
+        classification_response=classification_response,
+        step_back_response=step_back_response,
     )

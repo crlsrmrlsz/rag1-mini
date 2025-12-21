@@ -157,7 +157,11 @@ def _render_pipeline_log():
     # Stage 1: Query Preprocessing
     with st.expander("Stage 1: Query Preprocessing", expanded=True):
         if prep:
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
+
+            # Model used (with backward compat for cached objects)
+            prep_model = getattr(prep, 'model', 'N/A')
+            col1.markdown(f"**Model:** `{prep_model}`")
 
             # Query type with color-coded badge
             type_colors = {
@@ -166,8 +170,8 @@ def _render_pipeline_log():
                 QueryType.MULTI_HOP: "orange",
             }
             type_color = type_colors.get(prep.query_type, "gray")
-            col1.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
-            col2.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
+            col2.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
+            col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
 
             # Show complete classification prompt (system + user)
             st.markdown("**Classification Prompt (sent to LLM):**")

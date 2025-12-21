@@ -76,6 +76,7 @@ class PreprocessedQuery:
         step_back_query: For OPEN_ENDED, the abstracted broader query.
         sub_queries: For MULTI_HOP, decomposed sub-questions (future).
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
+        model: Model ID used for preprocessing (for logging).
         classification_prompt_used: The prompt sent to LLM for classification (for logging).
         step_back_prompt_used: The prompt sent to LLM for step-back (for logging).
     """
@@ -86,6 +87,7 @@ class PreprocessedQuery:
     step_back_query: Optional[str] = None
     sub_queries: List[str] = field(default_factory=list)
     preprocessing_time_ms: float = 0.0
+    model: str = ""  # Model ID used for preprocessing
     classification_prompt_used: Optional[str] = None
     step_back_prompt_used: Optional[str] = None
     classification_response: Optional[str] = None  # Raw JSON from classification LLM
@@ -355,6 +357,9 @@ def preprocess_query(
     """
     start_time = time.time()
 
+    # Resolve model for tracking (same default as classify_query/step_back_prompt)
+    model = model or PREPROCESSING_MODEL
+
     # Step 1: Classify the query (returns tuple with raw response)
     query_type, classification_response = classify_query(query, model=model)
     logger.info(f"Query classified as: {query_type.value}")
@@ -385,6 +390,7 @@ def preprocess_query(
         search_query=search_query,
         step_back_query=step_back_query,
         preprocessing_time_ms=elapsed_ms,
+        model=model,
         classification_prompt_used=CLASSIFICATION_PROMPT,
         step_back_prompt_used=step_back_prompt_used,
         classification_response=classification_response,

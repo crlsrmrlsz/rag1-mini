@@ -42,6 +42,11 @@ from src.config import (
 from src.ui.services.search import search_chunks, list_collections
 from src.preprocessing import preprocess_query, QueryType
 from src.generation import generate_answer
+from src.utils.openrouter_models import (
+    fetch_available_models,
+    get_preprocessing_models,
+    get_generation_models,
+)
 
 
 # ============================================================================
@@ -53,6 +58,32 @@ st.set_page_config(
     page_icon="books",
     layout="wide",
 )
+
+
+# ============================================================================
+# DYNAMIC MODEL LOADING
+# ============================================================================
+# Fetch models from OpenRouter API, cached for 1 hour to avoid repeated calls
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_cached_models():
+    """Fetch and cache available models from OpenRouter API.
+
+    Returns tuple of (preprocessing_models, generation_models).
+    Falls back to config defaults if API fails.
+    """
+    models = fetch_available_models()
+    if models:
+        prep_models = get_preprocessing_models(models)
+        gen_models = get_generation_models(models)
+        return prep_models, gen_models
+    # Fallback to config defaults
+    return AVAILABLE_PREPROCESSING_MODELS, AVAILABLE_GENERATION_MODELS
+
+
+# Load models (cached)
+DYNAMIC_PREPROCESSING_MODELS, DYNAMIC_GENERATION_MODELS = get_cached_models()
 
 
 # ============================================================================
@@ -264,13 +295,13 @@ enable_preprocessing = st.sidebar.checkbox(
 )
 
 if enable_preprocessing:
-    prep_model_options = {model_id: label for model_id, label in AVAILABLE_PREPROCESSING_MODELS}
+    prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
     selected_prep_model = st.sidebar.selectbox(
         "Preprocessing Model",
         options=list(prep_model_options.keys()),
-        index=0,  # Default to first (fastest)
+        index=0,  # Default to first (cheapest)
         format_func=lambda x: prep_model_options[x],
-        help="Model used for query classification and step-back prompting.",
+        help="Model used for query classification and step-back prompting. (Fetched from OpenRouter)",
     )
 else:
     selected_prep_model = PREPROCESSING_MODEL
@@ -343,13 +374,13 @@ enable_generation = st.sidebar.checkbox(
 )
 
 if enable_generation:
-    model_options = {model_id: label for model_id, label in AVAILABLE_GENERATION_MODELS}
+    model_options = {model_id: label for model_id, label in DYNAMIC_GENERATION_MODELS}
     selected_model = st.sidebar.selectbox(
         "Generation Model",
         options=list(model_options.keys()),
-        index=2,  # Default to gpt-5-mini (index 2)
+        index=min(1, len(model_options) - 1),  # Default to second option (balanced)
         format_func=lambda x: model_options[x],
-        help="Model used for answer generation. Higher cost = better quality.",
+        help="Model used for answer generation. (Fetched from OpenRouter)",
     )
 else:
     selected_model = GENERATION_MODEL

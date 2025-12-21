@@ -269,13 +269,14 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "results"
 
 # Model for query classification and step-back prompting
 # Using fast, cheap model since these are simple classification tasks
-PREPROCESSING_MODEL = "openai/gpt-5-nano"
+PREPROCESSING_MODEL = "deepseek/deepseek-chat"
 
-# Available models for preprocessing selection in UI (ordered by speed/cost)
+# Fallback models for preprocessing (used if dynamic fetch fails)
+# These are updated manually when OpenRouter availability changes
 AVAILABLE_PREPROCESSING_MODELS = [
-    ("openai/gpt-5-nano", "GPT-5 Nano ($0.05/$0.40 per 1M) - Fast"),
-    ("deepseek/deepseek-chat", "DeepSeek V3.2 ($0.28/$0.42 per 1M) - Value"),
-    ("openai/gpt-5-mini", "GPT-5 Mini ($0.25/$2.00 per 1M) - Quality"),
+    ("deepseek/deepseek-chat", "DeepSeek V3 - Cheapest"),
+    ("openai/gpt-4o-mini", "GPT-4o Mini - Fast"),
+    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Quality"),
 ]
 
 
@@ -284,16 +285,14 @@ AVAILABLE_PREPROCESSING_MODELS = [
 # ============================================================================
 
 # Default model for answer generation (balanced quality/cost)
-GENERATION_MODEL = "openai/gpt-5-mini"
+GENERATION_MODEL = "openai/gpt-4o-mini"
 
-# Available models for UI selection (ordered by cost)
-# See memory-bank/model-selection.md for pricing details
+# Fallback models for generation (used if dynamic fetch fails)
 AVAILABLE_GENERATION_MODELS = [
-    ("openai/gpt-5-nano", "GPT-5 Nano ($0.05/$0.40 per 1M) - Budget"),
-    ("deepseek/deepseek-chat", "DeepSeek V3.2 ($0.28/$0.42 per 1M) - Value"),
-    ("openai/gpt-5-mini", "GPT-5 Mini ($0.25/$2.00 per 1M) - Balanced"),
-    ("google/gemini-3-flash", "Gemini 3 Flash ($0.50/$3.00 per 1M) - Quality"),
-    ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5 ($1.00/$5.00 per 1M) - Premium"),
+    ("deepseek/deepseek-chat", "DeepSeek V3 - Value"),
+    ("openai/gpt-4o-mini", "GPT-4o Mini - Balanced"),
+    ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash - Fast"),
+    ("anthropic/claude-3-5-haiku-latest", "Claude 3.5 Haiku - Premium"),
 ]
 
 # Enable/disable answer generation globally (can be overridden in UI)

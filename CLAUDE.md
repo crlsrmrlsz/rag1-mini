@@ -84,22 +84,45 @@ The `memory-bank/` directory contains project context:
 - `model-selection.md` - Model research and pricing
 - `rag-improve-research.md` - RAG improvement strategies
 - `evaluation-history.md` - RAGAS runs with configs and metrics
+- `rag-improvement-plan.md` - Detailed implementation plan for RAG improvements
 
 Update these files when making significant changes to maintain project continuity.
 
 ## Current Tasks
 <!-- UPDATE THIS SECTION: After completing work, move tasks to "Completed Recently" and add new tasks from plan discussions. Keep only last 5 completed items. -->
 
-### Active
-- [ ] Run alpha tuning experiments (0.3, 0.5, 0.7) with RAGAS
-- [ ] Query decomposition for MULTI_HOP queries
+### RAG Improvement Plan (see memory-bank/rag-improvement-plan.md)
 
-### Next
-- [ ] Contextual retrieval (prepend LLM context to chunks)
+**Phase 0: UI Foundation** (Prerequisite)
+- [ ] Add Evaluation tab to UI (run all 23 questions, auto-save to history)
+- [ ] Implement auto-logging to evaluation-history.md
+
+**Phase 1: Quick Wins**
+- [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
+- [ ] Alpha tuning experiments (0.3, 0.5, 0.7)
+
+**Phase 2: Contextual Retrieval** (Anthropic-style, +35% failure reduction)
+- [ ] Create contextual_chunker.py (prepend LLM context to chunks)
+- [ ] Create run_stage_4_contextual.py
+- [ ] Test with RAGAS
+
+**Phase 3: Query Decomposition** (MULTI_HOP, +36.7% MRR)
+- [ ] Implement decompose_query() in query_classifier.py
+- [ ] Add multi-query retrieval with RRF merging
+
+**Phase 4: RAPTOR** (Hierarchical summarization, +20% comprehension)
+- [ ] Create raptor_chunker.py (hierarchical tree building)
+- [ ] Create run_stage_4_raptor.py
+- [ ] Add RAPTOR query strategy
+
+**Phase 5: GraphRAG** (Neo4j, +70% comprehensiveness)
+- [ ] Add Neo4j to docker-compose.yml
+- [ ] Create src/graph/ module (extractor, neo4j_client, query)
+- [ ] Create graph extraction and upload stages
 
 ### Completed Recently
+- Created comprehensive RAG improvement plan (Dec 21)
 - Redesigned UI with pipeline-ordered sidebar stages and Pipeline Log tab (Dec 21)
 - Added full prompt logging for preprocessing, generation, and reranking (Dec 21)
 - Implemented query preprocessing (classification + step-back prompting) (Dec 20)
 - Implemented LLM answer generation from retrieved chunks (Dec 20)
-- Improved prompts for integrated human behavior understanding (Dec 20)

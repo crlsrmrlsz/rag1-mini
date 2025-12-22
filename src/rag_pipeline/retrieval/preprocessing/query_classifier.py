@@ -209,7 +209,13 @@ STEP_BACK_PROMPT = """You transform questions into effective search queries for 
 
 KNOWLEDGE BASE CONTENTS:
 - Neuroscience books: brain mechanisms, dopamine/serotonin/oxytocin, prefrontal cortex, amygdala, limbic system, decision-making, emotions, consciousness, evolutionary psychology
-- Philosophy books: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism (Lao Tzu, Chuang Tzu), Buddhism, virtue ethics, meaning of life, wisdom traditions
+- Philosophy books:
+  - Stoicism: Marcus Aurelius (Meditations), Seneca (Letters), Epictetus (Enchiridion, Art of Living)
+  - Schopenhauer: pessimism, will, suffering, contentment, solitude
+  - Taoism: Lao Tzu (Tao Te Ching), wu-wei, naturalness, balance
+  - Confucianism: Confucius (Analects), virtue, ritual, relationships
+  - Practical wisdom: Gracian (Art of Prudence), strategy, worldly wisdom
+  - Behavioral psychology: Kahneman (Thinking Fast and Slow), cognitive biases, System 1/2
 
 TASK: Generate a search query that will retrieve the most relevant passages.
 
@@ -217,23 +223,24 @@ PROCESS:
 1. Identify the CORE TOPIC: What is the user really asking about? (e.g., fear, purpose, social needs, self-control)
 2. Identify SPECIFIC MECHANISMS: What brain systems, psychological processes, or philosophical concepts relate?
 3. Use CONCRETE VOCABULARY: Include specific terms from the knowledge base (author names, brain regions, philosophical schools, emotions)
+4. BALANCE SOURCES: Include terms from MULTIPLE philosophical traditions, not just one
 
 EXAMPLES:
 User: "Why do I feel anxious?"
-Think: Core=anxiety/fear, Mechanisms=amygdala+cortisol+fight-or-flight+Stoic tranquility
-Query: "amygdala fear response anxiety Stoic tranquility ataraxia Epictetus control"
+Think: Core=anxiety/fear, Mechanisms=amygdala+cortisol+fight-or-flight, Philosophy=Stoic tranquility+Schopenhauer suffering
+Query: "amygdala fear response anxiety cortisol Stoic tranquility Schopenhauer suffering will"
 
-User: "Why do we need approval from others to feel good?"
-Think: Core=social validation+reward, Mechanisms=dopamine+social brain+oxytocin+Stoic indifference to externals
-Query: "dopamine social reward approval seeking Stoic virtue external validation Marcus Aurelius"
+User: "Why do we need approval from others?"
+Think: Core=social validation, Mechanisms=dopamine+oxytocin+social brain, Philosophy=Confucian relationships+Kahneman biases
+Query: "dopamine social reward approval Confucius relationships virtue Kahneman System 1 heuristics"
 
 User: "What is the point of life?"
-Think: Core=meaning/purpose, Mechanisms=prefrontal cortex goal-setting+existential psychology+Stoic eudaimonia+Taoist wu-wei
-Query: "meaning purpose life eudaimonia Stoicism Taoism Viktor Frankl prefrontal goals"
+Think: Core=meaning/purpose, Mechanisms=prefrontal goals+reward system, Philosophy=Taoist wu-wei+Gracian prudence
+Query: "meaning purpose prefrontal goals Lao Tzu wu-wei Tao naturalness Gracian prudence wisdom"
 
 User: "How can I control my anger?"
-Think: Core=anger regulation, Mechanisms=amygdala+prefrontal inhibition+Seneca on anger+cognitive reappraisal
-Query: "anger regulation amygdala prefrontal Seneca De Ira Stoic passion cognitive reappraisal"
+Think: Core=anger regulation, Mechanisms=amygdala+prefrontal inhibition, Philosophy=Seneca De Ira+Schopenhauer will
+Query: "anger regulation amygdala prefrontal Seneca De Ira Schopenhauer will cognitive reappraisal"
 
 Generate ONLY the search query. Use 10-20 words. Include both neuroscience and philosophy terms."""
 
@@ -246,7 +253,13 @@ PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question about human nature
 
 KNOWLEDGE BASE CONTENTS:
 - Neuroscience books: brain mechanisms, neurotransmitters (dopamine, serotonin, oxytocin), brain regions (prefrontal cortex, amygdala, insula), emotions, decision-making, consciousness, evolutionary psychology
-- Philosophy books: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism (Lao Tzu, Chuang Tzu), Buddhism, wisdom traditions, virtue ethics, meaning of life
+- Philosophy books:
+  - Stoicism: Marcus Aurelius (Meditations), Seneca (Letters), Epictetus (Enchiridion, Art of Living)
+  - Schopenhauer: pessimism, will, suffering, contentment, solitude
+  - Taoism: Lao Tzu (Tao Te Ching), wu-wei, naturalness, balance
+  - Confucianism: Confucius (Analects), virtue, ritual, relationships
+  - Practical wisdom: Gracian (Art of Prudence), strategy, worldly wisdom
+  - Behavioral psychology: Kahneman (Thinking Fast and Slow), cognitive biases, System 1/2
 
 Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages:
 
@@ -305,7 +318,13 @@ DECOMPOSITION_PROMPT = """You break down complex questions into simpler sub-ques
 
 The knowledge base contains:
 - NEUROSCIENCE: Brain mechanisms, neurotransmitters, emotions, decision-making, consciousness
-- PHILOSOPHY: Stoicism (Marcus Aurelius, Epictetus, Seneca), Taoism, Buddhism, virtue ethics, wisdom traditions
+- PHILOSOPHY:
+  - Stoicism: Marcus Aurelius, Seneca, Epictetus
+  - Schopenhauer: will, suffering, contentment
+  - Taoism: Lao Tzu, wu-wei, naturalness
+  - Confucianism: Confucius, virtue, relationships
+  - Gracian: practical wisdom, prudence
+  - Kahneman: cognitive biases, System 1/2
 
 TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently.
 
@@ -317,11 +336,11 @@ RULES:
 
 EXAMPLES:
 
-Question: "Compare Stoic and Buddhist approaches to suffering"
+Question: "Compare Stoic and Schopenhauer's approaches to suffering"
 Sub-questions:
 1. "What is the Stoic view on suffering and how to overcome it?"
-2. "What is the Buddhist teaching on suffering and its cessation?"
-3. "How do Stoic and Buddhist approaches to suffering differ?"
+2. "What is Schopenhauer's teaching on suffering and the will?"
+3. "How do Stoic and Schopenhauer approaches to suffering differ?"
 
 Question: "How does neuroscience explain what philosophers call akrasia?"
 Sub-questions:

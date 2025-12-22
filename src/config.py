@@ -252,9 +252,10 @@ MAX_TOP_K = 20
 # Enable/disable diversity balancing globally
 ENABLE_DIVERSITY_BALANCING = True
 
-# Minimum score threshold (0.0-1.0, results below excluded)
-# Applies after reranking when scores are most accurate
-DIVERSITY_MIN_SCORE = 0.3
+# Minimum score threshold (results below excluded)
+# NOTE: RRF scores range ~0.01-0.08 (formula: 1/(60+rank)), not 0-1
+# Set to 0.0 to disable threshold, or use very low values for RRF
+DIVERSITY_MIN_SCORE = 0.0
 
 # Target distribution by category (must sum to 1.0)
 # Used to calculate how many slots each category gets

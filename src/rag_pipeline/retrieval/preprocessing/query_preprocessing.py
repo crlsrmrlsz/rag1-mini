@@ -31,7 +31,7 @@ from typing import Optional, List, Dict, Any
 import requests
 from pydantic import ValidationError as PydanticValidationError
 
-from src.config import PREPROCESSING_MODEL
+from src.config import PREPROCESSING_MODEL, CORPUS_TOPICS
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
@@ -84,6 +84,8 @@ class PreprocessedQuery:
 STEP_BACK_PROMPT = """You are a retrieval assistant. Given a user question, identify broader concepts
 and principles that would help retrieve relevant information from a document collection.
 
+The knowledge base covers: {corpus_topics}
+
 TASK: Generate an effective search query that captures the underlying concepts.
 
 PROCESS:
@@ -111,7 +113,9 @@ Generate ONLY the search query. Use 10-20 words of relevant concepts and terms."
 
 PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question for a knowledge retrieval system.
 
-Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages from a document collection.
+The knowledge base covers: {corpus_topics}
+
+Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages from this document collection.
 
 Question: "{query}"
 
@@ -179,7 +183,9 @@ Respond with JSON:
 
 DECOMPOSITION_PROMPT = """You break down complex questions into simpler sub-questions for a knowledge retrieval system.
 
-TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently.
+The knowledge base covers: {corpus_topics}
+
+TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently from this document collection.
 
 RULES:
 1. Each sub-question should be self-contained and answerable from the document collection
@@ -236,8 +242,11 @@ def step_back_prompt(query: str, model: Optional[str] = None) -> str:
     """
     model = model or PREPROCESSING_MODEL
 
+    # Format prompt with corpus topics for vocabulary grounding
+    system_prompt = STEP_BACK_PROMPT.format(corpus_topics=CORPUS_TOPICS)
+
     messages = [
-        {"role": "system", "content": STEP_BACK_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": query},
     ]
 
@@ -283,7 +292,11 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
     """
     model = model or PREPROCESSING_MODEL
 
-    prompt = PRINCIPLE_EXTRACTION_PROMPT.format(query=query)
+    # Format prompt with corpus topics for vocabulary grounding
+    prompt = PRINCIPLE_EXTRACTION_PROMPT.format(
+        query=query,
+        corpus_topics=CORPUS_TOPICS,
+    )
 
     messages = [
         {"role": "user", "content": prompt},
@@ -306,8 +319,8 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
         # Return minimal default
         return {
             "core_topic": query,
-            "neuroscience_concepts": [],
-            "philosophical_concepts": [],
+            "primary_concepts": [],
+            "secondary_concepts": [],
             "related_terms": [],
         }
 
@@ -403,7 +416,12 @@ def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str],
         "What is the Stoic view on suffering and how to overcome it?"
     """
     model = model or PREPROCESSING_MODEL
-    prompt = DECOMPOSITION_PROMPT.format(query=query)
+
+    # Format prompt with corpus topics for vocabulary grounding
+    prompt = DECOMPOSITION_PROMPT.format(
+        query=query,
+        corpus_topics=CORPUS_TOPICS,
+    )
 
     messages = [
         {"role": "user", "content": prompt},

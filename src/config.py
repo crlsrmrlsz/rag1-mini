@@ -196,17 +196,25 @@ EMBEDDING_MODEL_SHORT = "embed3large"  # Short name for embedding model
 COLLECTION_VERSION = "v1"  # Increment when re-running with same strategy
 
 
-def get_collection_name() -> str:
+def get_collection_name(chunking_strategy: str = None) -> str:
     """
-    Generate collection name from current pipeline configuration.
+    Generate collection name from pipeline configuration.
+
+    Args:
+        chunking_strategy: Chunking strategy name (e.g., "section", "semantic").
+            If None, uses CHUNKING_STRATEGY_NAME from config.
 
     Returns:
         Collection name in format: RAG_{strategy}_{model}_{version}
 
     Example:
+        >>> get_collection_name()  # Uses config default
         "RAG_section800_embed3large_v1"
+        >>> get_collection_name("semantic")
+        "RAG_semantic_embed3large_v1"
     """
-    return f"RAG_{CHUNKING_STRATEGY_NAME}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
+    strategy = chunking_strategy if chunking_strategy else CHUNKING_STRATEGY_NAME
+    return f"RAG_{strategy}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
 
 
 # ============================================================================
@@ -241,6 +249,14 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 # ============================================================================
 # QUERY PREPROCESSING SETTINGS
 # ============================================================================
+
+# Corpus topics for query grounding (helps LLM generate vocabulary in the corpus)
+# This lightweight list (~30 tokens) guides preprocessing without prompt bloat
+CORPUS_TOPICS = (
+    "neuroscience, cognitive psychology, behavioral biology, brain mechanisms, "
+    "decision-making, emotions, stress, memory, consciousness, "
+    "Stoic philosophy, wisdom literature, virtue ethics, practical wisdom, self-mastery"
+)
 
 # Model for query preprocessing (step-back, multi-query, decomposition)
 # Using fast, cheap model since these are simple transformation tasks
@@ -293,3 +309,27 @@ AVAILABLE_PREPROCESSING_STRATEGIES = [
 
 # Default strategy for UI and preprocess_query() when not specified
 DEFAULT_PREPROCESSING_STRATEGY = "step_back"
+
+
+# ============================================================================
+# CHUNKING STRATEGY SETTINGS
+# ============================================================================
+
+# Available chunking strategies
+# Format: (strategy_id, display_label, description)
+AVAILABLE_CHUNKING_STRATEGIES = [
+    ("section", "Section (Baseline)", "Sequential with sentence overlap, respects markdown sections"),
+    ("semantic", "Semantic", "Embedding similarity-based boundaries for topic coherence"),
+    # Future strategies (uncomment when implemented):
+    # ("contextual", "Contextual", "LLM-generated chunk context (Anthropic-style)"),
+    # ("raptor", "RAPTOR", "Hierarchical summarization tree"),
+]
+
+# Default strategy for CLI when not specified
+DEFAULT_CHUNKING_STRATEGY = "section"
+
+# Semantic chunking parameters
+# Threshold for cosine similarity between adjacent sentences
+# Lower = more splits (smaller chunks), Higher = fewer splits (larger chunks)
+# 0.75 works well for most content (topic shifts typically drop below 0.6)
+SEMANTIC_SIMILARITY_THRESHOLD = 0.75

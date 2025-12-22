@@ -2,7 +2,7 @@
 Stage 5: Embed final text chunks for RAG.
 
 This stage:
-- Loads section-level chunks from Stage 4
+- Loads chunks from Stage 4 (strategy-specific directory)
 - Calls embedding API (OpenAI-compatible)
 - Saves embeddings to disk (no vector DB yet)
 
@@ -10,8 +10,13 @@ Design goals:
 - Deterministic
 - Restartable
 - Transparent
+
+Usage:
+    python -m src.stages.run_stage_5_embedding                    # Default: section
+    python -m src.stages.run_stage_5_embedding --strategy semantic  # Semantic chunks
 """
 
+import argparse
 import json
 from pathlib import Path
 from typing import List, Dict
@@ -23,12 +28,14 @@ from src.config import (
     DIR_EMBEDDINGS,
     EMBEDDING_MODEL,
     MAX_BATCH_TOKENS,
-    MAX_RETRIES 
+    MAX_RETRIES,
+    DEFAULT_CHUNKING_STRATEGY,
 )
 
 from src.shared.files import setup_logging, get_file_list
 from src.shared.tokens import count_tokens
 from src.rag_pipeline.embedding.embedder import embed_texts
+from src.rag_pipeline.chunking.strategies import list_strategies
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -101,7 +108,7 @@ def embed_book(file_path: Path):
         texts = [c["text"] for c in batch]
 
         logger.info(
-            f"  → Batch {batch_idx + 1}/{len(batches)} "
+            f"  Batch {batch_idx + 1}/{len(batches)} "
             f"({sum(c['token_count'] for c in batch)} tokens)"
         )
 
@@ -125,7 +132,7 @@ def embed_book(file_path: Path):
         }, f, ensure_ascii=False, indent=2)
 
     logger.info(
-        f"  ✓ Saved {len(embedded_chunks)} embeddings → {output_path}"
+        f"  Saved {len(embedded_chunks)} embeddings to {output_path}"
     )
 
 
@@ -134,16 +141,32 @@ def embed_book(file_path: Path):
 # ---------------------------------------------------------------------------
 
 def main():
-    logger.info("Starting Stage 5: Embedding")
+    parser = argparse.ArgumentParser(
+        description="Stage 5: Embed chunks from specified chunking strategy"
+    )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        default=DEFAULT_CHUNKING_STRATEGY,
+        choices=list_strategies(),
+        help=f"Chunking strategy to embed (default: {DEFAULT_CHUNKING_STRATEGY})",
+    )
+    args = parser.parse_args()
 
-    section_dir = DIR_FINAL_CHUNKS / "section"
-    files = list(section_dir.glob("*.json"))
+    logger.info(f"Starting Stage 5: Embedding (strategy: {args.strategy})")
+
+    # Read from strategy-specific directory
+    strategy_dir = DIR_FINAL_CHUNKS / args.strategy
+    files = list(strategy_dir.glob("*.json")) if strategy_dir.exists() else []
 
     if not files:
-        logger.warning("No section chunks found. Run Stage 4 first.")
+        logger.warning(
+            f"No chunks found in {strategy_dir}. "
+            f"Run Stage 4 with --strategy {args.strategy} first."
+        )
         return
 
-    logger.info(f"Found {len(files)} books to embed.")
+    logger.info(f"Found {len(files)} books to embed from {strategy_dir}")
 
     for file_path in files:
         try:
@@ -152,7 +175,7 @@ def main():
             logger.error(f"Failed embedding {file_path.name}: {e}")
             raise
 
-    logger.info("Stage 5 complete.")
+    logger.info(f"Stage 5 complete ({args.strategy}).")
 
 
 if __name__ == "__main__":

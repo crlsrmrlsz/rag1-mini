@@ -10,8 +10,13 @@ Design goals:
 - Clean slate: always recreates collection
 - Deterministic: same input produces same UUIDs
 - Transparent: logs progress per book
+
+Usage:
+    python -m src.stages.run_stage_6_weaviate                    # Default: section
+    python -m src.stages.run_stage_6_weaviate --strategy semantic  # Semantic collection
 """
 
+import argparse
 import json
 from pathlib import Path
 from typing import List, Dict
@@ -21,6 +26,7 @@ from src.config import (
     get_collection_name,
     WEAVIATE_HOST,
     WEAVIATE_HTTP_PORT,
+    DEFAULT_CHUNKING_STRATEGY,
 )
 
 from src.shared.files import setup_logging
@@ -31,6 +37,7 @@ from src.rag_pipeline.indexing import (
     upload_embeddings,
     get_collection_count,
 )
+from src.rag_pipeline.chunking.strategies import list_strategies
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -90,9 +97,22 @@ def upload_book(client, collection_name: str, file_path: Path) -> int:
 
 def main():
     """Main entry point for Stage 6."""
-    collection_name = get_collection_name()
+    parser = argparse.ArgumentParser(
+        description="Stage 6: Upload embeddings to Weaviate"
+    )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        default=DEFAULT_CHUNKING_STRATEGY,
+        choices=list_strategies(),
+        help=f"Chunking strategy for collection naming (default: {DEFAULT_CHUNKING_STRATEGY})",
+    )
+    args = parser.parse_args()
 
-    logger.info("Starting Stage 6: Weaviate Upload")
+    # Generate collection name from strategy
+    collection_name = get_collection_name(args.strategy)
+
+    logger.info(f"Starting Stage 6: Weaviate Upload (strategy: {args.strategy})")
     logger.info(f"Collection: {collection_name}")
     logger.info(f"Weaviate: http://{WEAVIATE_HOST}:{WEAVIATE_HTTP_PORT}")
 

@@ -29,15 +29,22 @@ JSON mode ensures structured classification output.
 4. Return PreprocessedQuery with original, transformed, and metadata
 """
 
-import json
-import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, List, Dict, Any
 
+import requests
+from pydantic import ValidationError as PydanticValidationError
+
 from src.config import PREPROCESSING_MODEL
 from src.shared.file_utils import setup_logging
-from src.shared.openrouter_client import call_chat_completion
+from src.shared.openrouter_client import call_chat_completion, call_structured_completion
+from src.rag_pipeline.retrieval.preprocessing.schemas import (
+    ClassificationResult,
+    PrincipleExtraction,
+    MultiQueryResult,
+    DecompositionResult,
+)
 
 logger = setup_logging(__name__)
 
@@ -147,8 +154,8 @@ Respond with JSON: {"query_type": "factual" | "open_ended" | "multi_hop"}"""
 def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, str]:
     """Classify a query into FACTUAL, OPEN_ENDED, or MULTI_HOP.
 
-    Uses an LLM to analyze the query intent and classify it appropriately.
-    This classification determines which preprocessing strategy to apply.
+    Uses an LLM with Pydantic schema enforcement to analyze query intent.
+    The ClassificationResult schema guarantees valid query_type values.
 
     Args:
         query: The user's search query.
@@ -171,28 +178,26 @@ def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, 
         {"role": "user", "content": query},
     ]
 
+    type_map = {
+        "factual": QueryType.FACTUAL,
+        "open_ended": QueryType.OPEN_ENDED,
+        "multi_hop": QueryType.MULTI_HOP,
+    }
+
     try:
-        response = call_chat_completion(
+        result = call_structured_completion(
             messages=messages,
             model=model,
+            response_model=ClassificationResult,
             temperature=0.0,
             max_tokens=50,
-            json_mode=True,
         )
 
-        result = json.loads(response)
-        query_type_str = result.get("query_type", "factual").lower()
+        # result.query_type is guaranteed to be one of the Literal values
+        return type_map[result.query_type], result.model_dump_json()
 
-        type_map = {
-            "factual": QueryType.FACTUAL,
-            "open_ended": QueryType.OPEN_ENDED,
-            "multi_hop": QueryType.MULTI_HOP,
-        }
-
-        return type_map.get(query_type_str, QueryType.FACTUAL), response
-
-    except (json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"Classification parse error: {e}, defaulting to FACTUAL")
+    except (PydanticValidationError, Exception) as e:
+        logger.warning(f"Classification error: {e}, defaulting to FACTUAL")
         return QueryType.FACTUAL, str(e)
 
 
@@ -388,7 +393,8 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
     """Extract underlying principles and concepts from a query.
 
     This is the first step of multi-query generation, identifying the
-    core concepts that should inform query generation.
+    core concepts that should inform query generation. Uses Pydantic
+    PrincipleExtraction schema for type-safe extraction.
 
     Args:
         query: The user's original query.
@@ -412,19 +418,19 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
     ]
 
     try:
-        response = call_chat_completion(
+        result = call_structured_completion(
             messages=messages,
             model=model,
+            response_model=PrincipleExtraction,
             temperature=0.0,
             max_tokens=300,
-            json_mode=True,
         )
 
-        result = json.loads(response)
-        return result
+        # Convert Pydantic model to dict for backward compatibility
+        return result.model_dump()
 
-    except (json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"Principle extraction parse error: {e}")
+    except (PydanticValidationError, Exception) as e:
+        logger.warning(f"Principle extraction error: {e}")
         # Return minimal default
         return {
             "core_topic": query,
@@ -446,6 +452,8 @@ def generate_multi_queries(
     - philosophy: Traditions, authors, concepts
     - bridging: Connecting scientific and philosophical perspectives
     - broad: Core topic in accessible language
+
+    Uses Pydantic MultiQueryResult schema for type-safe extraction.
 
     Args:
         query: Original user query.
@@ -476,19 +484,19 @@ def generate_multi_queries(
     ]
 
     try:
-        response = call_chat_completion(
+        result = call_structured_completion(
             messages=messages,
             model=model,
+            response_model=MultiQueryResult,
             temperature=0.3,  # Slight creativity for query variation
             max_tokens=400,
-            json_mode=True,
         )
 
-        result = json.loads(response)
-        return result.get("queries", [])
+        # Convert Pydantic models to dicts for backward compatibility
+        return [q.model_dump() for q in result.queries]
 
-    except (json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"Multi-query generation parse error: {e}")
+    except (PydanticValidationError, Exception) as e:
+        logger.warning(f"Multi-query generation error: {e}")
         # Fallback: return original query as single query
         return [{"type": "original", "query": query}]
 
@@ -504,6 +512,9 @@ def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str],
     Breaks complex comparison or multi-aspect questions into simpler
     sub-questions that can be answered independently. Each sub-question
     is then used for retrieval, with results merged using RRF.
+
+    Uses Pydantic DecompositionResult schema for type-safe extraction.
+    The schema guarantees sub_questions is a List[str].
 
     Args:
         query: The user's original query (should be MULTI_HOP type).
@@ -527,26 +538,24 @@ def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str],
     ]
 
     try:
-        response = call_chat_completion(
+        result = call_structured_completion(
             messages=messages,
             model=model,
+            response_model=DecompositionResult,
             temperature=0.3,  # Slight creativity for varied sub-questions
             max_tokens=400,
-            json_mode=True,
         )
 
-        result = json.loads(response)
-        sub_questions = result.get("sub_questions", [])
-
-        if not sub_questions or not isinstance(sub_questions, list):
+        # Pydantic guarantees sub_questions is List[str]
+        if not result.sub_questions:
             logger.warning("[decompose] No sub-questions extracted, using original")
-            return [query], response
+            return [query], result.model_dump_json()
 
-        logger.info(f"[decompose] Generated {len(sub_questions)} sub-questions")
-        return sub_questions, response
+        logger.info(f"[decompose] Generated {len(result.sub_questions)} sub-questions")
+        return result.sub_questions, result.model_dump_json()
 
-    except (json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"[decompose] Parse error: {e}, using original query")
+    except (PydanticValidationError, Exception) as e:
+        logger.warning(f"[decompose] Error: {e}, using original query")
         return [query], str(e)
 
 
@@ -559,7 +568,6 @@ def preprocess_query(
     query: str,
     model: Optional[str] = None,
     strategy: Optional[str] = None,
-    enable_step_back: bool = True,  # DEPRECATED: Use strategy parameter instead
 ) -> PreprocessedQuery:
     """Preprocess a query for optimal retrieval.
 
@@ -573,8 +581,6 @@ def preprocess_query(
             - "none": Return original query unchanged (no LLM calls)
             - "baseline": Classify only, no transformation
             - "step_back": Classify + step-back for open-ended (default)
-        enable_step_back: DEPRECATED. Use strategy="baseline" to skip step-back.
-            Kept for backward compatibility with existing callers.
 
     Returns:
         PreprocessedQuery with classification, transformed query, and strategy_used.
@@ -590,13 +596,9 @@ def preprocess_query(
     from src.config import DEFAULT_PREPROCESSING_STRATEGY
     from src.rag_pipeline.retrieval.preprocessing.strategies import get_strategy
 
-    # Handle strategy selection with backward compatibility
+    # Use default strategy if none specified
     if strategy is None:
-        if enable_step_back:
-            strategy = DEFAULT_PREPROCESSING_STRATEGY
-        else:
-            # enable_step_back=False maps to baseline (classify only)
-            strategy = "baseline"
+        strategy = DEFAULT_PREPROCESSING_STRATEGY
 
     # Get and execute the strategy function
     strategy_fn = get_strategy(strategy)

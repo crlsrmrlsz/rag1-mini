@@ -124,7 +124,12 @@ def apply_diversity_balance(
         cat = get_book_category(r.book_id) or "other"
         by_category[cat].append(r)
 
-    logger.debug(
+    # Debug: log sample book_ids to diagnose categorization
+    if results:
+        sample_ids = [r.book_id for r in results[:3]]
+        logger.info(f"Diversity sample book_ids: {sample_ids}")
+
+    logger.info(
         "Diversity partition: neuro=%d, phil=%d, other=%d",
         len(by_category["neuroscience"]),
         len(by_category["philosophy"]),

@@ -38,27 +38,27 @@ class PrincipleExtraction(BaseModel):
 
     Used by: extract_principles()
 
-    Contains the semantic decomposition of a query into domain-specific
+    Contains the semantic decomposition of a query into domain-agnostic
     concepts. This is the first step of multi-query generation, identifying
     the core concepts that should inform query generation.
 
     Example response:
         {
-            "core_topic": "social validation and emotional reward",
-            "neuroscience_concepts": ["dopamine", "reward system", "oxytocin"],
-            "philosophical_concepts": ["Stoic indifference", "external goods"],
-            "related_terms": ["approval seeking", "social reward"]
+            "core_topic": "procrastination and self-control",
+            "primary_concepts": ["temporal discounting", "motivation", "willpower"],
+            "secondary_concepts": ["self-regulation", "delay of gratification"],
+            "related_terms": ["avoidance", "task aversion", "impulsivity"]
         }
     """
 
     core_topic: str = Field(description="The fundamental subject of the query")
-    neuroscience_concepts: List[str] = Field(
+    primary_concepts: List[str] = Field(
         default_factory=list,
-        description="Brain regions, neurotransmitters, mechanisms",
+        description="Specific mechanisms, theories, or frameworks",
     )
-    philosophical_concepts: List[str] = Field(
+    secondary_concepts: List[str] = Field(
         default_factory=list,
-        description="Schools, authors, philosophical ideas",
+        description="Related ideas, schools of thought, or approaches",
     )
     related_terms: List[str] = Field(
         default_factory=list,
@@ -73,14 +73,14 @@ class GeneratedQuery(BaseModel):
     aspect of the knowledge base for diverse retrieval.
 
     Types:
-    - neuroscience: Brain regions, neurotransmitters, mechanisms
-    - philosophy: Traditions, authors, concepts
-    - bridging: Connecting scientific and philosophical perspectives
+    - technical: Specific mechanisms, processes, or terminology
+    - conceptual: Frameworks, theories, or abstract ideas
+    - applied: Practical applications or real-world scenarios
     - broad: Core topic in accessible language
     """
 
     type: str = Field(
-        description="Query category: neuroscience, philosophy, bridging, broad"
+        description="Query category: technical, conceptual, applied, broad"
     )
     query: str = Field(description="The search query text (8-15 words)")
 
@@ -97,10 +97,10 @@ class MultiQueryResult(BaseModel):
     Example response:
         {
             "queries": [
-                {"type": "neuroscience", "query": "dopamine reward system..."},
-                {"type": "philosophy", "query": "Stoic virtue external goods..."},
-                {"type": "bridging", "query": "brain reward philosophy..."},
-                {"type": "broad", "query": "why do we seek approval..."}
+                {"type": "technical", "query": "temporal discounting reward delay..."},
+                {"type": "conceptual", "query": "self-regulation willpower theory..."},
+                {"type": "applied", "query": "practical strategies overcoming..."},
+                {"type": "broad", "query": "why do we procrastinate..."}
             ]
         }
     """

@@ -111,23 +111,38 @@ Generate ONLY the search query. Use 10-20 words of relevant concepts and terms."
 
 PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question for a knowledge retrieval system.
 
-Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages:
+Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages from a document collection.
 
 Question: "{query}"
 
 Identify:
-1. CORE TOPIC: What is the fundamental subject?
-2. PRIMARY CONCEPTS: Specific mechanisms, processes, or theories (2-3 items)
-3. SECONDARY CONCEPTS: Related schools of thought, frameworks, or approaches (2-3 items)
+1. CORE TOPIC: The fundamental subject in 3-5 words
+2. PRIMARY CONCEPTS: Specific mechanisms, theories, or frameworks (2-3 items)
+3. SECONDARY CONCEPTS: Related ideas, schools of thought, or approaches (2-3 items)
 4. RELATED TERMS: Vocabulary likely to appear in relevant passages (3-5 items)
 
-Respond with JSON:
+EXAMPLES:
+
+Question: "Why do we procrastinate?"
 {{
-  "core_topic": "...",
-  "neuroscience_concepts": ["...", "..."],
-  "philosophical_concepts": ["...", "..."],
-  "related_terms": ["...", "..."]
-}}"""
+  "core_topic": "procrastination and self-control",
+  "primary_concepts": ["temporal discounting", "motivation", "willpower"],
+  "secondary_concepts": ["self-regulation", "delay of gratification"],
+  "related_terms": ["avoidance", "task aversion", "impulsivity", "planning"]
+}}
+
+Question: "How should I deal with anxiety?"
+{{
+  "core_topic": "anxiety management",
+  "primary_concepts": ["stress response", "fear regulation", "coping mechanisms"],
+  "secondary_concepts": ["cognitive reframing", "acceptance"],
+  "related_terms": ["worry", "calm", "relaxation", "mindfulness", "exposure"]
+}}
+
+Now extract concepts for:
+Question: "{query}"
+
+Respond with JSON only."""
 
 
 MULTI_QUERY_PROMPT = """Generate targeted search queries for a document retrieval system.
@@ -136,18 +151,16 @@ Original question: "{query}"
 
 Extracted concepts:
 - Core topic: {core_topic}
-- Primary concepts: {neuro_concepts}
-- Secondary concepts: {philo_concepts}
+- Primary concepts: {primary_concepts}
+- Secondary concepts: {secondary_concepts}
 - Related terms: {related_terms}
 
-Generate 4 search queries that will retrieve diverse, relevant passages:
+Generate 4 diverse search queries (8-15 words each) to retrieve relevant passages:
 
-1. TECHNICAL query: Use specific mechanisms, processes, or technical terminology
-2. CONCEPTUAL query: Use theoretical frameworks, schools of thought, or abstract concepts
-3. APPLIED query: Focus on practical applications or real-world examples
-4. BROAD query: Use the core topic in accessible, general language
-
-Each query should be 8-15 words. Mix conceptual phrases with specific vocabulary.
+1. TECHNICAL: Use specific mechanisms, processes, or terminology from the primary concepts
+2. CONCEPTUAL: Use frameworks, theories, or abstract ideas from the secondary concepts
+3. APPLIED: Focus on practical applications, examples, or real-world scenarios
+4. BROAD: Use the core topic with accessible vocabulary
 
 Respond with JSON:
 {{
@@ -307,9 +320,9 @@ def generate_multi_queries(
     """Generate multiple targeted search queries from extracted principles.
 
     Creates 4 diverse queries targeting different aspects of the knowledge base:
-    - neuroscience: Brain regions, neurotransmitters, mechanisms
-    - philosophy: Traditions, authors, concepts
-    - bridging: Connecting scientific and philosophical perspectives
+    - technical: Specific mechanisms, processes, or terminology
+    - conceptual: Frameworks, theories, or abstract ideas
+    - applied: Practical applications or real-world scenarios
     - broad: Core topic in accessible language
 
     Uses Pydantic MultiQueryResult schema for type-safe extraction.
@@ -323,8 +336,8 @@ def generate_multi_queries(
         List of dicts with 'type' and 'query' keys.
 
     Example:
-        >>> principles = extract_principles("Why do we fear death?")
-        >>> queries = generate_multi_queries("Why do we fear death?", principles)
+        >>> principles = extract_principles("Why do we procrastinate?")
+        >>> queries = generate_multi_queries("Why do we procrastinate?", principles)
         >>> len(queries)
         4
     """
@@ -333,8 +346,8 @@ def generate_multi_queries(
     prompt = MULTI_QUERY_PROMPT.format(
         query=query,
         core_topic=principles.get("core_topic", query),
-        neuro_concepts=", ".join(principles.get("neuroscience_concepts", [])),
-        philo_concepts=", ".join(principles.get("philosophical_concepts", [])),
+        primary_concepts=", ".join(principles.get("primary_concepts", [])),
+        secondary_concepts=", ".join(principles.get("secondary_concepts", [])),
         related_terms=", ".join(principles.get("related_terms", [])),
     )
 

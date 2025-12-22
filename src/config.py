@@ -251,11 +251,14 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 # ============================================================================
 
 # Corpus topics for query grounding (helps LLM generate vocabulary in the corpus)
-# This lightweight list (~30 tokens) guides preprocessing without prompt bloat
+# This lightweight list (~50 tokens) guides preprocessing without prompt bloat
+# Covers: neuroscience (Sapolsky, Kahneman), Stoicism, Taoism, Confucianism,
+# German pessimism (Schopenhauer), Baroque prudence (Gracián)
 CORPUS_TOPICS = (
     "neuroscience, cognitive psychology, behavioral biology, brain mechanisms, "
-    "decision-making, emotions, stress, memory, consciousness, "
-    "Stoic philosophy, wisdom literature, virtue ethics, practical wisdom, self-mastery"
+    "decision-making, emotions, stress, memory, aggression, altruism, free will, "
+    "Stoic philosophy, Taoism, Confucianism, German pessimism, Baroque prudence, "
+    "virtue ethics, practical wisdom, cognitive biases, the will, suffering"
 )
 
 # Model for query preprocessing (step-back, multi-query, decomposition)

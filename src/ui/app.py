@@ -276,7 +276,7 @@ def _render_pipeline_log():
 
                 if contrib_data:
                     df = pd.DataFrame(contrib_data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width="stretch")
         else:
             st.info("RRF merging was not used (single-query search or non-multi_query strategy).")
 
@@ -297,7 +297,7 @@ def _render_pipeline_log():
                 df["Before Score"] = df["Before Score"].round(3)
                 df["After Score"] = df["After Score"].round(3)
 
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width="stretch")
         else:
             st.info("Reranking was disabled for this query.")
 

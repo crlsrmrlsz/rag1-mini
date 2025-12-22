@@ -26,7 +26,8 @@ in a common interface for the stage runner to invoke.
 5. Returns stats dict {book_name: chunk_count}
 """
 
-from typing import Callable, Dict, List
+from functools import partial
+from typing import Any, Callable, Dict, List
 
 from src.config import MAX_CHUNK_TOKENS, OVERLAP_SENTENCES, SEMANTIC_SIMILARITY_THRESHOLD
 from src.shared.files import setup_logging
@@ -67,7 +68,9 @@ def section_strategy() -> Dict[str, int]:
     return run_section_chunking()
 
 
-def semantic_strategy() -> Dict[str, int]:
+def semantic_strategy(
+    similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+) -> Dict[str, int]:
     """Semantic similarity-based chunking.
 
     Algorithm:
@@ -82,14 +85,18 @@ def semantic_strategy() -> Dict[str, int]:
 
     Note: Requires API calls during chunking (costs apply).
 
+    Args:
+        similarity_threshold: Cosine similarity threshold (0.0-1.0) for detecting
+            topic shifts. Lower = fewer splits (larger chunks). Default from config.
+
     Returns:
         Dict mapping book names to chunk counts.
     """
     from src.rag_pipeline.chunking.semantic_chunker import run_semantic_chunking
 
     logger.info(f"[semantic] Using embedding similarity chunking")
-    logger.info(f"[semantic] Max tokens: {MAX_CHUNK_TOKENS}, threshold: {SEMANTIC_SIMILARITY_THRESHOLD}")
-    return run_semantic_chunking()
+    logger.info(f"[semantic] Max tokens: {MAX_CHUNK_TOKENS}, threshold: {similarity_threshold}")
+    return run_semantic_chunking(similarity_threshold=similarity_threshold)
 
 
 # ============================================================================
@@ -103,11 +110,13 @@ STRATEGIES: Dict[str, ChunkingStrategyFunction] = {
 }
 
 
-def get_strategy(strategy_id: str) -> ChunkingStrategyFunction:
+def get_strategy(strategy_id: str, **kwargs: Any) -> ChunkingStrategyFunction:
     """Get chunking strategy function by ID.
 
     Args:
         strategy_id: One of "section", "semantic" (future: "contextual", "raptor").
+        **kwargs: Optional parameters to pass to the strategy function.
+            For semantic strategy: similarity_threshold (float).
 
     Returns:
         Strategy function that takes no args and returns Dict[str, int].
@@ -116,14 +125,18 @@ def get_strategy(strategy_id: str) -> ChunkingStrategyFunction:
         ValueError: If strategy_id is not registered.
 
     Example:
-        >>> strategy_fn = get_strategy("semantic")
+        >>> strategy_fn = get_strategy("semantic", similarity_threshold=0.6)
         >>> stats = strategy_fn()
         >>> print(stats)  # {"book1": 45, "book2": 67}
     """
     if strategy_id not in STRATEGIES:
         available = list(STRATEGIES.keys())
         raise ValueError(f"Unknown chunking strategy '{strategy_id}'. Available: {available}")
-    return STRATEGIES[strategy_id]
+
+    strategy_fn = STRATEGIES[strategy_id]
+    if kwargs:
+        return partial(strategy_fn, **kwargs)
+    return strategy_fn
 
 
 def list_strategies() -> List[str]:

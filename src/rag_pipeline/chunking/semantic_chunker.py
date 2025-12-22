@@ -303,11 +303,15 @@ def create_semantic_chunks(
 # ============================================================================
 
 
-def process_single_file(file_path: Path) -> tuple[str, int]:
+def process_single_file(
+    file_path: Path,
+    similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+) -> tuple[str, int]:
     """Process a single JSON file with semantic chunking.
 
     Args:
         file_path: Path to input JSON file from Stage 3.
+        similarity_threshold: Cosine similarity threshold for detecting topic shifts.
 
     Returns:
         Tuple of (book_name, chunk_count).
@@ -318,7 +322,9 @@ def process_single_file(file_path: Path) -> tuple[str, int]:
     book_name = file_path.stem
     logger.info(f"Processing {book_name} ({len(paragraphs)} paragraphs)")
 
-    chunks = create_semantic_chunks(paragraphs, book_name)
+    chunks = create_semantic_chunks(
+        paragraphs, book_name, similarity_threshold=similarity_threshold
+    )
 
     # Save to semantic/ subdirectory
     output_dir = Path(DIR_FINAL_CHUNKS) / "semantic"
@@ -331,11 +337,17 @@ def process_single_file(file_path: Path) -> tuple[str, int]:
     return book_name, len(chunks)
 
 
-def run_semantic_chunking() -> Dict[str, int]:
+def run_semantic_chunking(
+    similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+) -> Dict[str, int]:
     """Process all files with semantic chunking.
 
     Main entry point for semantic chunking strategy. Reads paragraph files
     from Stage 3 output and creates semantically-coherent chunks.
+
+    Args:
+        similarity_threshold: Cosine similarity threshold (0.0-1.0) for detecting
+            topic shifts. Lower = fewer splits (larger chunks).
 
     Returns:
         Dict mapping book names to chunk counts.
@@ -349,11 +361,11 @@ def run_semantic_chunking() -> Dict[str, int]:
     logger.info(f"Starting semantic chunking...")
     logger.info(f"Processing {len(input_files)} files")
     logger.info(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
-    logger.info(f"Similarity threshold: {SEMANTIC_SIMILARITY_THRESHOLD}")
+    logger.info(f"Similarity threshold: {similarity_threshold}")
     logger.info(f"Overlap sentences: {OVERLAP_SENTENCES}")
 
     for file_path in input_files:
-        book_name, chunk_count = process_single_file(file_path)
+        book_name, chunk_count = process_single_file(file_path, similarity_threshold)
         results[book_name] = chunk_count
         logger.info(f"  {book_name}: {chunk_count} chunks")
 

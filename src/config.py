@@ -333,6 +333,6 @@ DEFAULT_CHUNKING_STRATEGY = "section"
 
 # Semantic chunking parameters
 # Threshold for cosine similarity between adjacent sentences
-# Lower = more splits (smaller chunks), Higher = fewer splits (larger chunks)
-# 0.75 works well for most content (topic shifts typically drop below 0.6)
-SEMANTIC_SIMILARITY_THRESHOLD = 0.75
+# Lower = fewer splits (larger chunks), Higher = more splits (smaller chunks)
+# Topic shifts typically drop below 0.6, so 0.5 catches only major topic changes
+SEMANTIC_SIMILARITY_THRESHOLD = 0.5

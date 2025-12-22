@@ -14,7 +14,12 @@ Usage:
 import argparse
 from pathlib import Path
 
-from src.config import DIR_NLP_CHUNKS, DIR_FINAL_CHUNKS, DEFAULT_CHUNKING_STRATEGY
+from src.config import (
+    DIR_NLP_CHUNKS,
+    DIR_FINAL_CHUNKS,
+    DEFAULT_CHUNKING_STRATEGY,
+    SEMANTIC_SIMILARITY_THRESHOLD,
+)
 from src.shared import setup_logging, get_file_list
 from src.rag_pipeline.chunking.strategies import get_strategy, list_strategies
 
@@ -33,7 +38,25 @@ def main():
         choices=list_strategies(),
         help=f"Chunking strategy (default: {DEFAULT_CHUNKING_STRATEGY})",
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help=(
+            f"Semantic similarity threshold (0.0-1.0). "
+            f"Lower = fewer splits (larger chunks). "
+            f"Only used with semantic strategy. (default: {SEMANTIC_SIMILARITY_THRESHOLD})"
+        ),
+    )
     args = parser.parse_args()
+
+    # Build strategy kwargs
+    strategy_kwargs = {}
+    if args.threshold is not None:
+        if args.strategy != "semantic":
+            logger.warning("--threshold is only used with semantic strategy, ignoring")
+        else:
+            strategy_kwargs["similarity_threshold"] = args.threshold
 
     logger.info(f"Starting Stage 4: Chunking (strategy: {args.strategy})")
 
@@ -46,7 +69,7 @@ def main():
         return
 
     # Get strategy function and run
-    strategy_fn = get_strategy(args.strategy)
+    strategy_fn = get_strategy(args.strategy, **strategy_kwargs)
     stats = strategy_fn()
 
     # Verify output

@@ -23,6 +23,7 @@
 |-------|---------------|----------|-----------|---------|
 | **GPT-5 Nano** | `openai/gpt-5-nano` | $0.05 | $0.40 | 128K |
 | **GPT-5 Mini** | `openai/gpt-5-mini` | $0.25 | $2.00 | 200K |
+| **Claude 3 Haiku** | `anthropic/claude-3-haiku` | $0.25 | $1.25 | 200K |
 | **DeepSeek V3.2** | `deepseek/deepseek-chat` | $0.28 | $0.42 | 128K |
 | **Gemini 3 Flash** | `google/gemini-3-flash` | $0.50 | $3.00 | 1M |
 | **Claude Haiku 4.5** | `anthropic/claude-haiku-4.5` | $1.00 | $5.00 | 200K |
@@ -48,7 +49,7 @@
 ## Key Insights
 
 1. **For Generation:** Gemini 3 Flash offers PhD-level reasoning at $0.50/$3.00 per 1M tokens
-2. **For Evaluation (LLM-as-Judge):** RAGAS research shows Anthropic models are most stable
+2. **For Evaluation (LLM-as-Judge):** Claude 3 Haiku at $0.25/$1.25 - stable Anthropic model, 75% cheaper than Haiku 4.5
 3. **Best Value:** DeepSeek V3.2 at $0.28/$0.42 is extremely cost-effective
 4. **Context Windows:** GPT-5.2 leads with 400K, Gemini 3 Flash has 1M
 

@@ -273,8 +273,10 @@ DIVERSITY_BALANCE = {
 # Generation model: Fast, cost-effective for answer generation
 EVAL_GENERATION_MODEL = "google/gemini-3-flash-preview"
 
-# Evaluation model: High quality for LLM-as-judge (RAGAS metrics)
-EVAL_EVALUATION_MODEL = "anthropic/claude-haiku-4.5"
+# Evaluation model: Cost-effective for LLM-as-judge (RAGAS metrics)
+# Claude 3 Haiku is 75% cheaper than Haiku 4.5 ($0.25/$1.25 vs $1/$5 per 1M tokens)
+# Sufficient for binary evaluation judgments (claim verification, relevance checks)
+EVAL_EVALUATION_MODEL = "anthropic/claude-3-haiku"
 
 # Test questions file location
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"

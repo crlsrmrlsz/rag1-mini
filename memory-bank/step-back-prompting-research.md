@@ -1,8 +1,10 @@
 # Step-Back Prompting Research & Improvement Plan
 
 **Created**: December 21, 2024
-**Status**: Ready for implementation
+**Status**: HISTORICAL - Prompts Updated Dec 22, 2024
 **Related**: Phase 1 Quick Wins in `rag-improvement-plan.md`
+
+> **Note (Dec 22, 2024)**: This document contains historical research from when the system was domain-specific (neuroscience/philosophy). The prompts have since been updated to be **domain-agnostic** in `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py`. The research and techniques described here are still valid, but the example prompts and domain-specific terminology are no longer used in production.
 
 ---
 

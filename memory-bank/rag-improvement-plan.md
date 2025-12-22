@@ -79,7 +79,6 @@ python -m src.stages.run_stage_7_evaluation [OPTIONS]
 
 Options:
   -n, --questions N         Limit to first N questions
-  -c, --category CATEGORY   Filter: neuroscience|philosophy|synthesis|open_ended
   -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision)
   -k, --top-k K             Chunks to retrieve (default: 10)
   --generation-model MODEL  Answer generation model (default: openai/gpt-5-mini)
@@ -598,9 +597,10 @@ Update `evaluation-history.md` with results after each run.
 **Preprocessing Strategies Testing Workflow**:
 ```bash
 # Test each strategy
-python -m src.stages.run_stage_7_evaluation --preprocessing none      # Baseline
-python -m src.stages.run_stage_7_evaluation --preprocessing baseline  # Classify only
-python -m src.stages.run_stage_7_evaluation --preprocessing step_back # Current default
+python -m src.stages.run_stage_7_evaluation --preprocessing none          # No transformation
+python -m src.stages.run_stage_7_evaluation --preprocessing step_back     # Current default
+python -m src.stages.run_stage_7_evaluation --preprocessing multi_query   # 4 targeted queries
+python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-questions
 
 # Compare results in memory-bank/evaluation-history.md
 ```
@@ -954,30 +954,28 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 | ID | Display | Description | When Used |
 |----|---------|-------------|-----------|
 | `none` | None | Return original query unchanged | Baseline testing |
-| `baseline` | Baseline | Classify query type only, no transformation | Track query types |
-| `step_back` | Step-Back | Classify + step-back for OPEN_ENDED queries | Production default |
+| `step_back` | Step-Back | Transform to broader concepts for better retrieval | Production default |
 | `multi_query` | Multi-Query | Generate 4 targeted queries + RRF merge | Best coverage |
-| `decomposition` | Decomposition | Break MULTI_HOP into sub-questions + RRF merge | Comparison queries |
+| `decomposition` | Decomposition | Break into sub-questions + RRF merge | Complex queries |
 
 ### B.3 Usage Examples
 
 ```python
 # In code
-from src.preprocessing import preprocess_query
+from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 
 # Use default strategy (step_back)
 result = preprocess_query("Why do humans procrastinate?")
 print(result.strategy_used)  # "step_back"
 
 # Explicit strategy
-result = preprocess_query("Why do humans procrastinate?", strategy="baseline")
-print(result.strategy_used)  # "baseline"
+result = preprocess_query("Why do humans procrastinate?", strategy="multi_query")
+print(result.strategy_used)  # "multi_query"
 ```
 
 ```bash
 # From CLI
 python -m src.stages.run_stage_7_evaluation --preprocessing none
-python -m src.stages.run_stage_7_evaluation --preprocessing baseline
 python -m src.stages.run_stage_7_evaluation --preprocessing step_back
 python -m src.stages.run_stage_7_evaluation --preprocessing multi_query
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition

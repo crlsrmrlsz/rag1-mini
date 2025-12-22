@@ -2,6 +2,8 @@
 
 Tracking all RAGAS evaluation runs with configurations and metrics for future article.
 
+> **Note (Dec 22, 2024)**: Runs 1-4 were evaluated when the system used domain-specific test questions (neuroscience/philosophy categories). The system has since been refactored to be **domain-agnostic**. Category breakdowns in historical runs reflect the original test dataset.
+
 ---
 
 ## Summary Table

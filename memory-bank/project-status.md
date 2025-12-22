@@ -73,25 +73,25 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 
 **Note:** Cross-encoder reranking improves quality but is slow on CPU (~2 min/query). Disabled by default; code preserved for future GPU/API use.
 
-## Stage 8: Query Preprocessing + Answer Generation (Completed Dec 20)
+## Stage 8: Query Preprocessing + Answer Generation (Completed Dec 22)
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| Query Classifier | Classify as FACTUAL/OPEN_ENDED/MULTI_HOP | Complete |
-| Step-Back Prompting | Broaden open-ended queries for better retrieval | Complete |
+| Step-Back Prompting | Transform to broader concepts for better retrieval | Complete |
+| Multi-Query Generation | Generate 4 targeted queries + RRF merge | Complete |
+| Query Decomposition | Break into sub-questions + RRF merge | Complete |
 | Answer Generator | Synthesize LLM answer from retrieved chunks | Complete |
-| UI Enhancement | Display query analysis + generated answers | Complete |
-| Prompt Refinement | Integrated neuroscience + philosophy focus | Complete |
+| LLM Call Logging | Log all LLM calls with model and char counts | Complete |
 
-**New Modules:**
-- `src/preprocessing/` - Query classification and step-back prompting
-- `src/generation/` - LLM answer synthesis with source citations
+**Key Modules:**
+- `src/rag_pipeline/retrieval/preprocessing/` - Strategy-based query transformation
+- `src/rag_pipeline/generation/` - LLM answer synthesis with source citations
 
-**Prompt Design Principles:**
-- Role-based framing (WHO the assistant is, not task lists)
-- Domain integration by default (science + wisdom together)
-- Principle-based examples (patterns, not exhaustive lists)
-- Science explains HOW we work; philosophy guides what to DO
+**Design Decisions (Dec 22):**
+- Removed query classification (not in original research papers)
+- Each strategy applies its transformation directly to any query
+- Unified answer generation prompt (works for all query types)
+- LLM call logging: `[LLM] model=X chars_in=Y chars_out=Z`
 
 ## RAG Improvement Phases
 
@@ -99,9 +99,9 @@ User Query -> classify_query() -> step_back_prompt() -> search -> generate_answe
 |-------|-------------|--------|
 | 0 | Evaluation CLI (--collection, auto-logging) | COMPLETE |
 | 1 | Preprocessing Strategy Infrastructure | COMPLETE |
-| 2 | Test Preprocessing Strategies (none, baseline, step_back, multi_query, decomposition) | TODO |
+| 2 | Remove Classification + Simplify (Dec 22) | COMPLETE |
 | 3 | Multi-Query Strategy (+RRF merging) | COMPLETE |
-| 4 | Query Decomposition (MULTI_HOP) | COMPLETE |
+| 4 | Query Decomposition (always-on) | COMPLETE |
 | 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
 | 6 | Contextual Chunking (+35% failure reduction) | TODO |
 | 7 | RAPTOR (hierarchical summarization) | TODO |
@@ -122,10 +122,10 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 │   ┌──────────────────┐        ┌──────────────────────────────┐ │
 │   │ AVAILABLE_*      │───────▶│ STRATEGIES = {               │ │
 │   │ DEFAULT_*        │        │   "none": none_strategy,     │ │
-│   └──────────────────┘        │   "baseline": baseline_...,  │ │
-│            │                  │   "step_back": step_back_...,│ │
-│            ▼                  │ }                            │ │
-│   ┌──────────────────┐        │                              │ │
+│   └──────────────────┘        │   "step_back": step_back_...,│ │
+│            │                  │   "multi_query": multi_...,  │ │
+│            ▼                  │   "decomposition": decomp_...│ │
+│   ┌──────────────────┐        │ }                            │ │
 │   │ UI Dropdown      │        │ def get_strategy(id) -> fn   │ │
 │   │ CLI --arg        │        └──────────────────────────────┘ │
 │   └────────┬─────────┘                     │                   │
@@ -154,16 +154,15 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 
 **Files:**
 - `src/config.py:AVAILABLE_PREPROCESSING_STRATEGIES`
-- `src/preprocessing/strategies.py` (registry)
-- `src/preprocessing/query_preprocessing.py` (dispatcher)
-- `src/retrieval/rrf.py` (RRF merging for multi_query)
+- `src/rag_pipeline/retrieval/preprocessing/strategies.py` (registry)
+- `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` (dispatcher)
+- `src/rag_pipeline/retrieval/rrf.py` (RRF merging for multi_query)
 
-**Available strategies:**
-- `none` - No transformation, use original query
-- `baseline` - Classify query type only
-- `step_back` - Classify + step-back prompting for OPEN_ENDED queries
-- `multi_query` - Generate 5 queries (original + 4 targeted) + RRF merge
-- `decomposition` - Decompose MULTI_HOP into 2-4 sub-questions + RRF merge
+**Available strategies (each applies directly to any query):**
+- `none` - No transformation, use original query (0 LLM calls)
+- `step_back` - Transform to broader concepts for better retrieval (1 LLM call)
+- `multi_query` - Generate 4 targeted queries + RRF merge (2 LLM calls)
+- `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call)
 
 ### To Implement: Chunking Strategies
 

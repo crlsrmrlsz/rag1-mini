@@ -367,7 +367,7 @@ Generate ONLY the search query. Use 10-20 words. Include both neuroscience and p
 
 After implementing, run:
 ```bash
-python -m src.run_stage_7_evaluation --collection [your_collection]
+python -m src.stages.run_stage_7_evaluation --collection [your_collection]
 ```
 
 Compare:

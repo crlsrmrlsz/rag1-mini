@@ -11,28 +11,28 @@ Purpose:
 
 Usage Examples:
     # Run with defaults (hybrid search, alpha=0.5, reranking enabled)
-    python -m src.run_stage_7_evaluation
+    python -m src.stages.run_stage_7_evaluation
 
     # Test a specific collection (e.g., contextual embeddings)
-    python -m src.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
+    python -m src.stages.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
 
     # Alpha tuning experiments
-    python -m src.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
-    python -m src.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
+    python -m src.stages.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
+    python -m src.stages.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
 
     # Disable reranking for speed comparison
-    python -m src.run_stage_7_evaluation --no-reranking
+    python -m src.stages.run_stage_7_evaluation --no-reranking
 
     # Run on subset of questions
-    python -m src.run_stage_7_evaluation --questions 5
-    python -m src.run_stage_7_evaluation --category philosophy
+    python -m src.stages.run_stage_7_evaluation --questions 5
+    python -m src.stages.run_stage_7_evaluation --category philosophy
 
     # Use different models
-    python -m src.run_stage_7_evaluation --generation-model openai/gpt-4o
-    python -m src.run_stage_7_evaluation --evaluation-model anthropic/claude-3-5-sonnet
+    python -m src.stages.run_stage_7_evaluation --generation-model openai/gpt-4o
+    python -m src.stages.run_stage_7_evaluation --evaluation-model anthropic/claude-3-5-sonnet
 
     # Custom output path
-    python -m src.run_stage_7_evaluation -o data/evaluation/results/alpha_0.3.json
+    python -m src.stages.run_stage_7_evaluation -o data/evaluation/results/alpha_0.3.json
 
 Arguments:
     -n, --questions N         Limit to first N questions

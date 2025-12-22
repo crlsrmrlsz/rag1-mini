@@ -192,13 +192,13 @@ Based on research in `rag-improve-research.md`:
 
 ```bash
 # Test reranking effect
-python -m src.run_stage_7_evaluation --reranking      # with reranking
-python -m src.run_stage_7_evaluation --no-reranking   # without
+python -m src.stages.run_stage_7_evaluation --reranking      # with reranking
+python -m src.stages.run_stage_7_evaluation --no-reranking   # without
 
 # Test alpha values
-python -m src.run_stage_7_evaluation --alpha 0.3 -o data/evaluation/results/alpha_0.3.json
-python -m src.run_stage_7_evaluation --alpha 0.5 -o data/evaluation/results/alpha_0.5.json
-python -m src.run_stage_7_evaluation --alpha 0.7 -o data/evaluation/results/alpha_0.7.json
+python -m src.stages.run_stage_7_evaluation --alpha 0.3 -o data/evaluation/results/alpha_0.3.json
+python -m src.stages.run_stage_7_evaluation --alpha 0.5 -o data/evaluation/results/alpha_0.5.json
+python -m src.stages.run_stage_7_evaluation --alpha 0.7 -o data/evaluation/results/alpha_0.7.json
 ```
 
 ### Alpha Parameter Explained

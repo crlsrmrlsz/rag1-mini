@@ -26,7 +26,7 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 │  │ ├─ RAG_contextual_v1  │  │  └─────────────────────────────┘ │
 │  │ ├─ RAG_raptor_v1      │  │                                   │
 │  │ └─ RAG_graphrag_v1    │  │  (Evaluation runs via CLI:        │
-│  │                       │  │   python -m src.run_stage_7_...)  │
+│  │                       │  │   python -m src.stages.run_stage_7_...)  │
 │  │ Stage 1-4 Controls    │  │                                   │
 │  │ (existing)            │  │                                   │
 │  └───────────────────────┘  │                                   │
@@ -75,7 +75,7 @@ Evaluation stays outside the UI for simplicity. Improvements needed for `src/run
 
 **Current CLI arguments (already implemented):**
 ```bash
-python -m src.run_stage_7_evaluation [OPTIONS]
+python -m src.stages.run_stage_7_evaluation [OPTIONS]
 
 Options:
   -n, --questions N         Limit to first N questions
@@ -151,14 +151,14 @@ def append_to_evaluation_history(results, config, output_path):
 **Example usage after improvements:**
 ```bash
 # Test contextual embeddings collection
-python -m src.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
+python -m src.stages.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
 
 # Test RAPTOR with different alpha
-python -m src.run_stage_7_evaluation --collection RAG_raptor_embed3large_v1 --alpha 0.7
+python -m src.stages.run_stage_7_evaluation --collection RAG_raptor_embed3large_v1 --alpha 0.7
 
 # Compare collections
-python -m src.run_stage_7_evaluation --collection RAG_section800_embed3large_v1
-python -m src.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
+python -m src.stages.run_stage_7_evaluation --collection RAG_section800_embed3large_v1
+python -m src.stages.run_stage_7_evaluation --collection RAG_contextual_embed3large_v1
 ```
 
 ---
@@ -204,8 +204,8 @@ within the document. Start with "This passage..."
 
 ### 1.3 Embedding & Upload
 
-- Run `python -m src.run_stage_5_embedding` (reads from contextual/)
-- Run `python -m src.run_stage_6_weaviate` with `CHUNKING_STRATEGY_NAME=contextual`
+- Run `python -m src.stages.run_stage_5_embedding` (reads from contextual/)
+- Run `python -m src.stages.run_stage_6_weaviate` with `CHUNKING_STRATEGY_NAME=contextual`
 - Creates collection: `RAG_contextual_embed3large_v1`
 
 ### 1.4 Test from UI
@@ -569,9 +569,9 @@ def reorder_chunks_for_attention(chunks: List[Dict]) -> List[Dict]:
 Already in task list. Run via CLI:
 
 ```bash
-python -m src.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
-python -m src.run_stage_7_evaluation --alpha 0.5  # Balanced (default)
-python -m src.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
+python -m src.stages.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
+python -m src.stages.run_stage_7_evaluation --alpha 0.5  # Balanced (default)
+python -m src.stages.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
 ```
 
 Update `evaluation-history.md` with results after each run.
@@ -598,9 +598,9 @@ Update `evaluation-history.md` with results after each run.
 **Preprocessing Strategies Testing Workflow**:
 ```bash
 # Test each strategy
-python -m src.run_stage_7_evaluation --preprocessing none      # Baseline
-python -m src.run_stage_7_evaluation --preprocessing baseline  # Classify only
-python -m src.run_stage_7_evaluation --preprocessing step_back # Current default
+python -m src.stages.run_stage_7_evaluation --preprocessing none      # Baseline
+python -m src.stages.run_stage_7_evaluation --preprocessing baseline  # Classify only
+python -m src.stages.run_stage_7_evaluation --preprocessing step_back # Current default
 
 # Compare results in memory-bank/evaluation-history.md
 ```
@@ -616,7 +616,7 @@ For each improvement:
 1. **Create new collection** (run Stage 4-6 via CLI)
 2. **Select collection** in UI dropdown
 3. **Run manual queries** in UI to verify basic functionality
-4. **Run RAGAS evaluation** via CLI: `python -m src.run_stage_7_evaluation`
+4. **Run RAGAS evaluation** via CLI: `python -m src.stages.run_stage_7_evaluation`
 5. **Update evaluation-history.md** with results
 6. **Compare to baseline** (Run 3: 0.786 relevancy, 0.885 faithfulness)
 
@@ -976,11 +976,11 @@ print(result.strategy_used)  # "baseline"
 
 ```bash
 # From CLI
-python -m src.run_stage_7_evaluation --preprocessing none
-python -m src.run_stage_7_evaluation --preprocessing baseline
-python -m src.run_stage_7_evaluation --preprocessing step_back
-python -m src.run_stage_7_evaluation --preprocessing multi_query
-python -m src.run_stage_7_evaluation --preprocessing decomposition
+python -m src.stages.run_stage_7_evaluation --preprocessing none
+python -m src.stages.run_stage_7_evaluation --preprocessing baseline
+python -m src.stages.run_stage_7_evaluation --preprocessing step_back
+python -m src.stages.run_stage_7_evaluation --preprocessing multi_query
+python -m src.stages.run_stage_7_evaluation --preprocessing decomposition
 ```
 
 ### B.4 Adding New Preprocessing Strategy

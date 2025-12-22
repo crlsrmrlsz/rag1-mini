@@ -191,18 +191,18 @@ Same pattern for `src/vector_db/retrieval_strategies.py`:
 conda activate rag1-mini
 
 # Pipeline stages
-python -m src.run_stage_1_extraction
-python -m src.run_stage_2_processing
-python -m src.run_stage_3_segmentation
-python -m src.run_stage_4_chunking
-python -m src.run_stage_5_embedding
-python -m src.run_stage_6_weaviate
+python -m src.stages.run_stage_1_extraction
+python -m src.stages.run_stage_2_processing
+python -m src.stages.run_stage_3_segmentation
+python -m src.stages.run_stage_4_chunking
+python -m src.stages.run_stage_5_embedding
+python -m src.stages.run_stage_6_weaviate
 
 # UI
 streamlit run src/ui/app.py
 
 # Evaluation (see model-selection.md for model options)
-python -m src.run_stage_7_evaluation
+python -m src.stages.run_stage_7_evaluation
 ```
 
 ## Code Standards

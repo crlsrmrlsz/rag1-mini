@@ -5,15 +5,6 @@
 
 ---
 
-## Selected Models
-
-```bash
-python -m src.run_stage_7_evaluation \
-  --generation-model google/gemini-3-flash \
-  --evaluation-model anthropic/claude-sonnet-4.5
-```
-
----
 
 ## Latest Model Releases (Nov-Dec 2025)
 
@@ -51,38 +42,6 @@ python -m src.run_stage_7_evaluation \
 | **Gemini 3 Pro** | - | **91.9%** | 45.1% | Best reasoning |
 | **GPT-5.2 Pro** | - | - | **54.2%** | Best ARC-AGI |
 | **Claude Sonnet 4.5** | 77.2% | - | - | Great value |
-
----
-
-## Recommended Commands by Tier
-
-**Ultra Budget (~$0.02 for 10 questions):**
-```bash
-python -m src.run_stage_7_evaluation \
-  --generation-model deepseek/deepseek-chat \
-  --evaluation-model openai/gpt-5-mini
-```
-
-**Balanced (~$0.15 for 10 questions):**
-```bash
-python -m src.run_stage_7_evaluation \
-  --generation-model openai/gpt-5-mini \
-  --evaluation-model anthropic/claude-haiku-4.5
-```
-
-**Quality (~$0.50 for 10 questions) - SELECTED:**
-```bash
-python -m src.run_stage_7_evaluation \
-  --generation-model google/gemini-3-flash \
-  --evaluation-model anthropic/claude-sonnet-4.5
-```
-
-**Premium (~$1.50 for 10 questions):**
-```bash
-python -m src.run_stage_7_evaluation \
-  --generation-model anthropic/claude-sonnet-4.5 \
-  --evaluation-model anthropic/claude-opus-4.5
-```
 
 ---
 

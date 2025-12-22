@@ -185,6 +185,14 @@ Same pattern for `src/vector_db/retrieval_strategies.py`:
 - `hybrid` - BM25 + vector with alpha
 - `graphrag` - Graph-augmented retrieval
 
+## LLM Response Validation
+
+Uses Pydantic schemas for type-safe LLM outputs with JSON Schema enforcement:
+- `src/shared/schemas.py` - `get_openrouter_schema()` utility
+- `src/rag_pipeline/retrieval/preprocessing/schemas.py` - Response models (ClassificationResult, PrincipleExtraction, etc.)
+
+Key function: `call_structured_completion(messages, model, response_model)` in `openrouter_client.py`
+
 ## Run Commands
 
 ```bash

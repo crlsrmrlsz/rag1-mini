@@ -93,7 +93,7 @@ src/
 | `src/rag_pipeline/indexing/weaviate_client.py` | Weaviate storage | `upload_embeddings(client, name, chunks) -> int` |
 | `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
 | `src/rag_pipeline/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
-| `src/shared/openrouter_client.py` | Unified LLM API | `call_chat_completion(messages, model) -> str` |
+| `src/shared/openrouter_client.py` | Unified LLM API | `call_chat_completion()`, `call_structured_completion()` |
 
 ## Configuration (src/config.py)
 
@@ -176,8 +176,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Pydantic structured outputs for LLM responses with JSON Schema enforcement (Dec 22)
 - Major codebase refactoring: Two-phase architecture (content_preparation/, rag_pipeline/) for pedagogical clarity (Dec 21)
 - Unified OpenRouter API client (src/shared/openrouter_client.py) replacing 3 duplicate implementations (Dec 21)
 - Phase 4: Query Decomposition for MULTI_HOP queries (Dec 21)
 - Phase 3: Multi-Query Strategy with RRF merging (Dec 21)
-- Phase 1: Preprocessing Strategy Infrastructure with UI dropdown and CLI integration (Dec 21)

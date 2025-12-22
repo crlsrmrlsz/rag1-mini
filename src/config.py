@@ -323,8 +323,8 @@ DEFAULT_PREPROCESSING_STRATEGY = "step_back"
 AVAILABLE_CHUNKING_STRATEGIES = [
     ("section", "Section (Baseline)", "Sequential with sentence overlap, respects markdown sections"),
     ("semantic", "Semantic", "Embedding similarity-based boundaries for topic coherence"),
+    ("contextual", "Contextual", "LLM-generated chunk context (Anthropic-style, +35% improvement)"),
     # Future strategies (uncomment when implemented):
-    # ("contextual", "Contextual", "LLM-generated chunk context (Anthropic-style)"),
     # ("raptor", "RAPTOR", "Hierarchical summarization tree"),
 ]
 
@@ -336,6 +336,36 @@ DEFAULT_CHUNKING_STRATEGY = "section"
 # Lower = fewer splits (larger chunks), Higher = more splits (smaller chunks)
 # Topic shifts typically drop below 0.6, so 0.5 catches only major topic changes
 SEMANTIC_SIMILARITY_THRESHOLD = 0.5
+
+# Contextual chunking parameters (Anthropic-style)
+# Model for generating contextual snippets (fast, cheap model recommended)
+CONTEXTUAL_MODEL = "anthropic/claude-3-haiku"
+
+# Number of neighboring chunks to include as context for LLM
+CONTEXTUAL_NEIGHBOR_CHUNKS = 2  # chunks before + after current chunk
+
+# Maximum tokens for the contextual snippet (output limit)
+CONTEXTUAL_MAX_SNIPPET_TOKENS = 100
+
+# Prompt template for generating contextual snippets
+# Placeholders: {document_context}, {chunk_text}, {book_name}, {context_path}
+CONTEXTUAL_PROMPT = """<document>
+{document_context}
+</document>
+
+Here is the chunk we want to situate within the document:
+<chunk>
+{chunk_text}
+</chunk>
+
+Please give a short succinct context (2-3 sentences) to situate this chunk within the overall document.
+The context should help a reader understand what broader topic or argument this relates to.
+Include key terms or entities that provide disambiguation.
+
+Book: "{book_name}"
+Section: "{context_path}"
+
+Answer only with the contextual description, nothing else."""
 
 
 def get_semantic_folder_name(threshold: float = SEMANTIC_SIMILARITY_THRESHOLD) -> str:

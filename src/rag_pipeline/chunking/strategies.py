@@ -29,7 +29,12 @@ in a common interface for the stage runner to invoke.
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
-from src.config import MAX_CHUNK_TOKENS, OVERLAP_SENTENCES, SEMANTIC_SIMILARITY_THRESHOLD
+from src.config import (
+    MAX_CHUNK_TOKENS,
+    OVERLAP_SENTENCES,
+    SEMANTIC_SIMILARITY_THRESHOLD,
+    CONTEXTUAL_MODEL,
+)
 from src.shared.files import setup_logging, OverwriteContext
 
 logger = setup_logging(__name__)
@@ -109,6 +114,44 @@ def semantic_strategy(
     )
 
 
+def contextual_strategy(
+    model: str = CONTEXTUAL_MODEL,
+    overwrite_context: Optional[OverwriteContext] = None,
+) -> Dict[str, int]:
+    """Contextual chunking (Anthropic-style).
+
+    Algorithm:
+    - Load existing section chunks (baseline)
+    - For each chunk, gather neighboring chunks as context
+    - Call LLM to generate 50-100 token contextual snippet
+    - Prepend snippet to chunk text before embedding
+
+    Use case: Better disambiguation, improved retrieval for complex queries.
+    Anthropic reports 35% failure reduction (recall@20).
+
+    Note: Requires section chunks to exist first. Run section strategy
+    if contextual/ folder is empty.
+
+    Note: Requires LLM API calls for each chunk (costs ~$0.50-1.00 for corpus).
+
+    Args:
+        model: OpenRouter model ID for context generation.
+            Default: anthropic/claude-3-haiku (fast, cheap).
+        overwrite_context: Context for handling existing file overwrites.
+
+    Returns:
+        Dict mapping book names to chunk counts.
+    """
+    from src.rag_pipeline.chunking.contextual_chunker import run_contextual_chunking
+
+    logger.info(f"[contextual] Using LLM-generated context (Anthropic-style)")
+    logger.info(f"[contextual] Context model: {model}")
+    return run_contextual_chunking(
+        model=model,
+        overwrite_context=overwrite_context,
+    )
+
+
 # ============================================================================
 # STRATEGY REGISTRY
 # ============================================================================
@@ -117,6 +160,7 @@ def semantic_strategy(
 STRATEGIES: Dict[str, ChunkingStrategyFunction] = {
     "section": section_strategy,
     "semantic": semantic_strategy,
+    "contextual": contextual_strategy,
 }
 
 
@@ -124,10 +168,11 @@ def get_strategy(strategy_id: str, **kwargs: Any) -> ChunkingStrategyFunction:
     """Get chunking strategy function by ID.
 
     Args:
-        strategy_id: One of "section", "semantic" (future: "contextual", "raptor").
+        strategy_id: One of "section", "semantic", "contextual".
         **kwargs: Optional parameters to pass to the strategy function.
             Common: overwrite_context (OverwriteContext).
             For semantic strategy: similarity_threshold (float).
+            For contextual strategy: model (str, OpenRouter model ID).
 
     Returns:
         Strategy function that takes no args and returns Dict[str, int].
@@ -139,6 +184,8 @@ def get_strategy(strategy_id: str, **kwargs: Any) -> ChunkingStrategyFunction:
         >>> strategy_fn = get_strategy("semantic", similarity_threshold=0.6)
         >>> stats = strategy_fn()
         >>> print(stats)  # {"book1": 45, "book2": 67}
+        >>> strategy_fn = get_strategy("contextual", model="anthropic/claude-3-haiku")
+        >>> stats = strategy_fn()
     """
     if strategy_id not in STRATEGIES:
         available = list(STRATEGIES.keys())

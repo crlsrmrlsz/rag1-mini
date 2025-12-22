@@ -62,50 +62,95 @@ PDF Files (19)
 conda activate rag1-mini
 
 # Run pipeline stages
-python -m src.run_stage_1_extraction   # Extract PDFs
-python -m src.run_stage_2_processing   # Clean markdown
-python -m src.run_stage_3_segmentation # NLP segmentation
-python -m src.run_stage_4_chunking     # Create chunks
-python -m src.run_stage_5_embedding    # Generate embeddings
-python -m src.run_stage_6_weaviate     # Upload to Weaviate
+python -m src.stages.run_stage_1_extraction   # Extract PDFs
+python -m src.stages.run_stage_2_processing   # Clean markdown
+python -m src.stages.run_stage_3_segmentation # NLP segmentation
+python -m src.stages.run_stage_4_chunking     # Create chunks
+python -m src.stages.run_stage_5_embedding    # Generate embeddings
+python -m src.stages.run_stage_6_weaviate     # Upload to Weaviate
 
 # Launch search UI
-docker compose up -d                   # Start Weaviate
-streamlit run src/ui/app.py            # Open http://localhost:8501
+docker compose up -d                          # Start Weaviate
+streamlit run src/ui/app.py                   # Open http://localhost:8501
 
 # Run evaluation
-python -m src.run_stage_7_evaluation   # RAGAS quality metrics
+python -m src.stages.run_stage_7_evaluation   # RAGAS quality metrics
 ```
 
 ## Project Structure
 
+The codebase is organized into two main phases for learners:
+
+```
+RAG1-Mini: A Teaching RAG Pipeline
+══════════════════════════════════
+
+📚 CONTENT PREPARATION (Stages 1-3)
+   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+   │ Extraction  │ →  │  Cleaning   │ →  │Segmentation │
+   │ (PDF→MD)    │    │ (Fix MD)    │    │ (Sentences) │
+   └─────────────┘    └─────────────┘    └─────────────┘
+         ↓
+🤖 RAG PIPELINE (Stages 4-8)
+   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+   │  Chunking   │ →  │  Embedding  │ →  │  Indexing   │
+   │ (Sections)  │    │ (Vectors)   │    │ (Weaviate)  │
+   └─────────────┘    └─────────────┘    └─────────────┘
+         ↓
+   ┌─────────────────────────────────────────────────────┐
+   │              RETRIEVAL (Stage 7)                    │
+   │  Query → Preprocess → Search → Rerank → Diversify  │
+   └─────────────────────────────────────────────────────┘
+         ↓
+   ┌─────────────┐
+   │ Generation  │
+   │  (Answer)   │
+   └─────────────┘
+```
+
+### Directory Layout
+
 ```
 rag1-mini/
 ├── src/
-│   ├── run_stage_1_extraction.py    # PDF to Markdown
-│   ├── run_stage_2_processing.py    # Markdown cleaning
-│   ├── run_stage_3_segmentation.py  # NLP segmentation
-│   ├── run_stage_4_chunking.py      # Section chunking
-│   ├── run_stage_5_embedding.py     # Embedding generation
-│   ├── config.py                    # Central configuration
-│   ├── extractors/
-│   │   └── docling_parser.py        # PDF extraction
-│   ├── processors/
-│   │   ├── text_cleaner.py          # Markdown cleaning
-│   │   └── nlp_segmenter.py         # Sentence segmentation
-│   ├── ingest/
-│   │   ├── naive_chunker.py         # Token-aware chunking
-│   │   └── embed_texts.py           # Embedding API client
-│   ├── vector_db/
-│   │   ├── weaviate_client.py       # Weaviate connection & upload
-│   │   └── weaviate_query.py        # Search functions
-│   ├── ui/
-│   │   └── app.py                   # Streamlit search interface
-│   ├── evaluation/
-│   │   └── ragas_evaluator.py       # RAGAS evaluation framework
-│   └── utils/
-│       ├── file_utils.py            # File operations
-│       └── tokens.py                # Token counting
+│   ├── content_preparation/         # Phase 1: Book → Text
+│   │   ├── extraction/              # Stage 1: PDF → Markdown
+│   │   │   └── docling_parser.py
+│   │   ├── cleaning/                # Stage 2: Clean Markdown
+│   │   │   └── text_cleaner.py
+│   │   └── segmentation/            # Stage 3: Sentence splits
+│   │       └── nlp_segmenter.py
+│   │
+│   ├── rag_pipeline/                # Phase 2: RAG System
+│   │   ├── chunking/                # Stage 4: Text → Chunks
+│   │   │   └── section_chunker.py
+│   │   ├── embedding/               # Stage 5: Chunks → Vectors
+│   │   │   └── embed_texts.py
+│   │   ├── indexing/                # Stage 6: Vector DB
+│   │   │   ├── weaviate_client.py
+│   │   │   └── weaviate_query.py
+│   │   ├── retrieval/               # Stage 7: Query → Chunks
+│   │   │   ├── preprocessing/       # Query transformation
+│   │   │   ├── reranking.py         # Cross-encoder
+│   │   │   ├── diversification.py   # Source balancing
+│   │   │   └── rrf.py               # Multi-query fusion
+│   │   └── generation/              # Stage 8: Chunks → Answer
+│   │       └── answer_generator.py
+│   │
+│   ├── evaluation/                  # RAGAS framework
+│   │   └── ragas_evaluator.py
+│   ├── ui/                          # Streamlit app
+│   │   └── app.py
+│   ├── shared/                      # Common utilities
+│   │   ├── openrouter_client.py     # Unified LLM API
+│   │   ├── file_utils.py
+│   │   └── tokens.py
+│   ├── stages/                      # Pipeline stage runners
+│   │   ├── run_stage_1_extraction.py
+│   │   ├── run_stage_2_processing.py
+│   │   └── ...
+│   └── config.py                    # Central configuration
+│
 ├── data/
 │   ├── raw/                         # Original PDFs (19 files)
 │   └── processed/

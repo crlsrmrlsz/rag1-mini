@@ -51,3 +51,4 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 weaviate_data/
+.serena/

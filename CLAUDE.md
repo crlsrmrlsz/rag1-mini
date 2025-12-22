@@ -153,18 +153,17 @@ Update these files when making significant changes to maintain project continuit
 - [x] Register decomposition in STRATEGIES dict
 - [x] Update config, CLI, logger, and UI
 
-**Phase 5: Quick Wins**
-- [ ] Lost-in-the-middle mitigation (reorder chunks for LLM attention)
+**Phase 5: Alpha Tuning**
 - [ ] Alpha tuning experiments (0.3, 0.5, 0.7) via CLI
 
-**Phase 6: Contextual Retrieval** (Anthropic-style, +35% failure reduction)
-- [ ] Create contextual_chunker.py (prepend LLM context to chunks)
-- [ ] Create run_stage_4_contextual.py
-- [ ] Test with RAGAS via CLI
+**Phase 6: Contextual Retrieval** - COMPLETE (Dec 22)
+- [x] Create contextual_chunker.py (prepend LLM context to chunks)
+- [x] Add contextual_strategy to strategies.py
+- [x] Run via: `python -m src.stages.run_stage_4_chunking --strategy contextual`
 
 **Phase 7: RAPTOR** (Hierarchical summarization, +20% comprehension)
 - [ ] Create raptor_chunker.py (hierarchical tree building)
-- [ ] Create run_stage_4_raptor.py
+- [ ] Add raptor_strategy to strategies.py
 - [ ] Add RAPTOR query strategy
 
 **Phase 8: GraphRAG** (Neo4j, +70% comprehensiveness)
@@ -175,6 +174,7 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Contextual chunking strategy (Anthropic-style, +35% failure reduction) (Dec 22)
 - Domain-agnostic refactoring: removed book categories, diversification, generalized prompts (Dec 22)
 - Removed query classification + unified answer prompt (~170 lines removed) (Dec 22)
 - Pydantic structured outputs for LLM responses with JSON Schema enforcement (Dec 22)

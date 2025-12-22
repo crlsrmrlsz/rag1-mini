@@ -541,31 +541,9 @@ elif query_type == QueryType.MULTI_HOP:
 
 ---
 
-## Phase 6: Quick Wins (High Impact, Low Effort)
+## Phase 5: Alpha Tuning Experiments
 
-### 6.1 Lost-in-the-Middle Mitigation
-
-**Impact**: +15% answer quality
-
-**Modify**: `src/generation/answer_generator.py`
-
-```python
-def reorder_chunks_for_attention(chunks: List[Dict]) -> List[Dict]:
-    """Place best chunks at start and end, weaker in middle."""
-    if len(chunks) <= 3:
-        return chunks
-
-    # Assume chunks are ranked by relevance
-    best = chunks[:2]
-    worst = chunks[2:-2]
-    second_best = chunks[-2:]
-
-    return best + worst + second_best
-```
-
-### 6.2 Alpha Tuning Experiments
-
-Already in task list. Run via CLI:
+Run via CLI to find optimal hybrid search balance:
 
 ```bash
 python -m src.stages.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
@@ -588,11 +566,10 @@ Update `evaluation-history.md` with results after each run.
 | 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_preprocessing.py` (prompt only) |
 | 3 | Implement Multi-Query Strategy | DONE | Medium | +coverage | `strategies.py`, `rrf.py` |
 | 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_preprocessing.py` |
-| 5 | Lost-in-middle mitigation | TODO | Low | +15% | `answer_generator.py` |
-| 6 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
-| 7 | Contextual Chunking | TODO | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
-| 8 | RAPTOR | TODO | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
-| 9 | GraphRAG | TODO | High | +70% coverage | `graph/`, Neo4j |
+| 5 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
+| 6 | Contextual Chunking | DONE | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
+| 7 | RAPTOR | TODO | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
+| 8 | GraphRAG | TODO | High | +70% coverage | `graph/`, Neo4j |
 
 **Preprocessing Strategies Testing Workflow**:
 ```bash
@@ -639,7 +616,6 @@ For each improvement:
 - `src/run_stage_7_evaluation.py` - Add --collection arg, auto-logging to evaluation-history.md
 - `src/config.py` - Add graph config
 - `src/preprocessing/query_preprocessing.py` - Improve STEP_BACK_PROMPT (Phase 4), add query decomposition (Phase 5)
-- `src/generation/answer_generator.py` - Lost-in-middle fix
 - `src/vector_db/weaviate_client.py` - RAPTOR schema fields
 - `docker-compose.yml` - Add Neo4j service
 

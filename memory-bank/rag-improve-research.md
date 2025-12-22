@@ -159,3 +159,16 @@ The most underappreciated insight from recent research is that **query processin
 For your specific domain, the combination of RAPTOR hierarchies (grouping concepts by meaning rather than position), contextual retrieval (preserving document-level context in chunks), hybrid search with reranking (capturing both semantic and lexical matches), and step-back prompting (handling abstract queries) provides a comprehensive solution. The expected improvement from implementing these techniques together is substantial—Anthropic documented 67% reduction in retrieval failures; RAPTOR showed 20% improvement on long-document comprehension; step-back prompting demonstrated 27% gains on multi-hop reasoning.
 
 The key novel insight is that philosophical and neuroscience books operate at multiple levels of abstraction simultaneously—specific claims, supporting arguments, chapter-level themes, and book-level theses. Effective RAG for this content must retrieve at the appropriate level for each query type, which requires hierarchical indexing (RAPTOR or graph RAG), adaptive query processing (complexity routing), and query transformation (step-back prompting) working together. No single technique solves the problem; the solution is an integrated architecture that matches the multi-level structure of the content itself.
+
+---
+
+## Implementation Notes (Historical)
+
+### Deprioritized Techniques
+
+**Lost-in-the-Middle Mitigation** (Dec 22, 2024): Removed from active implementation plan. The technique (reordering chunks to place best content at start/end of context) was considered but deprioritized in favor of:
+- Alpha tuning experiments (quick win, low effort)
+- RAPTOR hierarchical summarization (higher impact for comprehension)
+- GraphRAG (highest impact for comprehensiveness)
+
+The research remains documented above (see "Post-retrieval optimization" section) for future reference if needed.

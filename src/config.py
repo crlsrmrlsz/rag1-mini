@@ -389,3 +389,108 @@ def get_semantic_folder_name(threshold: float = SEMANTIC_SIMILARITY_THRESHOLD) -
     # Format threshold: remove trailing zeros (0.50 -> 0.5, 0.75 -> 0.75)
     threshold_str = f"{threshold:.2f}".rstrip("0").rstrip(".")
     return f"semantic_{threshold_str}"
+
+
+# ============================================================================
+# STRATEGY METADATA REGISTRY
+# ============================================================================
+# Central registry for chunking strategy metadata, used for:
+# - UI display (descriptions, labels)
+# - Strategy-scoped embedding paths
+# - Collection discovery and enrichment
+
+from dataclasses import dataclass
+from typing import Dict, Optional
+
+
+@dataclass
+class StrategyMetadata:
+    """Metadata for a chunking strategy.
+
+    Attributes:
+        key: Strategy identifier (e.g., "section", "semantic_0.5").
+        display_name: Human-readable name for UI display.
+        description: Short description of the strategy's approach.
+    """
+    key: str
+    display_name: str
+    description: str
+
+
+# Registry of known chunking strategies with their metadata
+STRATEGY_REGISTRY: Dict[str, StrategyMetadata] = {
+    "section": StrategyMetadata(
+        key="section",
+        display_name="Section-Based Chunking",
+        description="Preserves document structure with sentence overlap",
+    ),
+    "contextual": StrategyMetadata(
+        key="contextual",
+        display_name="Contextual Chunking",
+        description="LLM-generated context prepended (+35% improvement)",
+    ),
+    # Semantic strategies are generated dynamically based on threshold
+}
+
+
+def get_strategy_metadata(strategy: str) -> StrategyMetadata:
+    """Get metadata for a chunking strategy.
+
+    Args:
+        strategy: Strategy key (e.g., "section", "semantic_0.5", "contextual").
+
+    Returns:
+        StrategyMetadata with display name and description.
+        For unknown strategies, generates a generic fallback.
+
+    Example:
+        >>> get_strategy_metadata("section")
+        StrategyMetadata(key='section', display_name='Section-Based Chunking', ...)
+        >>> get_strategy_metadata("semantic_0.5")
+        StrategyMetadata(key='semantic_0.5', display_name='Semantic Chunking (0.5)', ...)
+    """
+    # Check registry first
+    if strategy in STRATEGY_REGISTRY:
+        return STRATEGY_REGISTRY[strategy]
+
+    # Handle semantic_X.X variants dynamically
+    if strategy.startswith("semantic_"):
+        threshold = strategy.split("_", 1)[1]
+        return StrategyMetadata(
+            key=strategy,
+            display_name=f"Semantic Chunking ({threshold})",
+            description=f"Embedding similarity boundaries (threshold: {threshold})",
+        )
+
+    # Fallback for unknown strategies
+    return StrategyMetadata(
+        key=strategy,
+        display_name=strategy.replace("_", " ").title(),
+        description="Custom chunking strategy",
+    )
+
+
+def get_embedding_folder_path(strategy: str) -> Path:
+    """Get strategy-scoped embedding folder path.
+
+    Creates isolated embedding storage per strategy, enabling A/B testing
+    of different chunking approaches without data overwrites.
+
+    Args:
+        strategy: Strategy key (e.g., "section", "semantic_0.5", "contextual").
+
+    Returns:
+        Path to embedding folder: data/processed/06_embeddings/{strategy}/
+
+    Example:
+        >>> get_embedding_folder_path("section")
+        PosixPath('.../data/processed/06_embeddings/section')
+        >>> get_embedding_folder_path("semantic_0.5")
+        PosixPath('.../data/processed/06_embeddings/semantic_0.5')
+    """
+    # Sanitize strategy to prevent path traversal
+    # Replace all path separators and multiple dots with underscores
+    import re
+    safe_strategy = re.sub(r'[/\\]+', '_', strategy)  # Replace path separators
+    safe_strategy = re.sub(r'\.{2,}', '_', safe_strategy)  # Replace multiple dots
+    return DIR_EMBEDDINGS / safe_strategy

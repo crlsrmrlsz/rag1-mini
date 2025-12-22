@@ -261,3 +261,110 @@ def list_collections() -> List[str]:
         return sorted([name for name in all_collections.keys() if name.startswith("RAG_")])
     finally:
         client.close()
+
+
+# ============================================================================
+# COLLECTION METADATA ENRICHMENT
+# ============================================================================
+
+from src.config import get_strategy_metadata, StrategyMetadata
+
+
+@dataclass
+class CollectionInfo:
+    """Enriched collection metadata for UI display.
+
+    Attributes:
+        collection_name: Full Weaviate collection name (e.g., "RAG_section_embed3large_v1").
+        strategy: Strategy key extracted from collection name (e.g., "section").
+        display_name: Human-readable name for UI (e.g., "Section-Based Chunking").
+        description: Short description of the strategy.
+        is_available: Whether the collection exists in Weaviate.
+    """
+    collection_name: str
+    strategy: str
+    display_name: str
+    description: str
+    is_available: bool
+
+
+def extract_strategy_from_collection(collection_name: str) -> str:
+    """
+    Extract strategy key from collection name.
+
+    Args:
+        collection_name: Collection name like "RAG_section_embed3large_v1"
+                        or "RAG_semantic_0.5_embed3large_v1".
+
+    Returns:
+        Strategy key like "section" or "semantic_0.5".
+
+    Example:
+        >>> extract_strategy_from_collection("RAG_section_embed3large_v1")
+        'section'
+        >>> extract_strategy_from_collection("RAG_semantic_0.5_embed3large_v1")
+        'semantic_0.5'
+        >>> extract_strategy_from_collection("RAG_contextual_embed3large_v1")
+        'contextual'
+    """
+    # Format: RAG_{strategy}_{model}_v{version}
+    # Strategy can be: "section", "contextual", "semantic_0.5", "semantic_0.75"
+    if not collection_name.startswith("RAG_"):
+        return "unknown"
+
+    # Remove RAG_ prefix
+    rest = collection_name[4:]
+
+    # Find the model suffix pattern (embed3large or similar)
+    # Strategy ends before the model suffix
+    parts = rest.split("_")
+
+    if len(parts) < 3:
+        return "unknown"
+
+    # Check for semantic_X.X pattern (strategy is 2 parts)
+    if parts[0] == "semantic" and len(parts) >= 2:
+        # Try to parse the second part as a threshold
+        try:
+            float(parts[1])
+            return f"{parts[0]}_{parts[1]}"
+        except ValueError:
+            pass  # Not a threshold, treat as single-part strategy
+
+    # Single-part strategy
+    return parts[0]
+
+
+def get_available_collections() -> List[CollectionInfo]:
+    """
+    List all RAG collections with enriched metadata.
+
+    Queries Weaviate for available collections, then enriches each with
+    metadata from the strategy registry for UI display.
+
+    Returns:
+        List of CollectionInfo objects with display names and descriptions.
+
+    Example:
+        >>> collections = get_available_collections()
+        >>> for c in collections:
+        ...     print(f"{c.display_name}: {c.description}")
+        Section-Based Chunking: Preserves document structure with sentence overlap
+        Contextual Chunking: LLM-generated context prepended (+35% improvement)
+    """
+    existing_collections = list_collections()
+
+    collection_infos = []
+    for coll_name in existing_collections:
+        strategy = extract_strategy_from_collection(coll_name)
+        metadata = get_strategy_metadata(strategy)
+
+        collection_infos.append(CollectionInfo(
+            collection_name=coll_name,
+            strategy=strategy,
+            display_name=metadata.display_name,
+            description=metadata.description,
+            is_available=True,
+        ))
+
+    return collection_infos

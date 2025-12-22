@@ -22,11 +22,13 @@ from pathlib import Path
 from typing import List, Dict
 
 from src.config import (
-    DIR_EMBEDDINGS,
     get_collection_name,
+    get_embedding_folder_path,
+    get_semantic_folder_name,
     WEAVIATE_HOST,
     WEAVIATE_HTTP_PORT,
     DEFAULT_CHUNKING_STRATEGY,
+    SEMANTIC_SIMILARITY_THRESHOLD,
 )
 
 from src.shared.files import setup_logging
@@ -107,22 +109,47 @@ def main():
         choices=list_strategies(),
         help=f"Chunking strategy for collection naming (default: {DEFAULT_CHUNKING_STRATEGY})",
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help=(
+            f"Semantic similarity threshold (for finding correct embedding folder). "
+            f"Only used with semantic strategy. (default: {SEMANTIC_SIMILARITY_THRESHOLD})"
+        ),
+    )
     args = parser.parse_args()
 
-    # Generate collection name from strategy
-    collection_name = get_collection_name(args.strategy)
+    # Determine strategy key for paths (semantic uses threshold-based naming)
+    if args.strategy == "semantic":
+        threshold = args.threshold if args.threshold is not None else SEMANTIC_SIMILARITY_THRESHOLD
+        strategy_key = get_semantic_folder_name(threshold)
+    else:
+        strategy_key = args.strategy
 
-    logger.info(f"Starting Stage 6: Weaviate Upload (strategy: {args.strategy})")
+    # Generate collection name from strategy key
+    collection_name = get_collection_name(strategy_key)
+
+    logger.info(f"Starting Stage 6: Weaviate Upload (strategy: {strategy_key})")
     logger.info(f"Collection: {collection_name}")
     logger.info(f"Weaviate: http://{WEAVIATE_HOST}:{WEAVIATE_HTTP_PORT}")
 
-    # Get embedding files
-    files = list(DIR_EMBEDDINGS.glob("*.json"))
+    # Get embedding files from strategy-scoped folder
+    embedding_dir = get_embedding_folder_path(strategy_key)
+
+    if not embedding_dir.exists():
+        raise FileNotFoundError(
+            f"Embedding folder not found: {embedding_dir}. "
+            f"Run Stage 5 first: python -m src.stages.run_stage_5_embedding --strategy {args.strategy}"
+        )
+
+    files = list(embedding_dir.glob("*.json"))
 
     if not files:
-        logger.warning("No embedding files found. Run Stage 5 first.")
+        logger.warning(f"No embedding files found in {embedding_dir}. Run Stage 5 first.")
         return
 
+    logger.info(f"Input: {embedding_dir}")
     logger.info(f"Found {len(files)} books to upload")
 
     # Connect to Weaviate

@@ -26,13 +26,13 @@ from src.config import (
     DIR_FINAL_CHUNKS,
     PROJECT_ROOT,
     TOKENIZER_MODEL,
-    DIR_EMBEDDINGS,
     EMBEDDING_MODEL,
     MAX_BATCH_TOKENS,
     MAX_RETRIES,
     DEFAULT_CHUNKING_STRATEGY,
     SEMANTIC_SIMILARITY_THRESHOLD,
     get_semantic_folder_name,
+    get_embedding_folder_path,
 )
 
 from src.shared.files import setup_logging, get_file_list, OverwriteContext, parse_overwrite_arg
@@ -43,10 +43,6 @@ from src.rag_pipeline.chunking.strategies import list_strategies
 # ---------------------------------------------------------------------------
 # CONFIGURATION
 # ---------------------------------------------------------------------------
-
-# Where embeddings will be stored
-
-DIR_EMBEDDINGS.mkdir(parents=True, exist_ok=True)
 
 logger = setup_logging("Stage5_Embedding")
 
@@ -96,9 +92,19 @@ def batch_chunks_by_token_limit(chunks: List[Dict]) -> List[List[Dict]]:
     return batches
 
 
-def embed_book(file_path: Path):
+def embed_book(file_path: Path, output_dir: Path):
     """
     Embed all chunks for a single book.
+
+    Args:
+        file_path: Path to the input chunk JSON file.
+        output_dir: Directory where embedding file will be saved.
+
+    Note:
+        Preserves all chunk fields from the input (including strategy-specific
+        fields like 'original_text' and 'contextual_snippet' for contextual
+        chunking). Adds embedding fields: 'embedding', 'embedding_model',
+        'embedding_dim'.
     """
     logger.info(f"Embedding book: {file_path.stem}")
 
@@ -118,6 +124,7 @@ def embed_book(file_path: Path):
         embeddings = embed_texts(texts)
 
         for chunk, vector in zip(batch, embeddings):
+            # Preserve all existing chunk fields (strategy-specific included)
             embedded_chunks.append({
                 **chunk,
                 "embedding": vector,
@@ -126,7 +133,7 @@ def embed_book(file_path: Path):
             })
 
     # Save per-book embedding file
-    output_path = DIR_EMBEDDINGS / f"{file_path.stem}.json"
+    output_path = output_dir / f"{file_path.stem}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump({
             "book_id": file_path.stem,
@@ -174,14 +181,17 @@ def main():
 
     overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
 
-    logger.info(f"Starting Stage 5: Embedding (strategy: {args.strategy})")
-
-    # Determine input directory (semantic uses threshold-based folder name)
+    # Determine strategy key for paths (semantic uses threshold-based naming)
     if args.strategy == "semantic":
         threshold = args.threshold if args.threshold is not None else SEMANTIC_SIMILARITY_THRESHOLD
-        strategy_dir = DIR_FINAL_CHUNKS / get_semantic_folder_name(threshold)
+        strategy_key = get_semantic_folder_name(threshold)
     else:
-        strategy_dir = DIR_FINAL_CHUNKS / args.strategy
+        strategy_key = args.strategy
+
+    logger.info(f"Starting Stage 5: Embedding (strategy: {strategy_key})")
+
+    # Determine input directory (chunks from Stage 4)
+    strategy_dir = DIR_FINAL_CHUNKS / strategy_key
     files = list(strategy_dir.glob("*.json")) if strategy_dir.exists() else []
 
     if not files:
@@ -191,25 +201,31 @@ def main():
         )
         return
 
-    logger.info(f"Found {len(files)} books to embed from {strategy_dir}")
+    # Determine output directory (strategy-scoped embeddings)
+    output_dir = get_embedding_folder_path(strategy_key)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"Input:  {strategy_dir}")
+    logger.info(f"Output: {output_dir}")
+    logger.info(f"Found {len(files)} books to embed")
 
     success_count = 0
     skipped_count = 0
     for file_path in files:
-        # Check overwrite decision
-        output_path = DIR_EMBEDDINGS / f"{file_path.stem}.json"
+        # Check overwrite decision (use strategy-scoped output path)
+        output_path = output_dir / f"{file_path.stem}.json"
         if not overwrite_context.should_overwrite(output_path, logger):
             skipped_count += 1
             continue
 
         try:
-            embed_book(file_path)
+            embed_book(file_path, output_dir)
             success_count += 1
         except Exception as e:
             logger.error(f"Failed embedding {file_path.name}: {e}")
             raise
 
-    logger.info(f"Stage 5 complete ({args.strategy}). {success_count} embedded, {skipped_count} skipped.")
+    logger.info(f"Stage 5 complete ({strategy_key}). {success_count} embedded, {skipped_count} skipped.")
 
 
 if __name__ == "__main__":

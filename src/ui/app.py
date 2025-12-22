@@ -41,7 +41,7 @@ from src.config import (
     ENABLE_ANSWER_GENERATION,
     ENABLE_QUERY_PREPROCESSING,
 )
-from src.ui.services.search import search_chunks, list_collections
+from src.ui.services.search import search_chunks, list_collections, get_available_collections, CollectionInfo
 from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 from src.rag_pipeline.generation.answer_generator import generate_answer
 from src.shared.openrouter_models import (
@@ -328,20 +328,35 @@ def _render_pipeline_log():
 
 st.sidebar.title("Settings")
 
-# Collection selector (for future multiple embedding strategies)
+# Collection selector with strategy metadata
 try:
-    available_collections = list_collections()
+    collection_infos = get_available_collections()
     st.session_state.connection_error = None
 except Exception as e:
-    available_collections = []
+    collection_infos = []
     st.session_state.connection_error = str(e)
 
-if available_collections:
+if collection_infos:
+    # Build display options: "Display Name - Description"
+    collection_display = {
+        info.collection_name: f"{info.display_name} - {info.description}"
+        for info in collection_infos
+    }
+
     selected_collection = st.sidebar.selectbox(
-        "Collection",
-        options=available_collections,
-        help="Different collections may use different embedding models or chunking strategies.",
+        "Chunking Strategy Collection",
+        options=list(collection_display.keys()),
+        format_func=lambda x: collection_display[x],
+        help="Select which chunking strategy's embeddings to search. Each collection uses a different chunking approach.",
     )
+
+    # Show strategy details in expander
+    selected_info = next((c for c in collection_infos if c.collection_name == selected_collection), None)
+    if selected_info:
+        with st.sidebar.expander("Collection Details", expanded=False):
+            st.markdown(f"**Strategy:** `{selected_info.strategy}`")
+            st.markdown(f"**Collection:** `{selected_info.collection_name}`")
+            st.caption(selected_info.description)
 else:
     st.sidebar.warning("No collections found. Is Weaviate running?")
     selected_collection = None

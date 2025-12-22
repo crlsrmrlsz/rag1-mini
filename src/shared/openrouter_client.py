@@ -71,7 +71,7 @@ def call_chat_completion(
     """Call OpenRouter chat completion API with retry logic.
 
     This is the unified LLM call function used by all modules:
-    - preprocessing: Query classification, step-back prompting
+    - preprocessing: Step-back, multi-query, decomposition
     - generation: Answer synthesis
     - evaluation: RAGAS answer generation
 

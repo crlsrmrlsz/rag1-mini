@@ -21,7 +21,7 @@ RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid n
 | 7A. Query | `query_similar()`, `query_hybrid()` | weaviate_query.py |
 | 7B. UI | Streamlit interface | src/ui/app.py |
 | 7C. RAGAS | Evaluation framework | src/evaluation/ |
-| 8A. Preprocessing | Query classification + step-back | src/preprocessing/ |
+| 8A. Preprocessing | Strategy-based query transformation | src/rag_pipeline/retrieval/preprocessing/ |
 | 8B. Generation | LLM answer synthesis | src/generation/ |
 
 ## Data Flow
@@ -53,7 +53,7 @@ Weaviate: RAG_section800_embed3large_v1
     v  Stage 7: Query + UI + Evaluation
     |
     v  Stage 8: Preprocessing + Generation
-User Query -> classify_query() -> step_back_prompt() -> search -> generate_answer() -> Answer
+User Query -> preprocess_query(strategy) -> search -> generate_answer() -> Answer
 ```
 
 ## Content

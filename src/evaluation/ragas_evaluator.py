@@ -193,7 +193,7 @@ def run_evaluation(
     Run RAGAS evaluation on test questions.
 
     This function:
-    1. Optionally preprocesses each question (classification, step-back, etc.)
+    1. Optionally preprocesses each question (step-back, multi-query, etc.)
     2. Retrieves contexts for each question (with optional cross-encoder reranking)
     3. Generates answers using the RAG pipeline
     4. Evaluates using RAGAS metrics

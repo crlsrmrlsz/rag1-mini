@@ -289,8 +289,8 @@ EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 # QUERY PREPROCESSING SETTINGS
 # ============================================================================
 
-# Model for query classification and step-back prompting
-# Using fast, cheap model since these are simple classification tasks
+# Model for query preprocessing (step-back, multi-query, decomposition)
+# Using fast, cheap model since these are simple transformation tasks
 PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"
 
 # Fallback models for preprocessing (used if dynamic fetch fails)
@@ -321,7 +321,7 @@ AVAILABLE_GENERATION_MODELS = [
 # Enable/disable answer generation globally (can be overridden in UI)
 ENABLE_ANSWER_GENERATION = True
 
-# Enable/disable query preprocessing (classification + step-back)
+# Enable/disable query preprocessing (strategy-based transformation)
 ENABLE_QUERY_PREPROCESSING = True
 
 

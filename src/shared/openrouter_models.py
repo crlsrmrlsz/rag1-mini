@@ -29,7 +29,7 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 # The first available model in each category is selected.
 
 PREPROCESSING_CURATED: Dict[str, List[str]] = {
-    # Simple tasks: classification, step-back prompting
+    # Simple tasks: step-back, multi-query, decomposition
     # Prioritize speed and cost over deep reasoning
     "Budget": [
         "deepseek/deepseek-v3.2",
@@ -193,7 +193,7 @@ def _get_curated_models(
 def get_preprocessing_models(
     cached_models: Optional[List[Dict[str, Any]]] = None
 ) -> List[Tuple[str, str]]:
-    """Get curated models for preprocessing (classification, step-back).
+    """Get curated models for preprocessing (step-back, multi-query, decomposition).
 
     Returns 4 options: Budget, Value, Quality, Premium.
     Each option is the best available model in that category.

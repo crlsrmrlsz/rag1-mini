@@ -105,7 +105,7 @@ src/
 - `WEAVIATE_HTTP_PORT = 8080` - REST API port
 - `WEAVIATE_GRPC_PORT = 50051` - gRPC port (v4 client)
 - `get_collection_name()` - Auto-generates collection name from strategy/model/version
-- `PREPROCESSING_MODEL = "openai/gpt-5-nano"` - Query classification model
+- `PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"` - Query preprocessing model
 - `GENERATION_MODEL = "openai/gpt-5-mini"` - Answer generation model
 
 ## Memory Bank
@@ -135,11 +135,11 @@ Update these files when making significant changes to maintain project continuit
 - [x] Add --preprocessing argument to evaluation CLI
 - [x] Track strategy in evaluation logs
 
-**Phase 2: Test Preprocessing Strategies** - IN PROGRESS
-- [ ] Run evaluation with --preprocessing none (baseline)
-- [ ] Run evaluation with --preprocessing step_back
-- [ ] Compare metrics and document in evaluation-history.md
-- [ ] Test step-back prompt improvements from step-back-prompting-research.md
+**Phase 2: Remove Classification + Simplify** - COMPLETE (Dec 22)
+- [x] Remove query classification (not in original research papers)
+- [x] Each strategy applies directly to any query
+- [x] Unified answer generation prompt
+- [x] Add LLM call logging
 
 **Phase 3: Multi-Query Strategy** - COMPLETE
 - [x] Implement multi_query_strategy in strategies.py
@@ -176,8 +176,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Removed query classification + unified answer prompt (~170 lines removed) (Dec 22)
 - Pydantic structured outputs for LLM responses with JSON Schema enforcement (Dec 22)
 - Major codebase refactoring: Two-phase architecture (content_preparation/, rag_pipeline/) for pedagogical clarity (Dec 21)
 - Unified OpenRouter API client (src/shared/openrouter_client.py) replacing 3 duplicate implementations (Dec 21)
-- Phase 4: Query Decomposition for MULTI_HOP queries (Dec 21)
-- Phase 3: Multi-Query Strategy with RRF merging (Dec 21)
+- Phase 4: Query Decomposition strategy (Dec 21)

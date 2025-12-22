@@ -379,7 +379,7 @@ if enable_preprocessing:
         options=list(prep_model_options.keys()),
         index=0,  # Default to first (cheapest)
         format_func=lambda x: prep_model_options[x],
-        help="Model used for query classification and step-back prompting. (Fetched from OpenRouter)",
+        help="Model used for query preprocessing (step-back, multi-query, etc.). (Fetched from OpenRouter)",
     )
 else:
     selected_strategy = "none"

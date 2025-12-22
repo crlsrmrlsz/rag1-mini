@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from src.config import BOOK_CATEGORIES, DIVERSITY_BALANCE, DIVERSITY_MIN_SCORE
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 

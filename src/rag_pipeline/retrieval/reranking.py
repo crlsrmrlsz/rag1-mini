@@ -53,7 +53,7 @@ from dataclasses import dataclass, replace, field
 from sentence_transformers import CrossEncoder
 
 from src.rag_pipeline.indexing.weaviate_query import SearchResult
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 

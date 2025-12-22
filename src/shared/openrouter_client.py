@@ -101,7 +101,7 @@ def call_chat_completion(
         >>> print(response)
         "4"
     """
-    from .file_utils import setup_logging
+    from .files import setup_logging
     logger = setup_logging(__name__)
 
     if not OPENROUTER_API_KEY:
@@ -257,7 +257,7 @@ def call_structured_completion(
         >>> result.answer
         "Hello!"
     """
-    from .file_utils import setup_logging
+    from .files import setup_logging
     from .schemas import get_openrouter_schema
 
     logger = setup_logging(__name__)

@@ -31,7 +31,7 @@ from typing import List, Dict, Any, Optional
 
 from src.config import GENERATION_MODEL
 from src.rag_pipeline.retrieval.preprocessing import QueryType
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion
 
 logger = setup_logging(__name__)

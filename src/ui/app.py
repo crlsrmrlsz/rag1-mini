@@ -435,7 +435,7 @@ if search_type == "hybrid":
         "Hybrid Alpha",
         min_value=0.0,
         max_value=1.0,
-        value=0.5,
+        value=0.7,
         step=0.1,
         help="0.0 = keyword only, 1.0 = vector only, 0.5 = balanced",
     )

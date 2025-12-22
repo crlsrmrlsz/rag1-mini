@@ -23,7 +23,7 @@ from src.config import (
     WEAVIATE_HTTP_PORT,
 )
 
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 from src.rag_pipeline.indexing import (
     get_client,
     create_collection,

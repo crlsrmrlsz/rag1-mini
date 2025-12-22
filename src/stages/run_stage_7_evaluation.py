@@ -82,7 +82,7 @@ from src.config import (
     get_collection_name,
 )
 from src.evaluation import run_evaluation
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 

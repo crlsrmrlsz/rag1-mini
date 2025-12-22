@@ -125,7 +125,7 @@ rag1-mini/
 │   │   ├── chunking/                # Stage 4: Text → Chunks
 │   │   │   └── section_chunker.py
 │   │   ├── embedding/               # Stage 5: Chunks → Vectors
-│   │   │   └── embed_texts.py
+│   │   │   └── embedder.py
 │   │   ├── indexing/                # Stage 6: Vector DB
 │   │   │   ├── weaviate_client.py
 │   │   │   └── weaviate_query.py
@@ -143,7 +143,7 @@ rag1-mini/
 │   │   └── app.py
 │   ├── shared/                      # Common utilities
 │   │   ├── openrouter_client.py     # Unified LLM API
-│   │   ├── file_utils.py
+│   │   ├── files.py
 │   │   └── tokens.py
 │   ├── stages/                      # Pipeline stage runners
 │   │   ├── run_stage_1_extraction.py

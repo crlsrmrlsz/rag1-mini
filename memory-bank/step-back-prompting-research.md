@@ -48,7 +48,7 @@ In RAG systems, step-back prompting serves a different purpose than in pure reas
 
 ### Current Implementation vs. Optimal
 
-**Current** (`query_classifier.py:268-286`):
+**Current** (`query_preprocessing.py:268-286`):
 ```
 Input:  "Why do we need approval from others to feel good?"
 Output: "neuroscience of social validation; philosophical ethics of external approval"
@@ -78,7 +78,7 @@ Step 2 - Generate Multiple Targeted Queries:
 
 ## Part 2: Current Implementation Analysis
 
-### File: `src/preprocessing/query_classifier.py`
+### File: `src/preprocessing/query_preprocessing.py`
 
 **Current STEP_BACK_PROMPT (lines 268-286)**:
 ```python
@@ -293,7 +293,7 @@ Respond with JSON:
 
 ### Phase 1: Improve Step-Back Prompt (Current Focus)
 
-**File**: `src/preprocessing/query_classifier.py`
+**File**: `src/preprocessing/query_preprocessing.py`
 
 **Change**: Replace `STEP_BACK_PROMPT` with an improved version that:
 1. Explicitly extracts principles first (in the same prompt via Chain-of-Thought examples)

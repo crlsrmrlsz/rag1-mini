@@ -15,7 +15,7 @@ retrieval quality:
 
 ## Library Usage
 
-Uses OpenRouter API via `requests` for LLM calls (same pattern as embed_texts.py).
+Uses OpenRouter API via `requests` for LLM calls (same pattern as embedder.py).
 JSON mode ensures structured classification output.
 
 ## Data Flow
@@ -37,7 +37,7 @@ import requests
 from pydantic import ValidationError as PydanticValidationError
 
 from src.config import PREPROCESSING_MODEL
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
     ClassificationResult,

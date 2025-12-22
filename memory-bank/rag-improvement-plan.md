@@ -36,7 +36,7 @@ This plan implements three major RAG improvements (Contextual Embeddings, RAPTOR
 │                      PIPELINE STAGES                            │
 ├─────────────────────────────────────────────────────────────────┤
 │  Stage 4: Chunking          │  Stage 5: Embedding               │
-│  ├─ naive_chunker.py        │  ├─ embed_texts.py                │
+│  ├─ naive_chunker.py        │  ├─ embedder.py                │
 │  ├─ contextual_chunker.py   │  └─ (same for all strategies)     │
 │  ├─ raptor_chunker.py       │                                   │
 │  └─ (run outside UI)        │  Stage 6: Weaviate                │
@@ -465,7 +465,7 @@ This is too abstract and doesn't use vocabulary that matches chunk content.
 
 ### 4.2 Improved Prompt
 
-Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_classifier.py` with a version that:
+Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_preprocessing.py` with a version that:
 1. Uses Chain-of-Thought examples ("Think: Core=..., Mechanisms=...")
 2. Includes domain-specific vocabulary (author names, brain regions, philosophical schools)
 3. Generates mixed-term queries for better hybrid retrieval
@@ -477,7 +477,7 @@ Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_classifier.py` with a ver
 
 ### 4.3 Implementation
 
-**File**: `src/preprocessing/query_classifier.py` (lines 268-286)
+**File**: `src/preprocessing/query_preprocessing.py` (lines 268-286)
 **Change**: Prompt text only, no code logic changes
 
 ### 4.4 Future Iterations (if metrics improve)
@@ -495,7 +495,7 @@ Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_classifier.py` with a ver
 
 ### 5.1 Implement Decomposition
 
-**Modify**: `src/preprocessing/query_classifier.py`
+**Modify**: `src/preprocessing/query_preprocessing.py`
 
 ```python
 def decompose_query(query: str, model: Optional[str] = None) -> List[str]:
@@ -586,9 +586,9 @@ Update `evaluation-history.md` with results after each run.
 |-------|-------|--------|--------|--------|-------|
 | 0 | Evaluation CLI improvements | DONE | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
 | 1 | Preprocessing Strategy Infrastructure | DONE | Medium | Enables A/B testing | `strategies.py`, `config.py`, UI, CLI |
-| 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_classifier.py` (prompt only) |
+| 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_preprocessing.py` (prompt only) |
 | 3 | Implement Multi-Query Strategy | DONE | Medium | +coverage | `strategies.py`, `rrf.py` |
-| 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_classifier.py` |
+| 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_preprocessing.py` |
 | 5 | Lost-in-middle mitigation | TODO | Low | +15% | `answer_generator.py` |
 | 6 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
 | 7 | Contextual Chunking | TODO | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
@@ -638,7 +638,7 @@ For each improvement:
 ### Modified Files
 - `src/run_stage_7_evaluation.py` - Add --collection arg, auto-logging to evaluation-history.md
 - `src/config.py` - Add graph config
-- `src/preprocessing/query_classifier.py` - Improve STEP_BACK_PROMPT (Phase 4), add query decomposition (Phase 5)
+- `src/preprocessing/query_preprocessing.py` - Improve STEP_BACK_PROMPT (Phase 4), add query decomposition (Phase 5)
 - `src/generation/answer_generator.py` - Lost-in-middle fix
 - `src/vector_db/weaviate_client.py` - RAPTOR schema fields
 - `docker-compose.yml` - Add Neo4j service
@@ -945,7 +945,7 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 **Files:**
 - `src/config.py` (lines 300-310)
 - `src/preprocessing/strategies.py`
-- `src/preprocessing/query_classifier.py`
+- `src/preprocessing/query_preprocessing.py`
 - `src/ui/app.py` (Stage 1 sidebar)
 - `src/run_stage_7_evaluation.py`
 

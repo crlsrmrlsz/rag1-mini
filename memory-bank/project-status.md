@@ -155,7 +155,7 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 **Files:**
 - `src/config.py:AVAILABLE_PREPROCESSING_STRATEGIES`
 - `src/preprocessing/strategies.py` (registry)
-- `src/preprocessing/query_classifier.py` (dispatcher)
+- `src/preprocessing/query_preprocessing.py` (dispatcher)
 - `src/retrieval/rrf.py` (RRF merging for multi_query)
 
 **Available strategies:**

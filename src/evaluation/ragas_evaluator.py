@@ -29,7 +29,7 @@ from src.config import (
 )
 from src.rag_pipeline.indexing import get_client, query_hybrid
 from src.rag_pipeline.retrieval.reranking import rerank
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_simple_prompt
 
 logger = setup_logging(__name__)

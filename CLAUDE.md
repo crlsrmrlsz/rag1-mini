@@ -89,9 +89,9 @@ src/
 | `src/content_preparation/cleaning/text_cleaner.py` | Markdown cleaning | `run_structural_cleaning(text, name) -> (str, log)` |
 | `src/content_preparation/segmentation/nlp_segmenter.py` | Sentence segmentation | `segment_document(text, name) -> List[Dict]` |
 | `src/rag_pipeline/chunking/section_chunker.py` | Section chunking | `run_section_chunking() -> Dict[str, int]` |
-| `src/rag_pipeline/embedding/embed_texts.py` | Embedding API | `embed_texts(texts) -> List[List[float]]` |
+| `src/rag_pipeline/embedding/embedder.py` | Embedding API | `embed_texts(texts) -> List[List[float]]` |
 | `src/rag_pipeline/indexing/weaviate_client.py` | Weaviate storage | `upload_embeddings(client, name, chunks) -> int` |
-| `src/rag_pipeline/retrieval/preprocessing/query_classifier.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
+| `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
 | `src/rag_pipeline/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
 | `src/shared/openrouter_client.py` | Unified LLM API | `call_chat_completion(messages, model) -> str` |
 

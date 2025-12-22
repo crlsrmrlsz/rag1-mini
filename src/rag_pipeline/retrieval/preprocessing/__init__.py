@@ -7,7 +7,7 @@ Provides query classification and transformation for improved retrieval:
 - Query decomposition for multi-hop questions (planned)
 """
 
-from src.rag_pipeline.retrieval.preprocessing.query_classifier import (
+from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     QueryType,
     PreprocessedQuery,
     classify_query,

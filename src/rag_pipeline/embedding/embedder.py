@@ -12,7 +12,7 @@ from src.config import (
     OPENROUTER_BASE_URL,
     EMBEDDING_MODEL_ID,
 )
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 

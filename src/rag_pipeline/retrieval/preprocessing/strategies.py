@@ -12,7 +12,7 @@ and enables adding new strategies without modifying existing code.
 
 ## Library Usage
 
-Uses the existing query_classifier functions (classify_query, step_back_prompt)
+Uses the existing query_preprocessing functions (classify_query, step_back_prompt)
 wrapped in strategy functions that conform to a common signature.
 
 ## Data Flow
@@ -27,7 +27,7 @@ import time
 from typing import Callable, Dict, List, Optional
 
 from src.config import PREPROCESSING_MODEL
-from src.rag_pipeline.retrieval.preprocessing.query_classifier import (
+from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     CLASSIFICATION_PROMPT,
     STEP_BACK_PROMPT,
     PRINCIPLE_EXTRACTION_PROMPT,
@@ -41,7 +41,7 @@ from src.rag_pipeline.retrieval.preprocessing.query_classifier import (
     generate_multi_queries,
     decompose_query,
 )
-from src.shared.file_utils import setup_logging
+from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 

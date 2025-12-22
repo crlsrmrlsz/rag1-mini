@@ -19,7 +19,7 @@ from src.config import (
     CHUNK_ID_SEPARATOR,
 )
 from src.shared.tokens import count_tokens
-from src.shared.file_utils import get_file_list, setup_logging
+from src.shared.files import get_file_list, setup_logging
 
 logger = setup_logging(__name__)
 

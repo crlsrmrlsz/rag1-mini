@@ -26,9 +26,9 @@ from src.config import (
     MAX_RETRIES 
 )
 
-from src.shared.file_utils import setup_logging, get_file_list
+from src.shared.files import setup_logging, get_file_list
 from src.shared.tokens import count_tokens
-from src.rag_pipeline.embedding.embed_texts import embed_texts
+from src.rag_pipeline.embedding.embedder import embed_texts
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION

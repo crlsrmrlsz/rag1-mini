@@ -9,6 +9,20 @@ A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates 
 - **8-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding, Vector Storage, Search UI, RAGAS Evaluation
 - **Clean Architecture**: Function-based design with fail-fast error handling
 
+## Technologies
+
+| Category | Tools |
+|----------|-------|
+| **Language** | Python 3.8+ |
+| **Vector Database** | Weaviate (HNSW + BM25 hybrid) |
+| **LLM API** | OpenRouter (GPT-4, Claude, embeddings) |
+| **NLP** | spaCy (en_core_sci_sm), tiktoken |
+| **PDF Processing** | Docling |
+| **Data Validation** | Pydantic (structured LLM outputs) |
+| **UI** | Streamlit |
+| **Evaluation** | RAGAS framework |
+| **Infrastructure** | Docker, Conda |
+
 ## Pipeline Overview
 
 ```
@@ -213,6 +227,22 @@ MAX_CHUNK_TOKENS = 800      # Target chunk size
 OVERLAP_SENTENCES = 2       # Context continuity
 SPACY_MODEL = "en_core_sci_sm"  # Scientific NLP
 ```
+
+## RAG Techniques Applied
+
+This project implements advanced RAG patterns from recent research:
+
+| Technique | Description | Paper/Source |
+|-----------|-------------|--------------|
+| **Hybrid Search** | BM25 keyword + vector semantic search | Weaviate docs |
+| **Step-Back Prompting** | Abstracts questions to broader concepts (+27% on multi-hop) | [arXiv:2310.06117](https://arxiv.org/abs/2310.06117) |
+| **Multi-Query + RRF** | Generates targeted queries, merges with Reciprocal Rank Fusion | [Query Decomposition](https://arxiv.org/html/2507.00355v1) |
+| **Query Decomposition** | Breaks complex questions into sub-queries (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
+| **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
+| **Source Diversification** | Balances results across domains | Custom implementation |
+| **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
+| **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |
+| **RAGAS Evaluation** | Faithfulness + relevancy metrics | [RAGAS framework](https://docs.ragas.io/) |
 
 ## Requirements
 

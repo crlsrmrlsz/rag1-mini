@@ -19,7 +19,7 @@ from src.config import (
     CHUNK_ID_SEPARATOR,
 )
 from src.shared.tokens import count_tokens
-from src.shared.files import get_file_list, setup_logging
+from src.shared.files import get_file_list, setup_logging, OverwriteContext, OverwriteMode
 
 logger = setup_logging(__name__)
 
@@ -364,59 +364,82 @@ def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -
 # FILE I/O
 # ============================================================================
 
-def process_single_file(file_path: Path) -> tuple[str, int]:
-    """
-    Process a single JSON file and create chunks.
-    
+def process_single_file(
+    file_path: Path,
+    overwrite_context: OverwriteContext = None,
+) -> tuple[str, int, bool]:
+    """Process a single JSON file and create chunks.
+
     Args:
-        file_path: Path to input JSON file
-        
+        file_path: Path to input JSON file.
+        overwrite_context: Context for handling existing file overwrites.
+
     Returns:
-        Tuple of (book_name, chunk_count)
+        Tuple of (book_name, chunk_count, was_processed).
+        was_processed is False if file was skipped due to overwrite decision.
     """
+    book_name = file_path.stem
+
+    # Determine output path
+    output_dir = Path(DIR_FINAL_CHUNKS) / "section"
+    output_path = output_dir / f"{book_name}.json"
+
+    # Check if we should process (overwrite check)
+    if overwrite_context is None:
+        overwrite_context = OverwriteContext(OverwriteMode.ALL)
+    if not overwrite_context.should_overwrite(output_path, logger):
+        return book_name, 0, False
+
     # Read paragraphs from file
     with file_path.open("r", encoding="utf-8") as f:
         paragraphs = json.load(f)
-    
-    # Extract book name from filename
-    book_name = file_path.stem
-    
+
     # Create chunks with overlap
     chunks = create_chunks_from_paragraphs(paragraphs, book_name)
-    
+
     # Save chunks to output directory
-    output_dir = Path(DIR_FINAL_CHUNKS) / "section"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    output_path = output_dir / f"{book_name}.json"
+
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(chunks, f, ensure_ascii=False, indent=2)
-    
-    return book_name, len(chunks)
+
+    return book_name, len(chunks), True
 
 
-def run_section_chunking() -> Dict[str, int]:
-    """
-    Process all JSON files in DIR_NLP_CHUNKS directory.
+def run_section_chunking(
+    overwrite_context: OverwriteContext = None,
+) -> Dict[str, int]:
+    """Process all JSON files in DIR_NLP_CHUNKS directory.
+
+    Args:
+        overwrite_context: Context for handling existing file overwrites.
 
     Returns:
-        Dictionary mapping book names to chunk counts
+        Dictionary mapping book names to chunk counts (only includes processed files).
 
     Raises:
         Exception: Re-raises any exception from file processing (fail-fast).
     """
     input_files = get_file_list(DIR_NLP_CHUNKS, "json")
     results = {}
+    skipped_count = 0
 
     logger.info(f"Processing {len(input_files)} files...")
     logger.info(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
     logger.info(f"Sentence overlap: {OVERLAP_SENTENCES}")
 
     for file_path in input_files:
-        book_name, chunk_count = process_single_file(file_path)
-        results[book_name] = chunk_count
-        logger.info(f"{book_name}: {chunk_count} chunks")
+        book_name, chunk_count, was_processed = process_single_file(
+            file_path, overwrite_context
+        )
+        if was_processed:
+            results[book_name] = chunk_count
+            logger.info(f"{book_name}: {chunk_count} chunks")
+        else:
+            skipped_count += 1
 
+    if skipped_count > 0:
+        logger.info(f"Skipped {skipped_count} files (already exist)")
     return results
 
 

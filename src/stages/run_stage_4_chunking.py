@@ -9,6 +9,7 @@ Supports multiple chunking strategies:
 Usage:
     python -m src.stages.run_stage_4_chunking                    # Default: section
     python -m src.stages.run_stage_4_chunking --strategy semantic  # Semantic chunking
+    python -m src.stages.run_stage_4_chunking --strategy semantic --threshold 0.6
 """
 
 import argparse
@@ -19,8 +20,14 @@ from src.config import (
     DIR_FINAL_CHUNKS,
     DEFAULT_CHUNKING_STRATEGY,
     SEMANTIC_SIMILARITY_THRESHOLD,
+    get_semantic_folder_name,
 )
-from src.shared import setup_logging, get_file_list
+from src.shared import (
+    setup_logging,
+    get_file_list,
+    OverwriteContext,
+    parse_overwrite_arg,
+)
 from src.rag_pipeline.chunking.strategies import get_strategy, list_strategies
 
 logger = setup_logging("Stage4_Chunking")
@@ -48,10 +55,19 @@ def main():
             f"Only used with semantic strategy. (default: {SEMANTIC_SIMILARITY_THRESHOLD})"
         ),
     )
+    parser.add_argument(
+        "--overwrite",
+        type=str,
+        choices=["prompt", "skip", "all"],
+        default="prompt",
+        help="Overwrite behavior: prompt (default), skip, all",
+    )
     args = parser.parse_args()
 
+    overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
+
     # Build strategy kwargs
-    strategy_kwargs = {}
+    strategy_kwargs = {"overwrite_context": overwrite_context}
     if args.threshold is not None:
         if args.strategy != "semantic":
             logger.warning("--threshold is only used with semantic strategy, ignoring")
@@ -72,11 +88,15 @@ def main():
     strategy_fn = get_strategy(args.strategy, **strategy_kwargs)
     stats = strategy_fn()
 
-    # Verify output
-    strategy_dir = DIR_FINAL_CHUNKS / args.strategy
+    # Determine output directory (semantic uses threshold-based folder name)
+    if args.strategy == "semantic":
+        threshold = args.threshold if args.threshold is not None else SEMANTIC_SIMILARITY_THRESHOLD
+        strategy_dir = DIR_FINAL_CHUNKS / get_semantic_folder_name(threshold)
+    else:
+        strategy_dir = DIR_FINAL_CHUNKS / args.strategy
     strategy_files = list(strategy_dir.glob("*.json")) if strategy_dir.exists() else []
 
-    logger.info(f"Stage 4 complete ({args.strategy}). {len(strategy_files)} files created.")
+    logger.info(f"Stage 4 complete ({args.strategy}). {len(strategy_files)} files in output.")
     logger.info(f"Total chunks: {sum(stats.values())}")
     logger.info(f"Output: {strategy_dir}")
 

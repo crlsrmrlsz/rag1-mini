@@ -46,6 +46,7 @@ from src.config import (
     CHUNK_ID_PREFIX,
     CHUNK_ID_SEPARATOR,
     SEMANTIC_SIMILARITY_THRESHOLD,
+    get_semantic_folder_name,
 )
 from src.rag_pipeline.embedding.embedder import embed_texts
 from src.rag_pipeline.chunking.section_chunker import (
@@ -53,7 +54,7 @@ from src.rag_pipeline.chunking.section_chunker import (
     parse_section_name,
 )
 from src.shared.tokens import count_tokens
-from src.shared.files import get_file_list, setup_logging
+from src.shared.files import get_file_list, setup_logging, OverwriteContext, OverwriteMode
 
 logger = setup_logging(__name__)
 
@@ -306,39 +307,54 @@ def create_semantic_chunks(
 def process_single_file(
     file_path: Path,
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
-) -> tuple[str, int]:
+    overwrite_context: OverwriteContext = None,
+) -> tuple[str, int, bool]:
     """Process a single JSON file with semantic chunking.
 
     Args:
         file_path: Path to input JSON file from Stage 3.
         similarity_threshold: Cosine similarity threshold for detecting topic shifts.
+        overwrite_context: Context for handling existing file overwrites.
 
     Returns:
-        Tuple of (book_name, chunk_count).
+        Tuple of (book_name, chunk_count, was_processed).
+        was_processed is False if file was skipped due to overwrite decision.
     """
+    book_name = file_path.stem
+
+    # Determine output path using threshold-based folder name
+    folder_name = get_semantic_folder_name(similarity_threshold)
+    output_dir = Path(DIR_FINAL_CHUNKS) / folder_name
+    output_path = output_dir / f"{book_name}.json"
+
+    # Check if we should process (overwrite check)
+    if overwrite_context is None:
+        overwrite_context = OverwriteContext(OverwriteMode.ALL)
+    if not overwrite_context.should_overwrite(output_path, logger):
+        return book_name, 0, False
+
+    # Read input and process
     with file_path.open("r", encoding="utf-8") as f:
         paragraphs = json.load(f)
 
-    book_name = file_path.stem
     logger.info(f"Processing {book_name} ({len(paragraphs)} paragraphs)")
 
     chunks = create_semantic_chunks(
         paragraphs, book_name, similarity_threshold=similarity_threshold
     )
 
-    # Save to semantic/ subdirectory
-    output_dir = Path(DIR_FINAL_CHUNKS) / "semantic"
+    # Save to threshold-based subdirectory (e.g., semantic_0.5/)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_path = output_dir / f"{book_name}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(chunks, f, ensure_ascii=False, indent=2)
 
-    return book_name, len(chunks)
+    return book_name, len(chunks), True
 
 
 def run_semantic_chunking(
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+    overwrite_context: OverwriteContext = None,
 ) -> Dict[str, int]:
     """Process all files with semantic chunking.
 
@@ -348,28 +364,39 @@ def run_semantic_chunking(
     Args:
         similarity_threshold: Cosine similarity threshold (0.0-1.0) for detecting
             topic shifts. Lower = fewer splits (larger chunks).
+        overwrite_context: Context for handling existing file overwrites.
 
     Returns:
-        Dict mapping book names to chunk counts.
+        Dict mapping book names to chunk counts (only includes processed files).
 
     Raises:
         Exception: Re-raises any exception from file processing (fail-fast).
     """
     input_files = get_file_list(DIR_NLP_CHUNKS, "json")
     results = {}
+    skipped_count = 0
 
+    folder_name = get_semantic_folder_name(similarity_threshold)
     logger.info(f"Starting semantic chunking...")
     logger.info(f"Processing {len(input_files)} files")
+    logger.info(f"Output folder: {folder_name}/")
     logger.info(f"Max tokens per chunk: {MAX_CHUNK_TOKENS}")
     logger.info(f"Similarity threshold: {similarity_threshold}")
     logger.info(f"Overlap sentences: {OVERLAP_SENTENCES}")
 
     for file_path in input_files:
-        book_name, chunk_count = process_single_file(file_path, similarity_threshold)
-        results[book_name] = chunk_count
-        logger.info(f"  {book_name}: {chunk_count} chunks")
+        book_name, chunk_count, was_processed = process_single_file(
+            file_path, similarity_threshold, overwrite_context
+        )
+        if was_processed:
+            results[book_name] = chunk_count
+            logger.info(f"  {book_name}: {chunk_count} chunks")
+        else:
+            skipped_count += 1
 
     logger.info(f"Semantic chunking complete: {sum(results.values())} total chunks")
+    if skipped_count > 0:
+        logger.info(f"Skipped {skipped_count} files (already exist)")
     return results
 
 

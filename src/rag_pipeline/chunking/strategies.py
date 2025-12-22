@@ -27,10 +27,10 @@ in a common interface for the stage runner to invoke.
 """
 
 from functools import partial
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from src.config import MAX_CHUNK_TOKENS, OVERLAP_SENTENCES, SEMANTIC_SIMILARITY_THRESHOLD
-from src.shared.files import setup_logging
+from src.shared.files import setup_logging, OverwriteContext
 
 logger = setup_logging(__name__)
 
@@ -46,7 +46,9 @@ ChunkingStrategyFunction = Callable[[], Dict[str, int]]
 # ============================================================================
 
 
-def section_strategy() -> Dict[str, int]:
+def section_strategy(
+    overwrite_context: Optional[OverwriteContext] = None,
+) -> Dict[str, int]:
     """Sequential chunking with sentence overlap (baseline).
 
     Algorithm:
@@ -58,6 +60,9 @@ def section_strategy() -> Dict[str, int]:
     Use case: Preserves reading order, best for linear narratives.
     Fast execution, no API calls during chunking.
 
+    Args:
+        overwrite_context: Context for handling existing file overwrites.
+
     Returns:
         Dict mapping book names to chunk counts.
     """
@@ -65,11 +70,12 @@ def section_strategy() -> Dict[str, int]:
 
     logger.info(f"[section] Using sequential chunking with overlap")
     logger.info(f"[section] Max tokens: {MAX_CHUNK_TOKENS}, overlap: {OVERLAP_SENTENCES}")
-    return run_section_chunking()
+    return run_section_chunking(overwrite_context=overwrite_context)
 
 
 def semantic_strategy(
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+    overwrite_context: Optional[OverwriteContext] = None,
 ) -> Dict[str, int]:
     """Semantic similarity-based chunking.
 
@@ -88,6 +94,7 @@ def semantic_strategy(
     Args:
         similarity_threshold: Cosine similarity threshold (0.0-1.0) for detecting
             topic shifts. Lower = fewer splits (larger chunks). Default from config.
+        overwrite_context: Context for handling existing file overwrites.
 
     Returns:
         Dict mapping book names to chunk counts.
@@ -96,7 +103,10 @@ def semantic_strategy(
 
     logger.info(f"[semantic] Using embedding similarity chunking")
     logger.info(f"[semantic] Max tokens: {MAX_CHUNK_TOKENS}, threshold: {similarity_threshold}")
-    return run_semantic_chunking(similarity_threshold=similarity_threshold)
+    return run_semantic_chunking(
+        similarity_threshold=similarity_threshold,
+        overwrite_context=overwrite_context,
+    )
 
 
 # ============================================================================
@@ -116,6 +126,7 @@ def get_strategy(strategy_id: str, **kwargs: Any) -> ChunkingStrategyFunction:
     Args:
         strategy_id: One of "section", "semantic" (future: "contextual", "raptor").
         **kwargs: Optional parameters to pass to the strategy function.
+            Common: overwrite_context (OverwriteContext).
             For semantic strategy: similarity_threshold (float).
 
     Returns:

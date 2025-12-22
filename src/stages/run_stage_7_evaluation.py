@@ -80,7 +80,7 @@ from src.config import (
     get_collection_name,
 )
 from src.evaluation import run_evaluation
-from src.shared.files import setup_logging
+from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg, OverwriteMode
 
 logger = setup_logging(__name__)
 
@@ -551,8 +551,25 @@ def main():
         default=None,
         help="Model for preprocessing (default: from config)",
     )
+    parser.add_argument(
+        "--overwrite",
+        type=str,
+        choices=["prompt", "skip", "all"],
+        default="prompt",
+        help="Overwrite behavior for custom -o path: prompt (default), skip, all",
+    )
 
     args = parser.parse_args()
+
+    overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
+
+    # Check overwrite for custom output path before doing expensive work
+    if args.output:
+        output_path = Path(args.output)
+        if output_path.exists():
+            if not overwrite_context.should_overwrite(output_path, logger):
+                logger.info("Skipping evaluation (output file exists)")
+                return
 
     # Load test questions
     logger.info("Loading test questions...")

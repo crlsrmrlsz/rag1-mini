@@ -336,3 +336,26 @@ DEFAULT_CHUNKING_STRATEGY = "section"
 # Lower = fewer splits (larger chunks), Higher = more splits (smaller chunks)
 # Topic shifts typically drop below 0.6, so 0.5 catches only major topic changes
 SEMANTIC_SIMILARITY_THRESHOLD = 0.5
+
+
+def get_semantic_folder_name(threshold: float = SEMANTIC_SIMILARITY_THRESHOLD) -> str:
+    """Generate semantic chunking folder name with threshold.
+
+    Creates folder names like 'semantic_0.5' or 'semantic_0.75' to distinguish
+    outputs from different threshold configurations.
+
+    Args:
+        threshold: Similarity threshold (0.0-1.0).
+
+    Returns:
+        Folder name in format 'semantic_{threshold}'.
+
+    Example:
+        >>> get_semantic_folder_name(0.5)
+        'semantic_0.5'
+        >>> get_semantic_folder_name(0.75)
+        'semantic_0.75'
+    """
+    # Format threshold: remove trailing zeros (0.50 -> 0.5, 0.75 -> 0.75)
+    threshold_str = f"{threshold:.2f}".rstrip("0").rstrip(".")
+    return f"semantic_{threshold_str}"

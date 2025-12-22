@@ -14,6 +14,7 @@ Design goals:
 Usage:
     python -m src.stages.run_stage_5_embedding                    # Default: section
     python -m src.stages.run_stage_5_embedding --strategy semantic  # Semantic chunks
+    python -m src.stages.run_stage_5_embedding --strategy semantic --threshold 0.6
 """
 
 import argparse
@@ -30,9 +31,11 @@ from src.config import (
     MAX_BATCH_TOKENS,
     MAX_RETRIES,
     DEFAULT_CHUNKING_STRATEGY,
+    SEMANTIC_SIMILARITY_THRESHOLD,
+    get_semantic_folder_name,
 )
 
-from src.shared.files import setup_logging, get_file_list
+from src.shared.files import setup_logging, get_file_list, OverwriteContext, parse_overwrite_arg
 from src.shared.tokens import count_tokens
 from src.rag_pipeline.embedding.embedder import embed_texts
 from src.rag_pipeline.chunking.strategies import list_strategies
@@ -151,12 +154,34 @@ def main():
         choices=list_strategies(),
         help=f"Chunking strategy to embed (default: {DEFAULT_CHUNKING_STRATEGY})",
     )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help=(
+            f"Semantic similarity threshold (for finding correct input folder). "
+            f"Only used with semantic strategy. (default: {SEMANTIC_SIMILARITY_THRESHOLD})"
+        ),
+    )
+    parser.add_argument(
+        "--overwrite",
+        type=str,
+        choices=["prompt", "skip", "all"],
+        default="prompt",
+        help="Overwrite behavior: prompt (default), skip, all",
+    )
     args = parser.parse_args()
+
+    overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
 
     logger.info(f"Starting Stage 5: Embedding (strategy: {args.strategy})")
 
-    # Read from strategy-specific directory
-    strategy_dir = DIR_FINAL_CHUNKS / args.strategy
+    # Determine input directory (semantic uses threshold-based folder name)
+    if args.strategy == "semantic":
+        threshold = args.threshold if args.threshold is not None else SEMANTIC_SIMILARITY_THRESHOLD
+        strategy_dir = DIR_FINAL_CHUNKS / get_semantic_folder_name(threshold)
+    else:
+        strategy_dir = DIR_FINAL_CHUNKS / args.strategy
     files = list(strategy_dir.glob("*.json")) if strategy_dir.exists() else []
 
     if not files:
@@ -168,14 +193,23 @@ def main():
 
     logger.info(f"Found {len(files)} books to embed from {strategy_dir}")
 
+    success_count = 0
+    skipped_count = 0
     for file_path in files:
+        # Check overwrite decision
+        output_path = DIR_EMBEDDINGS / f"{file_path.stem}.json"
+        if not overwrite_context.should_overwrite(output_path, logger):
+            skipped_count += 1
+            continue
+
         try:
             embed_book(file_path)
+            success_count += 1
         except Exception as e:
             logger.error(f"Failed embedding {file_path.name}: {e}")
             raise
 
-    logger.info(f"Stage 5 complete ({args.strategy}).")
+    logger.info(f"Stage 5 complete ({args.strategy}). {success_count} embedded, {skipped_count} skipped.")
 
 
 if __name__ == "__main__":

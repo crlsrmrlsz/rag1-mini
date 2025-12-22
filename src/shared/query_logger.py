@@ -77,9 +77,8 @@ def _build_preprocessing(prep) -> Dict:
         "enabled": True,
         "strategy": getattr(prep, "strategy_used", "unknown"),
         "model": getattr(prep, "model", ""),
-        "query_type": prep.query_type.value,
         "search_query": prep.search_query,
-        "step_back_query": prep.step_back_query,
+        "step_back_query": getattr(prep, "step_back_query", None),
         "time_ms": round(prep.preprocessing_time_ms, 1),
     }
 
@@ -158,7 +157,6 @@ def _build_generation(ans) -> Dict:
     return {
         "enabled": True,
         "model": ans.model,
-        "query_type": ans.query_type.value if ans.query_type else None,
         "answer": ans.answer,
         "sources_cited": ans.sources_used,
         "time_ms": round(ans.generation_time_ms, 1),

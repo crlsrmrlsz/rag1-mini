@@ -4,8 +4,8 @@
 
 These schemas define the expected structure of LLM responses during
 query preprocessing. Each schema corresponds to a specific preprocessing
-function and ensures type-safe extraction of classification results,
-principles, queries, and decomposition results.
+function and ensures type-safe extraction of principles, queries, and
+decomposition results.
 
 Benefits of schema-based parsing:
 1. **Guaranteed types** - No more isinstance() checks or .get() fallbacks
@@ -28,24 +28,9 @@ Uses Pydantic v2 BaseModel with:
 4. Calling code accesses fields with full type safety
 """
 
-from typing import List, Literal
+from typing import List
 
 from pydantic import BaseModel, Field
-
-
-class ClassificationResult(BaseModel):
-    """Result of query type classification.
-
-    Used by: classify_query()
-    Expected from LLM: {"query_type": "factual" | "open_ended" | "multi_hop"}
-
-    The Literal type ensures only valid query types are accepted.
-    Invalid values like "FACTUAL" or "unknown" will raise ValidationError.
-    """
-
-    query_type: Literal["factual", "open_ended", "multi_hop"] = Field(
-        description="The classified type of the user query"
-    )
 
 
 class PrincipleExtraction(BaseModel):
@@ -126,7 +111,7 @@ class MultiQueryResult(BaseModel):
 
 
 class DecompositionResult(BaseModel):
-    """Result of query decomposition for MULTI_HOP queries.
+    """Result of query decomposition for complex queries.
 
     Used by: decompose_query()
 

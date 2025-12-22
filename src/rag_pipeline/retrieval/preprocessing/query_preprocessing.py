@@ -1,36 +1,31 @@
-"""Query classification and preprocessing for improved RAG retrieval.
+"""Query preprocessing for improved RAG retrieval.
 
 ## RAG Theory: Query Preprocessing
 
 Query preprocessing improves retrieval by transforming queries before searching.
-This is based on research showing that query characteristics strongly affect
-retrieval quality:
+Each preprocessing strategy applies its transformation directly to any query,
+following the original research papers' design.
 
-1. **Classification** identifies query type to apply appropriate strategy
-2. **Step-back prompting** abstracts specific questions into broader concepts
+Techniques implemented:
+1. **Step-back prompting** abstracts questions into broader concepts
    - Paper: "Take a Step Back" (Google DeepMind, 2023) showed +27% on multi-hop
-   - Example: "What is the puppet metaphor?" -> "Stoic philosophy on emotions"
+2. **Multi-query generation** creates diverse queries for RRF merging
+   - Paper: Query Decomposition showed +36.7% MRR@10 improvement
 3. **Query decomposition** breaks complex questions into sub-queries
-   - Paper: "Query Decomposition" showed +36.7% MRR@10 improvement
 
 ## Library Usage
 
-Uses OpenRouter API via `requests` for LLM calls (same pattern as embedder.py).
-JSON mode ensures structured classification output.
+Uses OpenRouter API via `requests` for LLM calls.
+Pydantic schemas ensure structured LLM outputs.
 
 ## Data Flow
 
-1. User query enters preprocess_query()
-2. classify_query() determines type via LLM
-3. Based on type:
-   - FACTUAL: Return original query (direct retrieval works well)
-   - OPEN_ENDED: Apply step_back_prompt() to broaden query
-   - MULTI_HOP: (Future) Apply query decomposition
-4. Return PreprocessedQuery with original, transformed, and metadata
+1. User selects preprocessing strategy (none, step_back, multi_query, decomposition)
+2. Strategy transforms query directly (no classification routing)
+3. Return PreprocessedQuery with original, transformed, and metadata
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional, List, Dict, Any
 
 import requests
@@ -40,7 +35,6 @@ from src.config import PREPROCESSING_MODEL
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
-    ClassificationResult,
     PrincipleExtraction,
     MultiQueryResult,
     DecompositionResult,
@@ -49,156 +43,38 @@ from src.rag_pipeline.retrieval.preprocessing.schemas import (
 logger = setup_logging(__name__)
 
 
-class QueryType(Enum):
-    """Classification of user queries for retrieval optimization.
-
-    - FACTUAL: Seeks specific facts, definitions, or data points.
-      Example: "What neurotransmitter is made from tryptophan?"
-
-    - OPEN_ENDED: Philosophical, life-advice, or wisdom questions.
-      Example: "How should I live my life?"
-
-    - MULTI_HOP: Requires combining information from multiple sources.
-      Example: "Compare Stoic and Taoist views on desire."
-    """
-
-    FACTUAL = "factual"
-    OPEN_ENDED = "open_ended"
-    MULTI_HOP = "multi_hop"
-
-
 @dataclass
 class PreprocessedQuery:
     """Result of query preprocessing.
 
     Attributes:
         original_query: The user's original query text.
-        query_type: Classification result (FACTUAL, OPEN_ENDED, MULTI_HOP).
         search_query: The query to use for retrieval (may be transformed).
-        step_back_query: For OPEN_ENDED, the abstracted broader query.
-        sub_queries: For MULTI_HOP, decomposed sub-questions (future).
         strategy_used: The preprocessing strategy that was applied.
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
         model: Model ID used for preprocessing (for logging).
-        classification_prompt_used: The prompt sent to LLM for classification (for logging).
-        step_back_prompt_used: The prompt sent to LLM for step-back (for logging).
-        classification_response: Raw JSON from classification LLM.
-        step_back_response: Raw step-back query from LLM.
+        step_back_query: The transformed broader query (step_back strategy).
+        step_back_response: Raw step-back response from LLM.
+        sub_queries: Decomposed sub-questions (decomposition strategy).
         generated_queries: List of {type, query} dicts for multi-query retrieval.
-        principle_extraction: Raw principle extraction result for logging.
-        principle_extraction_prompt_used: Prompt for principle extraction.
-        multi_query_prompt_used: Prompt for multi-query generation.
+        principle_extraction: Extracted principles (multi_query strategy).
+        decomposition_response: Raw decomposition response from LLM.
     """
 
     original_query: str
-    query_type: QueryType
     search_query: str
-    step_back_query: Optional[str] = None
-    sub_queries: List[str] = field(default_factory=list)
-    strategy_used: str = ""  # Strategy ID that was applied
+    strategy_used: str = ""
     preprocessing_time_ms: float = 0.0
-    model: str = ""  # Model ID used for preprocessing
-    classification_prompt_used: Optional[str] = None
-    step_back_prompt_used: Optional[str] = None
-    classification_response: Optional[str] = None
+    model: str = ""
+    # Step-back strategy fields
+    step_back_query: Optional[str] = None
     step_back_response: Optional[str] = None
-    # Multi-query fields
+    # Multi-query strategy fields
     generated_queries: List[Dict[str, str]] = field(default_factory=list)
     principle_extraction: Optional[Dict[str, Any]] = None
-    principle_extraction_prompt_used: Optional[str] = None
-    multi_query_prompt_used: Optional[str] = None
-    # Decomposition fields (for MULTI_HOP)
-    decomposition_prompt_used: Optional[str] = None
+    # Decomposition strategy fields
+    sub_queries: List[str] = field(default_factory=list)
     decomposition_response: Optional[str] = None
-
-
-# =============================================================================
-# QUERY CLASSIFICATION
-# =============================================================================
-
-CLASSIFICATION_PROMPT = """You are a query classifier for a knowledge system about human nature.
-
-The system contains:
-- Neuroscience: brain mechanisms, emotions, decision-making, consciousness
-- Philosophy: Stoicism, Taoism, wisdom traditions, meaning, ethics, the good life
-
-Classify based on what response type would BEST serve the user:
-
-## FACTUAL
-Questions seeking specific, verifiable information:
-- Definitions: "What is serotonin?"
-- Specific mechanisms: "What brain region processes fear?"
-- Author quotes: "What did Marcus Aurelius say about anger?"
-- Technical details: "How many neurons are in the prefrontal cortex?"
-
-## OPEN_ENDED
-Questions about human nature, life, meaning, or behavior that benefit from multiple perspectives:
-- "Why do we need approval from others to feel good?"
-- "How can I deal with anxiety?"
-- "What makes life meaningful?"
-- "Why do humans fear death?"
-
-Key signal: Questions asking "why do we/humans..." about emotions, behavior, or life are almost always open_ended.
-
-## MULTI_HOP
-Questions that EXPLICITLY compare or connect across domains:
-- "Compare Stoic and Buddhist views on suffering"
-- "How does neuroscience explain what the Stoics called 'passion'?"
-
-## Decision Rule
-If a question could benefit from BOTH scientific AND philosophical perspectives, classify as "open_ended".
-
-Respond with JSON: {"query_type": "factual" | "open_ended" | "multi_hop"}"""
-
-
-def classify_query(query: str, model: Optional[str] = None) -> tuple[QueryType, str]:
-    """Classify a query into FACTUAL, OPEN_ENDED, or MULTI_HOP.
-
-    Uses an LLM with Pydantic schema enforcement to analyze query intent.
-    The ClassificationResult schema guarantees valid query_type values.
-
-    Args:
-        query: The user's search query.
-        model: Override model (defaults to PREPROCESSING_MODEL from config).
-
-    Returns:
-        Tuple of (QueryType enum value, raw LLM response string).
-
-    Example:
-        >>> query_type, response = classify_query("What is serotonin?")
-        >>> query_type
-        QueryType.FACTUAL
-        >>> response
-        '{"query_type": "factual"}'
-    """
-    model = model or PREPROCESSING_MODEL
-
-    messages = [
-        {"role": "system", "content": CLASSIFICATION_PROMPT},
-        {"role": "user", "content": query},
-    ]
-
-    type_map = {
-        "factual": QueryType.FACTUAL,
-        "open_ended": QueryType.OPEN_ENDED,
-        "multi_hop": QueryType.MULTI_HOP,
-    }
-
-    try:
-        result = call_structured_completion(
-            messages=messages,
-            model=model,
-            response_model=ClassificationResult,
-            temperature=0.0,
-            max_tokens=50,
-        )
-
-        # result.query_type is guaranteed to be one of the Literal values
-        return type_map[result.query_type], result.model_dump_json()
-
-    except (PydanticValidationError, Exception) as e:
-        logger.warning(f"Classification error: {e}, defaulting to FACTUAL")
-        return QueryType.FACTUAL, str(e)
 
 
 # =============================================================================
@@ -365,10 +241,10 @@ Respond with JSON:
 
 
 def step_back_prompt(query: str, model: Optional[str] = None) -> str:
-    """Transform an open-ended query into a broader, more retrievable form.
+    """Transform any query into a broader, more retrievable form.
 
-    Step-back prompting abstracts specific questions into underlying principles,
-    improving retrieval for philosophical and wisdom-seeking queries.
+    Step-back prompting abstracts specific questions into underlying concepts,
+    improving retrieval by using vocabulary that matches the knowledge base.
 
     Args:
         query: The original open-ended query.
@@ -526,17 +402,17 @@ def generate_multi_queries(
 
 
 def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str], str]:
-    """Decompose a MULTI_HOP query into sub-questions.
+    """Decompose a complex query into sub-questions for parallel retrieval.
 
     Breaks complex comparison or multi-aspect questions into simpler
     sub-questions that can be answered independently. Each sub-question
-    is then used for retrieval, with results merged using RRF.
+    is used for retrieval, with results merged using RRF.
 
     Uses Pydantic DecompositionResult schema for type-safe extraction.
     The schema guarantees sub_questions is a List[str].
 
     Args:
-        query: The user's original query (should be MULTI_HOP type).
+        query: The user's original query.
         model: Override model (defaults to PREPROCESSING_MODEL).
 
     Returns:
@@ -591,23 +467,25 @@ def preprocess_query(
     """Preprocess a query for optimal retrieval.
 
     Main entry point for query preprocessing. Dispatches to the appropriate
-    strategy based on the strategy parameter.
+    strategy based on the strategy parameter. Each strategy applies its
+    transformation directly to the query without classification.
 
     Args:
         query: The user's original query.
         model: Override model for LLM calls.
         strategy: Preprocessing strategy ID. Options:
             - "none": Return original query unchanged (no LLM calls)
-            - "baseline": Classify only, no transformation
-            - "step_back": Classify + step-back for open-ended (default)
+            - "step_back": Transform to broader concepts for better retrieval
+            - "multi_query": Generate 4 targeted queries + RRF merge
+            - "decomposition": Break into sub-questions + RRF merge
 
     Returns:
-        PreprocessedQuery with classification, transformed query, and strategy_used.
+        PreprocessedQuery with transformed query and strategy_used.
 
     Example:
         >>> result = preprocess_query("How should I live?", strategy="step_back")
-        >>> result.query_type
-        QueryType.OPEN_ENDED
+        >>> result.search_query
+        "Stoic philosophy meaning purpose good life virtue wisdom"
         >>> result.strategy_used
         "step_back"
     """

@@ -333,10 +333,9 @@ ENABLE_QUERY_PREPROCESSING = True
 # Format: (strategy_id, display_label, description)
 AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
-    ("baseline", "Baseline", "Classify query type only, no transformation"),
-    ("step_back", "Step-Back", "Classify + step-back prompting for open-ended queries"),
+    ("step_back", "Step-Back", "Transform to broader concepts for better retrieval"),
     ("multi_query", "Multi-Query", "Generate 4 targeted queries + RRF merge"),
-    ("decomposition", "Decomposition", "Break MULTI_HOP into sub-questions + RRF merge"),
+    ("decomposition", "Decomposition", "Break into sub-questions + RRF merge"),
 ]
 
 # Default strategy for UI and preprocess_query() when not specified

@@ -131,7 +131,14 @@ def call_chat_completion(
 
             if response.status_code == 200:
                 result = response.json()
-                return result["choices"][0]["message"]["content"]
+                content = result["choices"][0]["message"]["content"]
+
+                # Log successful LLM call
+                chars_in = sum(len(m.get("content", "")) for m in messages)
+                chars_out = len(content)
+                logger.info(f"[LLM] model={model} chars_in={chars_in} chars_out={chars_out}")
+
+                return content
 
             # Retryable errors: rate limit or server errors
             if response.status_code >= 500 or response.status_code == 429:
@@ -291,6 +298,11 @@ def call_structured_completion(
             if response.status_code == 200:
                 result = response.json()
                 content = result["choices"][0]["message"]["content"]
+
+                # Log successful LLM call
+                chars_in = sum(len(m.get("content", "")) for m in messages)
+                chars_out = len(content)
+                logger.info(f"[LLM] model={model} chars_in={chars_in} chars_out={chars_out} (structured)")
 
                 # Parse and validate with Pydantic
                 try:

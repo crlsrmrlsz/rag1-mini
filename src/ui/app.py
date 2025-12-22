@@ -2,7 +2,7 @@
 
 A Streamlit application for testing the RAG system with Weaviate backend.
 Features:
-- Query preprocessing (classification, step-back prompting)
+- Query preprocessing (step-back, multi-query, decomposition strategies)
 - Hybrid/vector search with optional cross-encoder reranking
 - LLM-based answer generation
 - Pipeline logging with full prompt visibility
@@ -42,7 +42,7 @@ from src.config import (
     ENABLE_QUERY_PREPROCESSING,
 )
 from src.ui.services.search import search_chunks, list_collections
-from src.rag_pipeline.retrieval.preprocessing import preprocess_query, QueryType
+from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 from src.rag_pipeline.generation.answer_generator import generate_answer
 from src.shared.openrouter_models import (
     fetch_available_models,
@@ -162,7 +162,7 @@ def _render_pipeline_log():
     # Stage 1: Query Preprocessing
     with st.expander("Stage 1: Query Preprocessing", expanded=True):
         if prep:
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
 
             # Strategy used (with backward compat for cached objects)
             strategy_used = getattr(prep, 'strategy_used', 'N/A')
@@ -172,43 +172,17 @@ def _render_pipeline_log():
             prep_model = getattr(prep, 'model', 'N/A')
             col2.markdown(f"**Model:** `{prep_model}`")
 
-            # Query type with color-coded badge
-            type_colors = {
-                QueryType.FACTUAL: "blue",
-                QueryType.OPEN_ENDED: "green",
-                QueryType.MULTI_HOP: "orange",
-            }
-            type_color = type_colors.get(prep.query_type, "gray")
-            col3.markdown(f"**Query Type:** :{type_color}[{prep.query_type.value.upper()}]")
-            col4.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
-
-            # Show complete classification prompt (system + user)
-            st.markdown("**Classification Prompt (sent to LLM):**")
-            classification_full = f"[System]\n{prep.classification_prompt_used}\n\n[User]\n{prep.original_query}"
-            st.code(classification_full, language="text")
-
-            # Show classification LLM response (use getattr for backward compat with cached objects)
-            classification_response = getattr(prep, 'classification_response', None)
-            if classification_response:
-                st.markdown("**LLM Response:**")
-                st.code(classification_response, language="json")
+            col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
 
             if prep.step_back_query and prep.step_back_query != prep.original_query:
                 st.divider()
-
-                # Show complete step-back prompt (system + user)
-                st.markdown("**Step-Back Prompt (sent to LLM):**")
-                step_back_full = f"[System]\n{prep.step_back_prompt_used}\n\n[User]\n{prep.original_query}"
-                st.code(step_back_full, language="text")
+                st.markdown("#### Step-Back Transformation")
 
                 # Show step-back LLM response (use getattr for backward compat with cached objects)
                 step_back_response = getattr(prep, 'step_back_response', None)
                 if step_back_response:
-                    st.markdown("**LLM Response (Step-Back Query):**")
-                    st.code(step_back_response, language="text")
-
-                st.markdown("**Final Search Query:**")
-                st.info(prep.step_back_query)
+                    st.markdown("**Transformed Search Query:**")
+                    st.info(step_back_response)
 
             # Show multi-query section if multi_query strategy was used
             generated_queries = getattr(prep, 'generated_queries', None)
@@ -246,7 +220,7 @@ def _render_pipeline_log():
             sub_queries = getattr(prep, 'sub_queries', None)
             if sub_queries and len(sub_queries) > 0:
                 st.divider()
-                st.markdown("#### Query Decomposition (MULTI_HOP)")
+                st.markdown("#### Query Decomposition")
 
                 # Show decomposition prompt
                 decomposition_prompt = getattr(prep, 'decomposition_prompt_used', None)
@@ -330,11 +304,9 @@ def _render_pipeline_log():
     # Stage 4: Answer Generation
     with st.expander("Stage 4: Answer Generation", expanded=True):
         if ans:
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             col1.markdown(f"**Model:** `{ans.model}`")
-            if ans.query_type:
-                col2.markdown(f"**Query Type:** `{ans.query_type.value}`")
-            col3.metric("Time", f"{ans.generation_time_ms:.0f}ms")
+            col2.metric("Time", f"{ans.generation_time_ms:.0f}ms")
 
             # Show complete generation prompt (system + user)
             st.markdown("**Generation Prompt (sent to LLM):**")
@@ -397,7 +369,7 @@ if enable_preprocessing:
         options=strategy_ids,
         index=default_idx,
         format_func=lambda x: strategy_options[x][0],  # Display label
-        help="Preprocessing strategy: Baseline=classify only, Step-Back=classify+transform for open-ended.",
+        help="Query transformation strategy. Each strategy applies its transformation directly to all queries.",
     )
 
     # Model selector
@@ -606,11 +578,9 @@ if search_clicked and query:
         if enable_generation and st.session_state.search_results:
             with st.spinner("Stage 4: Generating answer..."):
                 try:
-                    query_type = preprocessed.query_type if preprocessed else QueryType.FACTUAL
                     answer = generate_answer(
                         query=query,
                         chunks=st.session_state.search_results,
-                        query_type=query_type,
                         model=selected_model,
                     )
                     st.session_state.generated_answer = answer
@@ -654,22 +624,26 @@ if st.session_state.search_results:
         if st.session_state.preprocessed_query:
             prep = st.session_state.preprocessed_query
             with st.container():
-                st.markdown("#### Query Analysis")
-                col1, col2, col3 = st.columns(3)
+                st.markdown("#### Query Preprocessing")
+                col1, col2 = st.columns(2)
 
-                # Query type with color-coded badge
-                type_colors = {
-                    QueryType.FACTUAL: "blue",
-                    QueryType.OPEN_ENDED: "green",
-                    QueryType.MULTI_HOP: "orange",
-                }
-                type_color = type_colors.get(prep.query_type, "gray")
-                col1.markdown(f"**Type:** :{type_color}[{prep.query_type.value.upper()}]")
+                strategy_used = getattr(prep, 'strategy_used', 'N/A')
+                col1.markdown(f"**Strategy:** `{strategy_used}`")
                 col2.markdown(f"**Time:** {prep.preprocessing_time_ms:.0f}ms")
 
                 # Show step-back query if applied
                 if prep.step_back_query and prep.step_back_query != prep.original_query:
-                    st.info(f"**Step-Back Query:** {prep.step_back_query}")
+                    st.info(f"**Search Query:** {prep.step_back_query}")
+
+                # Show multi-query info
+                generated_queries = getattr(prep, 'generated_queries', None)
+                if generated_queries and len(generated_queries) > 1:
+                    st.info(f"**Multi-Query:** {len(generated_queries)} queries generated")
+
+                # Show decomposition info
+                sub_queries = getattr(prep, 'sub_queries', None)
+                if sub_queries and len(sub_queries) > 0:
+                    st.info(f"**Decomposed into:** {len(sub_queries)} sub-questions")
 
                 st.divider()
 

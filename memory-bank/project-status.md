@@ -1,23 +1,23 @@
 # RAG1-Mini Project Status
 
-**Last Updated:** December 21, 2025
+**Last Updated:** December 22, 2025
 
 ## Overview
 
-RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid neuroscientist + philosopher** AI. It processes 19 books (8 neuroscience, 11 philosophy/wisdom) through an 8-stage pipeline to answer questions about human behavior with evidence-based, cross-domain insights.
+RAG1-Mini is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline to build a searchable knowledge base with AI-powered answers.
 
-**Core Goal:** Master RAG pipeline components while building specialized AI that provides grounded, thoughtful answers about human cognition and behavior.
+**Core Goal:** Master RAG pipeline components while building a practical system for document-based question answering.
 
 ## Current Status: Phase 1 Infrastructure Complete
 
 | Stage | Description | Output |
 |-------|-------------|--------|
-| 1. Extraction | PDF to Markdown | 19 MD files |
-| 2. Cleaning | Manual review + cleaning | 19 cleaned MD files |
-| 3. Segmentation | NLP sentence segmentation | 19 JSON files |
-| 4. Chunking | Section-aware (800 tokens, 2-sentence overlap) | 6,245 chunks |
-| 5. Embedding | text-embedding-3-large via OpenRouter | 19 JSON files |
-| 6. Weaviate | Vector storage (HNSW + cosine) | 6,249 objects |
+| 1. Extraction | PDF to Markdown | Markdown files |
+| 2. Cleaning | Manual review + cleaning | Cleaned MD files |
+| 3. Segmentation | NLP sentence segmentation | JSON files |
+| 4. Chunking | Section-aware (800 tokens, 2-sentence overlap) | Semantic chunks |
+| 5. Embedding | text-embedding-3-large via OpenRouter | Embedding files |
+| 6. Weaviate | Vector storage (HNSW + cosine) | Vector objects |
 | 7A. Query | `query_similar()`, `query_hybrid()` | weaviate_query.py |
 | 7B. UI | Streamlit interface | src/ui/app.py |
 | 7C. RAGAS | Evaluation framework | src/evaluation/ |
@@ -27,7 +27,7 @@ RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a **hybrid n
 ## Data Flow
 
 ```
-data/raw/ (19 PDFs)
+data/raw/ (PDF documents)
     |
     v  Stage 1: extract_pdf()
 data/processed/01_raw_extraction/
@@ -42,7 +42,7 @@ data/processed/03_markdown_cleaning/
 data/processed/04_nlp_chunks/
     |
     v  Stage 4: run_section_chunking()
-data/processed/05_final_chunks/section/ (6,245 chunks)
+data/processed/05_final_chunks/section/
     |
     v  Stage 5: embed_texts()
 data/processed/06_embeddings/
@@ -56,18 +56,12 @@ Weaviate: RAG_section800_embed3large_v1
 User Query -> preprocess_query(strategy) -> search -> generate_answer() -> Answer
 ```
 
-## Content
+## RAGAS Evaluation
 
-**Neuroscience (8 books):** Sapolsky, Pinel & Barnes, Eagleman & Downar, Gazzaniga, Tommasi et al., Sapolsky (Determined), Gage & Bernard, Fountoulakis & Nimatoudis
-
-**Wisdom (11 books):** Kahneman, Schopenhauer (multiple), Lao Tzu, Seneca, Confucius, Epictetus (multiple), Marcus Aurelius, Baltasar Gracian
-
-## RAGAS Evaluation Results (Run 4 - Best)
-
-- **Faithfulness:** 0.927 (answers grounded in context)
-- **Answer Relevancy:** 0.787 (answers address questions)
-- **Failures:** 1/23 questions (4%)
-- **Test Set:** 23 curated questions (neuroscience, philosophy, cross-domain)
+The pipeline includes RAGAS-based evaluation metrics:
+- **Faithfulness:** Are answers grounded in the retrieved context?
+- **Answer Relevancy:** Do answers address the questions?
+- **Context Precision:** Are retrieved chunks relevant?
 
 **Configuration:** Hybrid search, alpha=0.5, top-k=10, cross-encoder reranking
 
@@ -102,6 +96,7 @@ User Query -> preprocess_query(strategy) -> search -> generate_answer() -> Answe
 | 2 | Remove Classification + Simplify (Dec 22) | COMPLETE |
 | 3 | Multi-Query Strategy (+RRF merging) | COMPLETE |
 | 4 | Query Decomposition (always-on) | COMPLETE |
+| 2.5 | Domain-Agnostic Refactoring (Dec 22) | COMPLETE |
 | 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
 | 6 | Contextual Chunking (+35% failure reduction) | TODO |
 | 7 | RAPTOR (hierarchical summarization) | TODO |
@@ -188,7 +183,7 @@ Same pattern for `src/vector_db/retrieval_strategies.py`:
 
 Uses Pydantic schemas for type-safe LLM outputs with JSON Schema enforcement:
 - `src/shared/schemas.py` - `get_openrouter_schema()` utility
-- `src/rag_pipeline/retrieval/preprocessing/schemas.py` - Response models (ClassificationResult, PrincipleExtraction, etc.)
+- `src/rag_pipeline/retrieval/preprocessing/schemas.py` - Response models (PrincipleExtraction, MultiQueryResult, DecompositionResult)
 
 Key function: `call_structured_completion(messages, model, response_model)` in `openrouter_client.py`
 

@@ -81,70 +81,44 @@ class PreprocessedQuery:
 # STEP-BACK PROMPTING
 # =============================================================================
 
-STEP_BACK_PROMPT = """You transform questions into effective search queries for a knowledge system about human nature.
+STEP_BACK_PROMPT = """You are a retrieval assistant. Given a user question, identify broader concepts
+and principles that would help retrieve relevant information from a document collection.
 
-KNOWLEDGE BASE CONTENTS:
-- Neuroscience books: brain mechanisms, dopamine/serotonin/oxytocin, prefrontal cortex, amygdala, limbic system, decision-making, emotions, consciousness, evolutionary psychology
-- Philosophy books:
-  - Stoicism: Marcus Aurelius (Meditations), Seneca (Letters), Epictetus (Enchiridion, Art of Living)
-  - Schopenhauer: pessimism, will, suffering, contentment, solitude
-  - Taoism: Lao Tzu (Tao Te Ching), wu-wei, naturalness, balance
-  - Confucianism: Confucius (Analects), virtue, ritual, relationships
-  - Practical wisdom: Gracian (Art of Prudence), strategy, worldly wisdom
-  - Behavioral psychology: Kahneman (Thinking Fast and Slow), cognitive biases, System 1/2
-
-TASK: Generate a search query that will retrieve the most relevant passages.
+TASK: Generate an effective search query that captures the underlying concepts.
 
 PROCESS:
-1. Identify the CORE TOPIC: What is the user really asking about? (e.g., fear, purpose, social needs, self-control)
-2. Identify SPECIFIC MECHANISMS: What brain systems, psychological processes, or philosophical concepts relate?
-3. Use CONCRETE VOCABULARY: Include specific terms from the knowledge base (author names, brain regions, philosophical schools, emotions)
-4. BALANCE SOURCES: Include terms from MULTIPLE philosophical traditions, not just one
+1. Identify the CORE TOPIC: What is the user fundamentally asking about?
+2. Identify RELATED CONCEPTS: What foundational ideas, mechanisms, or principles relate?
+3. Use CONCRETE VOCABULARY: Include specific terms likely to appear in relevant documents
+4. BROADEN appropriately: Step back from specific details to capture the general theme
 
 EXAMPLES:
-User: "Why do I feel anxious?"
-Think: Core=anxiety/fear, Mechanisms=amygdala+cortisol+fight-or-flight, Philosophy=Stoic tranquility+Schopenhauer suffering
-Query: "amygdala fear response anxiety cortisol Stoic tranquility Schopenhauer suffering will"
+User: "Why do I feel anxious before presentations?"
+Query: "anxiety fear response public speaking stress performance social evaluation"
 
-User: "Why do we need approval from others?"
-Think: Core=social validation, Mechanisms=dopamine+oxytocin+social brain, Philosophy=Confucian relationships+Kahneman biases
-Query: "dopamine social reward approval Confucius relationships virtue Kahneman System 1 heuristics"
+User: "How do I make better decisions?"
+Query: "decision making cognitive processes judgment reasoning choice evaluation"
 
-User: "What is the point of life?"
-Think: Core=meaning/purpose, Mechanisms=prefrontal goals+reward system, Philosophy=Taoist wu-wei+Gracian prudence
-Query: "meaning purpose prefrontal goals Lao Tzu wu-wei Tao naturalness Gracian prudence wisdom"
+User: "What causes procrastination?"
+Query: "procrastination delay motivation self-control temporal discounting willpower"
 
-User: "How can I control my anger?"
-Think: Core=anger regulation, Mechanisms=amygdala+prefrontal inhibition, Philosophy=Seneca De Ira+Schopenhauer will
-Query: "anger regulation amygdala prefrontal Seneca De Ira Schopenhauer will cognitive reappraisal"
-
-Generate ONLY the search query. Use 10-20 words. Include both neuroscience and philosophy terms."""
+Generate ONLY the search query. Use 10-20 words of relevant concepts and terms."""
 
 
 # =============================================================================
 # MULTI-QUERY PROMPTS
 # =============================================================================
 
-PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question about human nature for a knowledge retrieval system.
-
-KNOWLEDGE BASE CONTENTS:
-- Neuroscience books: brain mechanisms, neurotransmitters (dopamine, serotonin, oxytocin), brain regions (prefrontal cortex, amygdala, insula), emotions, decision-making, consciousness, evolutionary psychology
-- Philosophy books:
-  - Stoicism: Marcus Aurelius (Meditations), Seneca (Letters), Epictetus (Enchiridion, Art of Living)
-  - Schopenhauer: pessimism, will, suffering, contentment, solitude
-  - Taoism: Lao Tzu (Tao Te Ching), wu-wei, naturalness, balance
-  - Confucianism: Confucius (Analects), virtue, ritual, relationships
-  - Practical wisdom: Gracian (Art of Prudence), strategy, worldly wisdom
-  - Behavioral psychology: Kahneman (Thinking Fast and Slow), cognitive biases, System 1/2
+PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question for a knowledge retrieval system.
 
 Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages:
 
 Question: "{query}"
 
 Identify:
-1. CORE TOPIC: What is the fundamental subject? (e.g., "social reward", "anxiety", "purpose")
-2. NEUROSCIENCE CONCEPTS: Specific mechanisms, brain regions, or processes (2-3 items)
-3. PHILOSOPHICAL CONCEPTS: Relevant schools, authors, or ideas (2-3 items)
+1. CORE TOPIC: What is the fundamental subject?
+2. PRIMARY CONCEPTS: Specific mechanisms, processes, or theories (2-3 items)
+3. SECONDARY CONCEPTS: Related schools of thought, frameworks, or approaches (2-3 items)
 4. RELATED TERMS: Vocabulary likely to appear in relevant passages (3-5 items)
 
 Respond with JSON:
@@ -156,31 +130,31 @@ Respond with JSON:
 }}"""
 
 
-MULTI_QUERY_PROMPT = """Generate targeted search queries for a hybrid neuroscience + philosophy knowledge base.
+MULTI_QUERY_PROMPT = """Generate targeted search queries for a document retrieval system.
 
 Original question: "{query}"
 
 Extracted concepts:
 - Core topic: {core_topic}
-- Neuroscience: {neuro_concepts}
-- Philosophy: {philo_concepts}
+- Primary concepts: {neuro_concepts}
+- Secondary concepts: {philo_concepts}
 - Related terms: {related_terms}
 
 Generate 4 search queries that will retrieve diverse, relevant passages:
 
-1. NEUROSCIENCE query: Use specific brain regions, neurotransmitters, psychological mechanisms
-2. PHILOSOPHY query: Use specific traditions, authors, philosophical concepts
-3. BRIDGING query: Connect scientific and philosophical perspectives
-4. BROAD query: Use the core topic in accessible language
+1. TECHNICAL query: Use specific mechanisms, processes, or technical terminology
+2. CONCEPTUAL query: Use theoretical frameworks, schools of thought, or abstract concepts
+3. APPLIED query: Focus on practical applications or real-world examples
+4. BROAD query: Use the core topic in accessible, general language
 
 Each query should be 8-15 words. Mix conceptual phrases with specific vocabulary.
 
 Respond with JSON:
 {{
   "queries": [
-    {{"type": "neuroscience", "query": "..."}},
-    {{"type": "philosophy", "query": "..."}},
-    {{"type": "bridging", "query": "..."}},
+    {{"type": "technical", "query": "..."}},
+    {{"type": "conceptual", "query": "..."}},
+    {{"type": "applied", "query": "..."}},
     {{"type": "broad", "query": "..."}}
   ]
 }}"""
@@ -192,43 +166,33 @@ Respond with JSON:
 
 DECOMPOSITION_PROMPT = """You break down complex questions into simpler sub-questions for a knowledge retrieval system.
 
-The knowledge base contains:
-- NEUROSCIENCE: Brain mechanisms, neurotransmitters, emotions, decision-making, consciousness
-- PHILOSOPHY:
-  - Stoicism: Marcus Aurelius, Seneca, Epictetus
-  - Schopenhauer: will, suffering, contentment
-  - Taoism: Lao Tzu, wu-wei, naturalness
-  - Confucianism: Confucius, virtue, relationships
-  - Gracian: practical wisdom, prudence
-  - Kahneman: cognitive biases, System 1/2
-
 TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently.
 
 RULES:
-1. Each sub-question should be self-contained and answerable from a single domain
+1. Each sub-question should be self-contained and answerable from the document collection
 2. Include a synthesis question if the original asks for comparison or integration
-3. Use specific terminology from the knowledge base
+3. Use specific terminology relevant to the topic
 4. Keep sub-questions focused (not too broad)
 
 EXAMPLES:
 
-Question: "Compare Stoic and Schopenhauer's approaches to suffering"
+Question: "Compare different approaches to managing stress"
 Sub-questions:
-1. "What is the Stoic view on suffering and how to overcome it?"
-2. "What is Schopenhauer's teaching on suffering and the will?"
-3. "How do Stoic and Schopenhauer approaches to suffering differ?"
+1. "What are the main psychological techniques for stress management?"
+2. "What are the physiological approaches to reducing stress?"
+3. "How do psychological and physiological stress management methods complement each other?"
 
-Question: "How does neuroscience explain what philosophers call akrasia?"
+Question: "How do experts explain the causes of procrastination?"
 Sub-questions:
-1. "What is akrasia in philosophy and which philosophers discussed it?"
-2. "What brain mechanisms are involved in self-control failures?"
-3. "How do prefrontal-limbic interactions relate to weakness of will?"
+1. "What cognitive factors contribute to procrastination?"
+2. "What emotional and motivational factors lead to procrastination?"
+3. "What strategies are recommended to overcome procrastination?"
 
-Question: "What do both science and ancient wisdom say about anger management?"
+Question: "What are the benefits and drawbacks of remote work?"
 Sub-questions:
-1. "What brain mechanisms underlie anger and its regulation?"
-2. "What did Seneca and the Stoics teach about managing anger?"
-3. "How do modern psychology findings align with ancient anger management wisdom?"
+1. "What are the productivity benefits of remote work?"
+2. "What challenges do remote workers face?"
+3. "How can organizations balance remote work benefits with its challenges?"
 
 Now decompose this question:
 Question: "{query}"

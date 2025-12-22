@@ -28,9 +28,6 @@ from typing import List, Dict, Any, Optional, Tuple
 from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
-    ENABLE_DIVERSITY_BALANCING,
-    DIVERSITY_MIN_SCORE,
-    DIVERSITY_BALANCE,
 )
 from src.rag_pipeline.indexing import get_client, query_similar, query_hybrid, SearchResult
 
@@ -44,17 +41,15 @@ from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion, RRFResult
 
 @dataclass
 class SearchOutput:
-    """Result of search operation including optional rerank, RRF, and diversity data.
+    """Result of search operation including optional rerank and RRF data.
 
     Attributes:
         results: List of chunk dictionaries.
         rerank_data: If reranking was used, contains RerankResult for logging.
-        diversity_data: If diversity balancing was applied, contains DiversityResult.
         rrf_data: If RRF merging was used, contains RRFResult for logging.
     """
     results: List[Dict[str, Any]] = field(default_factory=list)
     rerank_data: Optional[Any] = None  # RerankResult when reranking is used
-    diversity_data: Optional[Any] = None  # DiversityResult when balancing is used
     rrf_data: Optional[Any] = None  # RRFResult when multi-query is used
 
 
@@ -231,19 +226,6 @@ def search_chunks(
         finally:
             client.close()
 
-    # Apply diversity balancing if enabled (works for both paths)
-    diversity_data = None
-    if ENABLE_DIVERSITY_BALANCING and results:
-        from src.rag_pipeline.retrieval.diversification import apply_diversity_balance
-        diversity_result = apply_diversity_balance(
-            results=results,
-            target_count=top_k,
-            balance=DIVERSITY_BALANCE,
-            min_score=DIVERSITY_MIN_SCORE,
-        )
-        results = diversity_result.results
-        diversity_data = diversity_result
-
     # Convert SearchResult objects to dicts for Streamlit
     result_dicts = [
         {
@@ -261,7 +243,6 @@ def search_chunks(
     return SearchOutput(
         results=result_dicts,
         rerank_data=rerank_data,
-        diversity_data=diversity_data,
         rrf_data=rrf_data,
     )
 

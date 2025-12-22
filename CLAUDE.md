@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RAG1-Mini is a Retrieval-Augmented Generation pipeline for creating a hybrid neuroscientist + philosopher AI. It processes 19 books (8 neuroscience, 11 philosophy/wisdom) through a 6-stage pipeline: extraction, cleaning, segmentation, chunking, embedding, and vector storage.
+RAG1-Mini is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline: extraction, cleaning, segmentation, chunking, embedding, vector storage, query/search, and answer generation.
 
 ## Environment Setup
 
@@ -58,7 +58,7 @@ The codebase is organized into two main phases for learners:
 
 ```
 src/
-├── content_preparation/          # Phase 1: Book -> Text (Stages 1-3)
+├── content_preparation/          # Phase 1: Documents -> Text (Stages 1-3)
 │   ├── extraction/               # Stage 1: PDF -> Markdown
 │   ├── cleaning/                 # Stage 2: Clean Markdown
 │   └── segmentation/             # Stage 3: Sentence splits
@@ -70,7 +70,6 @@ src/
 │   ├── retrieval/                # Stage 7: Query -> Chunks
 │   │   ├── preprocessing/        # Query transformation
 │   │   ├── reranking.py          # Cross-encoder
-│   │   ├── diversification.py    # Source balancing
 │   │   └── rrf.py                # Multi-query fusion
 │   └── generation/               # Stage 8: Chunks -> Answer
 │
@@ -105,8 +104,8 @@ src/
 - `WEAVIATE_HTTP_PORT = 8080` - REST API port
 - `WEAVIATE_GRPC_PORT = 50051` - gRPC port (v4 client)
 - `get_collection_name()` - Auto-generates collection name from strategy/model/version
-- `PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"` - Query preprocessing model
-- `GENERATION_MODEL = "openai/gpt-5-mini"` - Answer generation model
+- `PREPROCESSING_MODEL` - Query preprocessing model (configurable)
+- `GENERATION_MODEL` - Answer generation model (configurable)
 
 ## Memory Bank
 
@@ -176,8 +175,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Domain-agnostic refactoring: removed book categories, diversification, generalized prompts (Dec 22)
 - Removed query classification + unified answer prompt (~170 lines removed) (Dec 22)
 - Pydantic structured outputs for LLM responses with JSON Schema enforcement (Dec 22)
 - Major codebase refactoring: Two-phase architecture (content_preparation/, rag_pipeline/) for pedagogical clarity (Dec 21)
 - Unified OpenRouter API client (src/shared/openrouter_client.py) replacing 3 duplicate implementations (Dec 21)
-- Phase 4: Query Decomposition strategy (Dec 21)

@@ -1,12 +1,12 @@
 # RAG1-Mini
 
-A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates a specialized AI combining cognitive neuroscience with philosophical wisdom to answer questions about human behavior.
+A production-quality Retrieval-Augmented Generation (RAG) pipeline designed for learning and experimentation. Process any document collection through an 8-stage pipeline to build a searchable knowledge base with AI-powered answers.
 
 ## Highlights
 
-- **19 Books Processed**: 8 neuroscience texts + 11 philosophy/wisdom books
-- **6,245 Semantic Chunks**: Section-aware chunking with sentence overlap
-- **8-Stage Pipeline**: Extraction, Cleaning, Segmentation, Chunking, Embedding, Vector Storage, Search UI, RAGAS Evaluation
+- **Full RAG Pipeline**: 8 stages from PDF extraction to answer generation
+- **Section-Aware Chunking**: Intelligent text segmentation with overlap
+- **Advanced Retrieval**: Hybrid search, query preprocessing, cross-encoder reranking
 - **Clean Architecture**: Function-based design with fail-fast error handling
 
 ## Technologies
@@ -26,7 +26,7 @@ A production-quality Retrieval-Augmented Generation (RAG) pipeline that creates 
 ## Pipeline Overview
 
 ```
-PDF Files (19)
+PDF Documents
      |
      v
 +-----------------------+
@@ -113,13 +113,8 @@ RAG1-Mini: A Teaching RAG Pipeline
          ↓
    ┌─────────────────────────────────────────────────────┐
    │              RETRIEVAL (Stage 7)                    │
-   │  Query → Preprocess → Search → Rerank → Diversify  │
+   │  Query → Preprocess → Search → Rerank → Generate   │
    └─────────────────────────────────────────────────────┘
-         ↓
-   ┌─────────────┐
-   │ Generation  │
-   │  (Answer)   │
-   └─────────────┘
 ```
 
 ### Directory Layout
@@ -127,7 +122,7 @@ RAG1-Mini: A Teaching RAG Pipeline
 ```
 rag1-mini/
 ├── src/
-│   ├── content_preparation/         # Phase 1: Book → Text
+│   ├── content_preparation/         # Phase 1: Documents → Text
 │   │   ├── extraction/              # Stage 1: PDF → Markdown
 │   │   │   └── docling_parser.py
 │   │   ├── cleaning/                # Stage 2: Clean Markdown
@@ -146,7 +141,6 @@ rag1-mini/
 │   │   ├── retrieval/               # Stage 7: Query → Chunks
 │   │   │   ├── preprocessing/       # Query transformation
 │   │   │   ├── reranking.py         # Cross-encoder
-│   │   │   ├── diversification.py   # Source balancing
 │   │   │   └── rrf.py               # Multi-query fusion
 │   │   └── generation/              # Stage 8: Chunks → Answer
 │   │       └── answer_generator.py
@@ -166,43 +160,16 @@ rag1-mini/
 │   └── config.py                    # Central configuration
 │
 ├── data/
-│   ├── raw/                         # Original PDFs (19 files)
+│   ├── raw/                         # Original PDF documents
 │   └── processed/
 │       ├── 01_raw_extraction/       # Stage 1 output
 │       ├── 02_manual_review/        # Manual review
 │       ├── 03_markdown_cleaning/    # Stage 2 output
 │       ├── 04_nlp_chunks/           # Stage 3 output
-│       ├── 05_final_chunks/         # Stage 4 output (6,245 chunks)
+│       ├── 05_final_chunks/         # Stage 4 output
 │       └── 06_embeddings/           # Stage 5 output
 └── memory-bank/                     # Project documentation
 ```
-
-## Content Library
-
-### Neuroscience (8 books)
-
-| Author | Title |
-|--------|-------|
-| Robert Sapolsky | Behave, Determined |
-| David Eagleman & Jonathan Downar | Brain and Behavior |
-| John Pinel & Steven Barnes | Biopsychology |
-| Michael Gazzaniga | Cognitive Neuroscience |
-| Luca Tommasi et al. | Cognitive Biology |
-| Nicole Gage & Bernard | Fundamentals of Cognitive Neuroscience |
-| Fountoulakis & Nimatoudis | Psychobiology of Behaviour |
-
-### Philosophy & Wisdom (11 books)
-
-| Author | Title |
-|--------|-------|
-| Daniel Kahneman | Thinking, Fast and Slow |
-| Marcus Aurelius | Meditations |
-| Epictetus | The Enchiridion, The Art of Living |
-| Seneca | Letters from a Stoic |
-| Arthur Schopenhauer | Essays, Counsels and Maxims, Wisdom of Life |
-| Confucius | The Analects |
-| Lao Tzu | Tao Te Ching |
-| Baltasar Gracian | The Pocket Oracle and Art of Prudence |
 
 ## Technical Design
 
@@ -239,7 +206,6 @@ This project implements advanced RAG patterns from recent research:
 | **Multi-Query + RRF** | Generates targeted queries, merges with Reciprocal Rank Fusion | [Query Decomposition](https://arxiv.org/html/2507.00355v1) |
 | **Query Decomposition** | Breaks complex questions into sub-queries (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
-| **Source Diversification** | Balances results across domains | Custom implementation |
 | **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |
 | **RAGAS Evaluation** | LLM-as-judge via LangChain wrapper (faithfulness, relevancy, context precision) | [RAGAS framework](https://docs.ragas.io/) |

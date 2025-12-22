@@ -25,7 +25,6 @@ Usage Examples:
 
     # Run on subset of questions
     python -m src.stages.run_stage_7_evaluation --questions 5
-    python -m src.stages.run_stage_7_evaluation --category philosophy
 
     # Use different models
     python -m src.stages.run_stage_7_evaluation --generation-model openai/gpt-4o
@@ -36,7 +35,6 @@ Usage Examples:
 
 Arguments:
     -n, --questions N         Limit to first N questions
-    -c, --category CATEGORY   Filter: neuroscience|philosophy|synthesis|open_ended
     -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision)
     -k, --top-k K             Chunks to retrieve per question (default: 10)
     -a, --alpha ALPHA         Hybrid search balance: 0.0=keyword, 0.5=balanced, 1.0=vector
@@ -105,7 +103,6 @@ EVALUATION_RUNS_FILE = PROJECT_ROOT / "data" / "evaluation" / "evaluation_runs.j
 def load_test_questions(
     filepath: Path = TEST_QUESTIONS_FILE,
     limit: Optional[int] = None,
-    category: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Load test questions from JSON file.
@@ -113,7 +110,6 @@ def load_test_questions(
     Args:
         filepath: Path to test questions JSON.
         limit: Max number of questions to load.
-        category: Filter by category (neuroscience, philosophy, synthesis, open_ended).
 
     Returns:
         List of question dictionaries.
@@ -131,11 +127,6 @@ def load_test_questions(
         data = json.load(f)
 
     questions = data.get("questions", [])
-
-    # Filter by category if specified
-    if category:
-        questions = [q for q in questions if q.get("category") == category]
-        logger.info(f"Filtered to {len(questions)} questions in category: {category}")
 
     # Limit number of questions
     if limit and limit < len(questions):
@@ -483,14 +474,6 @@ def main():
         help="Limit to first N questions",
     )
     parser.add_argument(
-        "--category",
-        "-c",
-        type=str,
-        choices=["neuroscience", "philosophy", "synthesis", "open_ended"],
-        default=None,
-        help="Filter by question category",
-    )
-    parser.add_argument(
         "--metrics",
         "-m",
         nargs="+",
@@ -558,7 +541,7 @@ def main():
         "--preprocessing",
         "-p",
         type=str,
-        choices=["none", "baseline", "step_back", "multi_query", "decomposition"],
+        choices=["none", "step_back", "multi_query", "decomposition"],
         default="none",
         help="Query preprocessing strategy (default: none for clean baseline)",
     )
@@ -575,7 +558,6 @@ def main():
     logger.info("Loading test questions...")
     questions = load_test_questions(
         limit=args.questions,
-        category=args.category,
     )
 
     if not questions:

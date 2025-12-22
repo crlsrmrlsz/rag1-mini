@@ -213,56 +213,9 @@ def get_collection_name() -> str:
 # UI SETTINGS
 # ============================================================================
 
-# Book categories for UI display (organized by domain)
-BOOK_CATEGORIES = {
-    "neuroscience": [
-        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
-        "Biopsychology (John Pinel, Steven Barnes)",
-        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
-        "Cognitive Biology , Evolutionary and Developmental Perspectives on Mind Brain and Behavior (Luca Tommasi, Mary A.Peterson, Lynn Nadel)",
-        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
-        "Determined, a science of life without free will (Robert M. Sapolsky)",
-        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)",
-        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
-    ],
-    "philosophy": [
-        "Essays and Aphorisms (Arthur Schopenhauer)",
-        "Letters from a Stoic (Seneca)",
-        "Tao te ching Lao_tzu (Lao Tzu)",
-        "The Analects Conclusions and Conversations (Confucius)",
-        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
-        "The Enchiridion (Epictetus)",
-        "The Meditations (Marcus Aurelius)",
-        "The Pocket Oracle and Art of Prudence (Baltasar Gracian)",
-        "The essays, counsels and maxims (Arthur Schopenhauer)",
-        "Thinking Fast and Slow (Daniel Kahneman)",
-        "Wisdom of Life (Schopenhauer)",
-    ],
-}
-
 # Search UI defaults
 DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
-
-
-# ============================================================================
-# DIVERSITY BALANCING SETTINGS
-# ============================================================================
-
-# Enable/disable diversity balancing globally
-ENABLE_DIVERSITY_BALANCING = True
-
-# Minimum score threshold (results below excluded)
-# NOTE: RRF scores range ~0.01-0.08 (formula: 1/(60+rank)), not 0-1
-# Set to 0.0 to disable threshold, or use very low values for RRF
-DIVERSITY_MIN_SCORE = 0.0
-
-# Target distribution by category (must sum to 1.0)
-# Used to calculate how many slots each category gets
-DIVERSITY_BALANCE = {
-    "neuroscience": 0.6,
-    "philosophy": 0.4,
-}
 
 
 # ============================================================================

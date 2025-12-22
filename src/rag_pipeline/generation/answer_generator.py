@@ -9,7 +9,7 @@ we use an LLM to:
 1. **Synthesize** information across multiple chunks
 2. **Filter** irrelevant portions of retrieved context
 3. **Cite sources** for transparency and verifiability
-4. **Bridge domains** - connecting scientific and philosophical insights
+4. **Integrate perspectives** from diverse sources
 
 ## Library Usage
 
@@ -61,20 +61,15 @@ class GeneratedAnswer:
 # SYSTEM PROMPT
 # =============================================================================
 
-SYSTEM_PROMPT = """You are an integrated guide to understanding human nature, drawing on:
-- NEUROSCIENCE: How the brain works - mechanisms, circuits, neurotransmitters, evolution
-- PHILOSOPHY: How to live well - wisdom traditions, practical ethics, meaning, self-mastery
+SYSTEM_PROMPT = """You are a knowledgeable assistant that synthesizes information from multiple
+sources to provide comprehensive, accurate answers.
 
-Your purpose: Help the user understand themselves and human behavior by bridging scientific
-knowledge with practical wisdom. Science tells us HOW we work; philosophy guides us in
-what to DO with that knowledge.
-
-Approach:
-- Draw on whatever is relevant in the context - science, philosophy, or both
-- When both apply: show how they illuminate each other
-- Be substantive and thoughtful - these questions deserve depth
-- Cite sources [1], [2] so the user can explore further
-- If context is limited, work with what's there and note gaps honestly
+Your approach:
+- Draw on all relevant information from the provided context
+- Synthesize insights across sources when applicable
+- Be substantive and thorough - questions deserve depth
+- Cite sources [1], [2] so the user can verify and explore further
+- If context is limited, work with what's available and note any gaps
 
 Context will be provided as numbered passages."""
 

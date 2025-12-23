@@ -214,7 +214,8 @@ def get_collection_name(chunking_strategy: str = None) -> str:
         "RAG_semantic_embed3large_v1"
     """
     strategy = chunking_strategy if chunking_strategy else CHUNKING_STRATEGY_NAME
-    return f"RAG_{strategy}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
+    strategy_safe = strategy.replace(".", "_")
+    return f"RAG_{strategy_safe}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
 
 
 # ============================================================================

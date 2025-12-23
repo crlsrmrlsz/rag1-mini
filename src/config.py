@@ -334,8 +334,20 @@ DEFAULT_CHUNKING_STRATEGY = "section"
 # Semantic chunking parameters
 # Threshold for cosine similarity between adjacent sentences
 # Lower = fewer splits (larger chunks), Higher = more splits (smaller chunks)
-# Topic shifts typically drop below 0.6, so 0.5 catches only major topic changes
-SEMANTIC_SIMILARITY_THRESHOLD = 0.5
+#
+# References:
+# - arXiv:2410.13070 (Oct 2024): Tested absolute thresholds [0.1-0.5], found
+#   absolute thresholds more consistent than percentile-based across corpus sizes
+# - LlamaIndex/LangChain: Use 95th percentile of cosine distances (Kamradt method)
+# - Chroma Research: Excerpt relevance filtering at 0.40-0.43 cosine similarity
+#
+# Tuning notes:
+# - 0.75: Too aggressive (small chunks, fragmented topics)
+# - 0.5: Conservative, major topic shifts only
+# - 0.4: Recommended default (aligns with Chroma 0.40-0.43 range)
+# - 0.3: Test value for maximum context grouping
+# Note: MAX_CHUNK_TOKENS (800) limits chunk size regardless of threshold
+SEMANTIC_SIMILARITY_THRESHOLD = 0.4  # Default; test 0.3 for larger groups
 
 # Contextual chunking parameters (Anthropic-style)
 # Model for generating contextual snippets (fast, cheap model recommended)

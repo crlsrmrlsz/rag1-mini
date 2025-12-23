@@ -516,14 +516,14 @@ def main():
     parser.add_argument(
         "--reranking",
         action="store_true",
-        default=True,
-        help="Enable cross-encoder reranking (default: True)",
+        default=False,
+        help="Enable cross-encoder reranking",
     )
     parser.add_argument(
         "--no-reranking",
         dest="reranking",
         action="store_false",
-        help="Disable cross-encoder reranking",
+        help="Disable cross-encoder reranking (default)",
     )
     parser.add_argument(
         "--collection",

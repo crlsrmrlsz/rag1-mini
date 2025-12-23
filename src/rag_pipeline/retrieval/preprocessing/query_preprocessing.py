@@ -81,98 +81,123 @@ class PreprocessedQuery:
 # STEP-BACK PROMPTING
 # =============================================================================
 
-STEP_BACK_PROMPT = """You are a retrieval assistant. Given a user question, identify broader concepts
-and principles that would help retrieve relevant information from a document collection.
+STEP_BACK_PROMPT = """You are a retrieval assistant for a knowledge base covering:
+{corpus_topics}
 
-The knowledge base covers: {corpus_topics}
+This corpus spans TWO DOMAINS:
+1. NEUROSCIENCE: Brain mechanisms, neural circuits, cognitive processes, behavioral biology
+2. WISDOM TRADITIONS: Stoic, Taoist, Confucian, and Schopenhauerian philosophy
 
-TASK: Generate an effective search query that captures the underlying concepts.
+TASK: Transform the user's question into a search query that captures BOTH domains.
 
 PROCESS:
-1. Identify the CORE TOPIC: What is the user fundamentally asking about?
-2. Identify RELATED CONCEPTS: What foundational ideas, mechanisms, or principles relate?
-3. Use CONCRETE VOCABULARY: Include specific terms likely to appear in relevant documents
-4. BROADEN appropriately: Step back from specific details to capture the general theme
+1. Identify the CORE THEME: What is the user fundamentally asking about?
+2. Extract MECHANISM concepts: How does the brain/biology handle this? (technical terms)
+3. Extract PRINCIPLE concepts: What do wisdom traditions say? (philosophical terms)
+4. Combine into a query using vocabulary from BOTH domains
 
-EXAMPLES:
-User: "Why do I feel anxious before presentations?"
-Query: "anxiety fear response public speaking stress performance social evaluation"
+CROSS-DOMAIN EXAMPLES:
+
+User: "How can I control my impulses?"
+Query: "self-control prefrontal cortex impulse regulation willpower Stoic desire mastery virtue temperance"
+
+User: "Why do we fear death?"
+Query: "mortality fear amygdala terror management anxiety Stoic death acceptance memento mori tranquility"
 
 User: "How do I make better decisions?"
-Query: "decision making cognitive processes judgment reasoning choice evaluation"
+Query: "decision-making cognitive biases System 1 System 2 heuristics Stoic prudence practical wisdom deliberation"
 
-User: "What causes procrastination?"
-Query: "procrastination delay motivation self-control temporal discounting willpower"
+User: "Why do we procrastinate?"
+Query: "procrastination temporal discounting dopamine reward delay self-control Stoic present moment virtue action"
 
-Generate ONLY the search query. Use 10-20 words of relevant concepts and terms."""
+Generate ONLY the search query. Use 12-20 words spanning both neuroscience and philosophy vocabulary."""
 
 
 # =============================================================================
 # MULTI-QUERY PROMPTS
 # =============================================================================
 
-PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question for a knowledge retrieval system.
+PRINCIPLE_EXTRACTION_PROMPT = """You are analyzing a question for a cross-domain knowledge retrieval system.
 
-The knowledge base covers: {corpus_topics}
+The knowledge base covers:
+{corpus_topics}
 
-Given this question, extract the KEY UNDERLYING CONCEPTS that would help retrieve relevant passages from this document collection.
+DOMAIN STRUCTURE:
+- NEUROSCIENCE: Brain mechanisms, neural pathways, hormones, cognitive processes
+- PHILOSOPHY: Stoic, Taoist, Confucian, Schopenhauerian wisdom traditions
+
+Given this question, extract concepts that will retrieve passages from BOTH domains.
 
 Question: "{query}"
 
 Identify:
-1. CORE TOPIC: The fundamental subject in 3-5 words
-2. PRIMARY CONCEPTS: Specific mechanisms, theories, or frameworks (2-3 items)
-3. SECONDARY CONCEPTS: Related ideas, schools of thought, or approaches (2-3 items)
-4. RELATED TERMS: Vocabulary likely to appear in relevant passages (3-5 items)
+1. CORE THEME: The fundamental subject (3-5 words)
+2. MECHANISM TERMS: Brain/biological vocabulary (3-4 specific terms)
+   - Include: brain regions, neurotransmitters, cognitive processes, psychological mechanisms
+3. PRINCIPLE TERMS: Philosophical vocabulary (3-4 specific terms)
+   - Include: virtues, practices, concepts from Stoic/Taoist/Confucian traditions
+4. BRIDGE TERMS: Cross-domain vocabulary that appears in both (2-3 terms)
+   - These are concepts discussed by both neuroscientists and philosophers
 
 EXAMPLES:
 
-Question: "Why do we procrastinate?"
+Question: "How do I overcome fear?"
 {{
-  "core_topic": "procrastination and self-control",
-  "primary_concepts": ["temporal discounting", "motivation", "willpower"],
-  "secondary_concepts": ["self-regulation", "delay of gratification"],
-  "related_terms": ["avoidance", "task aversion", "impulsivity", "planning"]
+  "core_theme": "fear regulation and courage",
+  "mechanism_terms": ["amygdala", "fear extinction", "stress response", "cortisol"],
+  "principle_terms": ["Stoic courage", "acceptance", "premeditatio malorum", "equanimity"],
+  "bridge_terms": ["resilience", "emotional regulation", "self-mastery"]
 }}
 
-Question: "How should I deal with anxiety?"
+Question: "What causes addiction?"
 {{
-  "core_topic": "anxiety management",
-  "primary_concepts": ["stress response", "fear regulation", "coping mechanisms"],
-  "secondary_concepts": ["cognitive reframing", "acceptance"],
-  "related_terms": ["worry", "calm", "relaxation", "mindfulness", "exposure"]
+  "core_theme": "addiction and desire",
+  "mechanism_terms": ["dopamine", "reward circuitry", "nucleus accumbens", "tolerance"],
+  "principle_terms": ["desire mastery", "attachment", "will", "temperance"],
+  "bridge_terms": ["craving", "self-control", "habituation"]
 }}
 
-Now extract concepts for:
+Now extract for:
 Question: "{query}"
 
 Respond with JSON only."""
 
 
-MULTI_QUERY_PROMPT = """Generate targeted search queries for a document retrieval system.
+MULTI_QUERY_PROMPT = """Generate targeted search queries for a cross-domain knowledge retrieval system.
 
 Original question: "{query}"
 
 Extracted concepts:
-- Core topic: {core_topic}
-- Primary concepts: {primary_concepts}
-- Secondary concepts: {secondary_concepts}
-- Related terms: {related_terms}
+- Core theme: {core_theme}
+- Mechanism terms: {mechanism_terms}
+- Principle terms: {principle_terms}
+- Bridge terms: {bridge_terms}
 
-Generate 4 diverse search queries (8-15 words each) to retrieve relevant passages:
+CORPUS STRUCTURE:
+- Neuroscience texts explain HOW (mechanisms, processes, brain function)
+- Philosophy texts explain WHY and WHAT TO DO (principles, virtues, practices)
 
-1. TECHNICAL: Use specific mechanisms, processes, or terminology from the primary concepts
-2. CONCEPTUAL: Use frameworks, theories, or abstract ideas from the secondary concepts
-3. APPLIED: Focus on practical applications, examples, or real-world scenarios
-4. BROAD: Use the core topic with accessible vocabulary
+Generate 4 diverse search queries (10-15 words each):
+
+1. MECHANISM: Focus on brain/biological processes using mechanism_terms
+   Target: neuroscience, cognitive psychology, behavioral biology texts
+
+2. PRINCIPLE: Focus on wisdom/guidance using principle_terms
+   Target: Stoic, Taoist, Confucian, philosophical texts
+
+3. SYNTHESIS: Combine mechanism + principle vocabulary
+   Target: passages that bridge scientific and philosophical perspectives
+
+4. ACCESSIBLE: Use everyday language and bridge_terms
+   Target: introductory passages, analogies, practical applications
 
 Respond with JSON:
 {{
   "queries": [
-    {{"type": "technical", "query": "..."}},
-    {{"type": "conceptual", "query": "..."}},
-    {{"type": "applied", "query": "..."}},
-    {{"type": "broad", "query": "..."}}
+    {{"type": "mechanism", "query": "..."}},
+    {{"type": "principle", "query": "..."}},
+    {{"type": "synthesis", "query": "..."}},
+    {{"type": "accessible", "query": "..."}}
   ]
 }}"""
 
@@ -181,39 +206,45 @@ Respond with JSON:
 # DECOMPOSITION PROMPTS
 # =============================================================================
 
-DECOMPOSITION_PROMPT = """You break down complex questions into simpler sub-questions for a knowledge retrieval system.
+DECOMPOSITION_PROMPT = """You break down complex questions for a cross-domain knowledge retrieval system.
 
-The knowledge base covers: {corpus_topics}
+The knowledge base covers:
+{corpus_topics}
 
-TASK: Decompose this complex question into 2-4 simpler sub-questions that can be answered independently from this document collection.
+DOMAIN STRUCTURE:
+- NEUROSCIENCE domain: Explains HOW (brain mechanisms, biological processes)
+- PHILOSOPHY domain: Explains WHY and WHAT TO DO (wisdom, virtues, practices)
 
-RULES:
-1. Each sub-question should be self-contained and answerable from the document collection
-2. Include a synthesis question if the original asks for comparison or integration
-3. Use specific terminology relevant to the topic
-4. Keep sub-questions focused (not too broad)
+TASK: Decompose this question into 3-4 sub-questions that target different aspects:
 
-EXAMPLES:
+DECOMPOSITION STRATEGY:
+1. First, identify if the question spans both domains (most do)
+2. Create sub-questions that:
+   - MECHANISM: Ask "how does the brain/body handle this?"
+   - PRINCIPLE: Ask "what do wisdom traditions advise?"
+   - SYNTHESIS: Ask "how do these perspectives connect?"
 
-Question: "Compare different approaches to managing stress"
+CROSS-DOMAIN EXAMPLES:
+
+Question: "How can I become less anxious?"
 Sub-questions:
-1. "What are the main psychological techniques for stress management?"
-2. "What are the physiological approaches to reducing stress?"
-3. "How do psychological and physiological stress management methods complement each other?"
+1. "What brain mechanisms underlie anxiety and the stress response?"
+2. "What do Stoic philosophers teach about managing worry and fear?"
+3. "How do modern stress-reduction techniques relate to ancient wisdom practices?"
 
-Question: "How do experts explain the causes of procrastination?"
+Question: "Why is self-control so hard?"
 Sub-questions:
-1. "What cognitive factors contribute to procrastination?"
-2. "What emotional and motivational factors lead to procrastination?"
-3. "What strategies are recommended to overcome procrastination?"
+1. "How does the prefrontal cortex regulate impulses and what causes self-control failure?"
+2. "What techniques do Stoics and Taoists recommend for mastering desires?"
+3. "How do philosophical concepts of willpower compare to neuroscience findings?"
 
-Question: "What are the benefits and drawbacks of remote work?"
+Question: "What makes people happy?"
 Sub-questions:
-1. "What are the productivity benefits of remote work?"
-2. "What challenges do remote workers face?"
-3. "How can organizations balance remote work benefits with its challenges?"
+1. "What does neuroscience reveal about reward systems and hedonic adaptation?"
+2. "How do Stoic, Buddhist, and Schopenhauerian views define happiness and contentment?"
+3. "Where do scientific and philosophical accounts of well-being converge?"
 
-Now decompose this question:
+Now decompose:
 Question: "{query}"
 
 Respond with JSON:
@@ -271,10 +302,10 @@ def step_back_prompt(query: str, model: Optional[str] = None) -> str:
 
 
 def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any]:
-    """Extract underlying principles and concepts from a query.
+    """Extract domain-aware concepts from a query for cross-domain retrieval.
 
-    This is the first step of multi-query generation, identifying the
-    core concepts that should inform query generation. Uses Pydantic
+    This is the first step of multi-query generation, extracting concepts
+    that span both neuroscience and philosophy domains. Uses Pydantic
     PrincipleExtraction schema for type-safe extraction.
 
     Args:
@@ -282,13 +313,15 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
         model: Override model (defaults to PREPROCESSING_MODEL).
 
     Returns:
-        Dictionary with core_topic, neuroscience_concepts,
-        philosophical_concepts, and related_terms.
+        Dictionary with core_theme, mechanism_terms (neuroscience),
+        principle_terms (philosophy), and bridge_terms (cross-domain).
 
     Example:
         >>> result = extract_principles("Why do we need approval?")
-        >>> result["core_topic"]
+        >>> result["core_theme"]
         "social validation and emotional reward"
+        >>> result["mechanism_terms"]
+        ["dopamine", "reward circuitry", "social cognition"]
     """
     model = model or PREPROCESSING_MODEL
 
@@ -316,12 +349,12 @@ def extract_principles(query: str, model: Optional[str] = None) -> Dict[str, Any
 
     except (PydanticValidationError, Exception) as e:
         logger.warning(f"Principle extraction error: {e}")
-        # Return minimal default
+        # Return minimal default with domain-aware field names
         return {
-            "core_topic": query,
-            "primary_concepts": [],
-            "secondary_concepts": [],
-            "related_terms": [],
+            "core_theme": query,
+            "mechanism_terms": [],
+            "principle_terms": [],
+            "bridge_terms": [],
         }
 
 
@@ -332,17 +365,17 @@ def generate_multi_queries(
 ) -> List[Dict[str, str]]:
     """Generate multiple targeted search queries from extracted principles.
 
-    Creates 4 diverse queries targeting different aspects of the knowledge base:
-    - technical: Specific mechanisms, processes, or terminology
-    - conceptual: Frameworks, theories, or abstract ideas
-    - applied: Practical applications or real-world scenarios
-    - broad: Core topic in accessible language
+    Creates 4 diverse queries targeting different domains of the knowledge base:
+    - mechanism: Brain/biological processes (targets neuroscience texts)
+    - principle: Wisdom/guidance (targets philosophical texts)
+    - synthesis: Combined mechanism + principle vocabulary (bridges domains)
+    - accessible: Everyday language (targets introductory passages)
 
     Uses Pydantic MultiQueryResult schema for type-safe extraction.
 
     Args:
         query: Original user query.
-        principles: Output from extract_principles().
+        principles: Output from extract_principles() with domain-aware fields.
         model: Override model.
 
     Returns:
@@ -358,10 +391,10 @@ def generate_multi_queries(
 
     prompt = MULTI_QUERY_PROMPT.format(
         query=query,
-        core_topic=principles.get("core_topic", query),
-        primary_concepts=", ".join(principles.get("primary_concepts", [])),
-        secondary_concepts=", ".join(principles.get("secondary_concepts", [])),
-        related_terms=", ".join(principles.get("related_terms", [])),
+        core_theme=principles.get("core_theme", query),
+        mechanism_terms=", ".join(principles.get("mechanism_terms", [])),
+        principle_terms=", ".join(principles.get("principle_terms", [])),
+        bridge_terms=", ".join(principles.get("bridge_terms", [])),
     )
 
     messages = [

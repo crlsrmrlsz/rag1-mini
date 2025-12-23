@@ -34,35 +34,36 @@ from pydantic import BaseModel, Field
 
 
 class PrincipleExtraction(BaseModel):
-    """Extracted principles and concepts from a query.
+    """Extracted concepts from a query - cross-domain aware.
 
     Used by: extract_principles()
 
-    Contains the semantic decomposition of a query into domain-agnostic
-    concepts. This is the first step of multi-query generation, identifying
+    Contains the semantic decomposition of a query into domain-specific
+    concepts for a dual-domain corpus (neuroscience + philosophy).
+    This is the first step of multi-query generation, identifying
     the core concepts that should inform query generation.
 
     Example response:
         {
-            "core_topic": "procrastination and self-control",
-            "primary_concepts": ["temporal discounting", "motivation", "willpower"],
-            "secondary_concepts": ["self-regulation", "delay of gratification"],
-            "related_terms": ["avoidance", "task aversion", "impulsivity"]
+            "core_theme": "fear regulation and courage",
+            "mechanism_terms": ["amygdala", "fear extinction", "stress response", "cortisol"],
+            "principle_terms": ["Stoic courage", "acceptance", "premeditatio malorum"],
+            "bridge_terms": ["resilience", "emotional regulation", "self-mastery"]
         }
     """
 
-    core_topic: str = Field(description="The fundamental subject of the query")
-    primary_concepts: List[str] = Field(
+    core_theme: str = Field(description="The fundamental subject (3-5 words)")
+    mechanism_terms: List[str] = Field(
         default_factory=list,
-        description="Specific mechanisms, theories, or frameworks",
+        description="Brain/biological vocabulary: brain regions, neurotransmitters, cognitive processes",
     )
-    secondary_concepts: List[str] = Field(
+    principle_terms: List[str] = Field(
         default_factory=list,
-        description="Related ideas, schools of thought, or approaches",
+        description="Philosophical vocabulary: virtues, practices, wisdom concepts",
     )
-    related_terms: List[str] = Field(
+    bridge_terms: List[str] = Field(
         default_factory=list,
-        description="Vocabulary likely to appear in relevant passages",
+        description="Cross-domain vocabulary that appears in both domains",
     )
 
 
@@ -70,19 +71,19 @@ class GeneratedQuery(BaseModel):
     """A single generated search query with its type.
 
     Part of multi-query generation. Each query targets a specific
-    aspect of the knowledge base for diverse retrieval.
+    domain of the knowledge base for diverse cross-domain retrieval.
 
     Types:
-    - technical: Specific mechanisms, processes, or terminology
-    - conceptual: Frameworks, theories, or abstract ideas
-    - applied: Practical applications or real-world scenarios
-    - broad: Core topic in accessible language
+    - mechanism: Brain/biological processes (targets neuroscience texts)
+    - principle: Wisdom/guidance (targets philosophical texts)
+    - synthesis: Combined mechanism + principle vocabulary (bridges domains)
+    - accessible: Everyday language (targets introductory passages)
     """
 
     type: str = Field(
-        description="Query category: technical, conceptual, applied, broad"
+        description="Query category: mechanism, principle, synthesis, accessible"
     )
-    query: str = Field(description="The search query text (8-15 words)")
+    query: str = Field(description="The search query text (10-15 words)")
 
 
 class MultiQueryResult(BaseModel):
@@ -91,22 +92,22 @@ class MultiQueryResult(BaseModel):
     Used by: generate_multi_queries()
 
     Contains 4 targeted queries for RRF (Reciprocal Rank Fusion) merging.
-    Each query retrieves different relevant chunks, which are then
-    combined using RRF to produce a diverse, comprehensive result set.
+    Each query targets a different domain (neuroscience/philosophy/bridge),
+    combined using RRF to produce a diverse, cross-domain result set.
 
     Example response:
         {
             "queries": [
-                {"type": "technical", "query": "temporal discounting reward delay..."},
-                {"type": "conceptual", "query": "self-regulation willpower theory..."},
-                {"type": "applied", "query": "practical strategies overcoming..."},
-                {"type": "broad", "query": "why do we procrastinate..."}
+                {"type": "mechanism", "query": "amygdala fear extinction cortisol stress..."},
+                {"type": "principle", "query": "Stoic courage acceptance premeditatio..."},
+                {"type": "synthesis", "query": "fear regulation emotional resilience..."},
+                {"type": "accessible", "query": "overcoming fear practical techniques..."}
             ]
         }
     """
 
     queries: List[GeneratedQuery] = Field(
-        description="List of 4 generated search queries"
+        description="List of 4 generated search queries targeting different domains"
     )
 
 

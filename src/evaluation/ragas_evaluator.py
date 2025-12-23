@@ -223,9 +223,15 @@ def run_evaluation(
             - "results": Per-question results DataFrame
             - "samples": List of evaluation samples
     """
-    # Default metrics (those that don't require ground truth)
+    # Default metrics - includes reference-based metrics since all questions have ground truth
     if metrics is None:
-        metrics = ["faithfulness", "relevancy", "context_precision"]
+        metrics = [
+            "faithfulness",
+            "relevancy",
+            "context_precision",
+            "context_recall",
+            "factual_correctness",
+        ]
 
     logger.info(f"Starting evaluation with {len(test_questions)} questions")
     logger.info(f"Metrics: {metrics}")

@@ -145,6 +145,12 @@ Update these files when making significant changes to maintain project continuit
 - RRF merging infrastructure retained for decomposition strategy
 - See analysis: /.claude/plans/validated-dancing-thacker.md
 
+**Phase 3b: Step-Back → HyDE** - COMPLETE (Dec 23)
+- Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496)
+- HyDE generates hypothetical answers for semantic matching (proper RAG research)
+- step_back was a reasoning technique adapted for RAG, not from RAG research
+- Available strategies now: `none`, `hyde`, `decomposition`
+
 **Phase 4: Query Decomposition** - COMPLETE
 - [x] Add DECOMPOSITION_PROMPT and decompose_query() function
 - [x] Implement decomposition_strategy in strategies.py
@@ -172,6 +178,7 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496) - proper RAG research technique (Dec 23)
 - Removed multi_query strategy: decomposition subsumes its domain-targeting (~380 lines removed) (Dec 23)
 - Contextual chunking strategy (Anthropic-style, +35% failure reduction) (Dec 22)
 - Domain-agnostic refactoring: removed book categories, diversification, generalized prompts (Dec 22)

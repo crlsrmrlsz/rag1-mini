@@ -449,18 +449,20 @@ Add search mode toggle:
 
 **Expected Impact**: Improved retrieval precision through domain-specific vocabulary
 
-**Concept**: Enhance the step-back prompting technique with Chain-of-Thought examples and concrete vocabulary from the knowledge base.
+> **SUPERSEDED (Dec 23, 2024)**: The `step_back` strategy has been **replaced with HyDE** (Hypothetical Document Embeddings, arXiv:2212.10496). Analysis showed that step-back prompting is a reasoning technique, not a RAG-specific paper. HyDE is a proper RAG research technique. The section below is retained for historical reference.
 
-**Research**: See `memory-bank/step-back-prompting-research.md` for full analysis.
+**Concept**: ~~Enhance the step-back prompting technique with Chain-of-Thought examples and concrete vocabulary from the knowledge base.~~ Replaced with HyDE.
 
-### 4.1 Current Problem
+**Research**: See `memory-bank/step-back-prompting-research.md` for full analysis (now historical).
 
-The current step-back prompt generates generic queries like:
+### 4.1 Current Problem (HISTORICAL)
+
+~~The current step-back prompt generates generic queries like:~~
 ```
 "neuroscience of social validation; philosophical ethics of external approval"
 ```
 
-This is too abstract and doesn't use vocabulary that matches chunk content.
+~~This is too abstract and doesn't use vocabulary that matches chunk content.~~
 
 ### 4.2 Improved Prompt
 
@@ -575,13 +577,13 @@ Update `evaluation-history.md` with results after each run.
 ```bash
 # Test each strategy
 python -m src.stages.run_stage_7_evaluation --preprocessing none          # No transformation
-python -m src.stages.run_stage_7_evaluation --preprocessing step_back     # Current default
+python -m src.stages.run_stage_7_evaluation --preprocessing hyde          # HyDE (hypothetical answer)
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-questions + RRF merge
 
 # Compare results in memory-bank/evaluation-history.md
 ```
 
-**Note**: Step-Back Prompt research and improvements are in `memory-bank/step-back-prompting-research.md`.
+**Note**: HyDE (arXiv:2212.10496) replaced step-back prompting (Dec 23, 2024). See `memory-bank/step-back-prompting-research.md` for historical analysis.
 
 ---
 
@@ -929,10 +931,10 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 | ID | Display | Description | When Used |
 |----|---------|-------------|-----------|
 | `none` | None | Return original query unchanged | Baseline testing |
-| `step_back` | Step-Back | Transform to broader concepts for better retrieval | Fast path (1 LLM call, 1 search) |
+| `hyde` | HyDE | Generate hypothetical answer for semantic matching | Fast path (1 LLM call, 1 search) |
 | `decomposition` | Decomposition | Break into sub-questions + RRF merge | Thorough path (1 LLM call, 3-4 searches) |
 
-**Note:** `multi_query` was removed Dec 23, 2025. Decomposition subsumes its domain-targeting functionality.
+**Note:** `step_back` was replaced with `hyde` Dec 23, 2024. `multi_query` was removed Dec 23, 2024 (decomposition subsumes its functionality).
 
 ### B.3 Usage Examples
 
@@ -940,20 +942,19 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 # In code
 from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 
-# Use default strategy (step_back)
+# Use default strategy (hyde)
 result = preprocess_query("Why do humans procrastinate?")
-print(result.strategy_used)  # "step_back"
+print(result.strategy_used)  # "hyde"
 
 # Explicit strategy
-result = preprocess_query("Why do humans procrastinate?", strategy="multi_query")
-print(result.strategy_used)  # "multi_query"
+result = preprocess_query("Why do humans procrastinate?", strategy="decomposition")
+print(result.strategy_used)  # "decomposition"
 ```
 
 ```bash
 # From CLI
 python -m src.stages.run_stage_7_evaluation --preprocessing none
-python -m src.stages.run_stage_7_evaluation --preprocessing step_back
-python -m src.stages.run_stage_7_evaluation --preprocessing multi_query
+python -m src.stages.run_stage_7_evaluation --preprocessing hyde
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition
 ```
 

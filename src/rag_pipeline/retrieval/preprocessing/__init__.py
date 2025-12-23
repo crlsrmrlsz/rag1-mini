@@ -1,14 +1,14 @@
 """Query preprocessing module for RAG1-Mini.
 
 Provides query transformation strategies for improved retrieval:
-- Step-back prompting to abstract to broader concepts (+27% on multi-hop)
-- Query decomposition for complex questions (+36.7% MRR@10)
+- HyDE (Hypothetical Document Embeddings) for semantic matching (arXiv:2212.10496)
+- Query decomposition for complex questions (+36.7% MRR@10, arXiv:2507.00355)
 - Strategy-based preprocessing with registry pattern
 """
 
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     PreprocessedQuery,
-    step_back_prompt,
+    hyde_prompt,
     preprocess_query,
 )
 from src.rag_pipeline.retrieval.preprocessing.strategies import (
@@ -23,7 +23,7 @@ __all__ = [
     # Main entry point
     "preprocess_query",
     # Low-level functions (for direct use)
-    "step_back_prompt",
+    "hyde_prompt",
     # Strategy registry
     "get_strategy",
     "list_strategies",

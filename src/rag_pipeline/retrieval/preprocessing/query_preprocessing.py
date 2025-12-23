@@ -7,10 +7,10 @@ Each preprocessing strategy applies its transformation directly to any query,
 following the original research papers' design.
 
 Techniques implemented:
-1. **Step-back prompting** abstracts questions into broader concepts
-   - Paper: "Take a Step Back" (Google DeepMind, arXiv:2310.06117) showed +27% on multi-hop
+1. **HyDE** generates hypothetical answers for semantic matching
+   - Paper: "Precise Zero-Shot Dense Retrieval" (arXiv:2212.10496)
 2. **Query decomposition** breaks complex questions into sub-queries
-   - Research: Query Decomposition showed +36.7% MRR@10 improvement
+   - Research: Query Decomposition showed +36.7% MRR@10 improvement (arXiv:2507.00355)
 
 ## Library Usage
 
@@ -19,7 +19,7 @@ Pydantic schemas ensure structured LLM outputs.
 
 ## Data Flow
 
-1. User selects preprocessing strategy (none, step_back, decomposition)
+1. User selects preprocessing strategy (none, hyde, decomposition)
 2. Strategy transforms query directly (no classification routing)
 3. Return PreprocessedQuery with original, transformed, and metadata
 """
@@ -50,8 +50,8 @@ class PreprocessedQuery:
         strategy_used: The preprocessing strategy that was applied.
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
         model: Model ID used for preprocessing (for logging).
-        step_back_query: The transformed broader query (step_back strategy).
-        step_back_response: Raw step-back response from LLM.
+        hyde_passage: The hypothetical passage generated (hyde strategy).
+        hyde_response: Raw HyDE response from LLM (same as hyde_passage).
         sub_queries: Decomposed sub-questions (decomposition strategy).
         generated_queries: List of {type, query} dicts for multi-query retrieval.
         decomposition_response: Raw decomposition response from LLM.
@@ -62,9 +62,9 @@ class PreprocessedQuery:
     strategy_used: str = ""
     preprocessing_time_ms: float = 0.0
     model: str = ""
-    # Step-back strategy fields
-    step_back_query: Optional[str] = None
-    step_back_response: Optional[str] = None
+    # HyDE strategy fields
+    hyde_passage: Optional[str] = None
+    hyde_response: Optional[str] = None
     # Decomposition strategy fields (generated_queries used for RRF)
     generated_queries: List[Dict[str, str]] = field(default_factory=list)
     sub_queries: List[str] = field(default_factory=list)
@@ -72,39 +72,33 @@ class PreprocessedQuery:
 
 
 # =============================================================================
-# STEP-BACK PROMPTING
+# HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
 
-STEP_BACK_PROMPT = """You are a retrieval assistant for a knowledge base covering:
+HYDE_PROMPT = """You are a knowledgeable assistant for a knowledge base covering:
 {corpus_topics}
 
-This corpus spans TWO DOMAINS:
-1. NEUROSCIENCE: Brain mechanisms, neural circuits, cognitive processes, behavioral biology
-2. WISDOM TRADITIONS: Stoic, Taoist, Confucian, and Schopenhauerian philosophy
-
-TASK: Transform the user's question into a search query that captures BOTH domains.
-
-PROCESS:
-1. Identify the CORE THEME: What is the user fundamentally asking about?
-2. Extract MECHANISM concepts: How does the brain/biology handle this? (technical terms)
-3. Extract PRINCIPLE concepts: What do wisdom traditions say? (philosophical terms)
-4. Combine into a query using vocabulary from BOTH domains
+Given a question, write a SHORT hypothetical passage (2-3 sentences) that would answer it.
+The passage should:
+1. Sound like an excerpt from an encyclopedia or textbook
+2. Include terminology from BOTH neuroscience and philosophy when relevant
+3. Be factually plausible (even if you're not certain it's correct)
 
 CROSS-DOMAIN EXAMPLES:
 
-User: "How can I control my impulses?"
-Query: "self-control prefrontal cortex impulse regulation willpower Stoic desire mastery virtue temperance"
+Question: "Why do we procrastinate?"
+Passage: "Procrastination stems from temporal discounting, where the brain's limbic system overvalues immediate rewards over future goals. The prefrontal cortex struggles to maintain long-term focus. Stoic philosophers addressed this through practices of premeditation and focusing on what is within our control."
 
-User: "Why do we fear death?"
-Query: "mortality fear amygdala terror management anxiety Stoic death acceptance memento mori tranquility"
+Question: "How can I control my impulses?"
+Passage: "Impulse control involves the prefrontal cortex inhibiting limbic system responses, particularly the amygdala and reward circuits. Cognitive reappraisal engages dorsolateral PFC to reframe triggers. Stoic philosophy teaches distinguishing between what is 'up to us' (our judgments) and what is not (external events)."
 
-User: "How do I make better decisions?"
-Query: "decision-making cognitive biases System 1 System 2 heuristics Stoic prudence practical wisdom deliberation"
+Question: "What makes us happy?"
+Passage: "Happiness involves both hedonic pleasure via the mesolimbic dopamine system and eudaimonic flourishing through meaning and virtue. The brain's reward circuits drive momentary satisfaction, while philosophical traditions from Aristotle to the Stoics emphasize lasting contentment through character development."
 
-User: "Why do we procrastinate?"
-Query: "procrastination temporal discounting dopamine reward delay self-control Stoic present moment virtue action"
+Now write a passage for:
+Question: "{query}"
 
-Generate ONLY the search query. Use 12-20 words spanning both neuroscience and philosophy vocabulary."""
+Passage:"""
 
 
 # =============================================================================
@@ -159,45 +153,51 @@ Respond with JSON:
 }}"""
 
 
-def step_back_prompt(query: str, model: Optional[str] = None) -> str:
-    """Transform any query into a broader, more retrievable form.
+def hyde_prompt(query: str, model: Optional[str] = None) -> str:
+    """Generate hypothetical answer for HyDE retrieval.
 
-    Step-back prompting abstracts specific questions into underlying concepts,
-    improving retrieval by using vocabulary that matches the knowledge base.
+    HyDE (Hypothetical Document Embeddings) generates a plausible answer
+    to the query, then searches for real passages similar to this answer.
+    This bridges the semantic gap between questions and document passages.
+
+    Paper: arXiv:2212.10496 - "Precise Zero-Shot Dense Retrieval without
+    Relevance Labels"
 
     Args:
-        query: The original open-ended query.
-        model: Override model (defaults to PREPROCESSING_MODEL from config).
+        query: The user's original question.
+        model: Override model (defaults to PREPROCESSING_MODEL).
 
     Returns:
-        A broader query that captures the underlying concepts.
+        A hypothetical passage that would answer the query.
 
     Example:
-        >>> step_back_prompt("How should I live my life?")
-        "Stoic and philosophical principles for living a good life"
+        >>> hyde_prompt("Why do we procrastinate?")
+        "Procrastination stems from temporal discounting..."
     """
     model = model or PREPROCESSING_MODEL
 
-    # Format prompt with corpus topics for vocabulary grounding
-    system_prompt = STEP_BACK_PROMPT.format(corpus_topics=CORPUS_TOPICS)
+    # Format prompt with corpus topics and query
+    prompt = HYDE_PROMPT.format(
+        corpus_topics=CORPUS_TOPICS,
+        query=query,
+    )
 
     messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query},
+        {"role": "user", "content": prompt},
     ]
 
     try:
         response = call_chat_completion(
             messages=messages,
             model=model,
-            temperature=0.3,  # Slight creativity for better abstraction
-            max_tokens=50,
+            temperature=0.7,  # Higher creativity for diverse answers
+            max_tokens=150,   # Longer for 2-3 sentence passages
         )
 
-        return response.strip().strip('"')
+        return response.strip()
 
     except requests.RequestException as e:
-        logger.warning(f"Step-back prompt failed: {e}, using original query")
+        logger.warning(f"HyDE prompt failed: {e}, using original query")
         return query
 
 

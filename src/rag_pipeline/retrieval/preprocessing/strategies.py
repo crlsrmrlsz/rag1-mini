@@ -8,15 +8,15 @@ routing - they simply transform queries for better retrieval.
 
 Strategies:
 - none: No transformation (baseline for comparison)
-- step_back: Always abstract to broader concepts (+27% on multi-hop, arXiv:2310.06117)
-- decomposition: Always break into sub-questions + RRF merge (+36.7% MRR@10)
+- hyde: Generate hypothetical answer for semantic matching (arXiv:2212.10496)
+- decomposition: Break into sub-questions + RRF merge (+36.7% MRR@10, arXiv:2507.00355)
 
 The strategy pattern allows easy A/B testing and adding new strategies
 without modifying existing code.
 
 ## Library Usage
 
-Uses the existing query_preprocessing functions (step_back_prompt, etc.)
+Uses the existing query_preprocessing functions (hyde_prompt, etc.)
 wrapped in strategy functions that conform to a common signature.
 
 ## Data Flow
@@ -33,7 +33,7 @@ from typing import Callable, Dict, List, Optional
 from src.config import PREPROCESSING_MODEL
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     PreprocessedQuery,
-    step_back_prompt as _step_back_prompt_fn,
+    hyde_prompt as _hyde_prompt_fn,
     decompose_query,
 )
 from src.shared.files import setup_logging
@@ -67,37 +67,38 @@ def none_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
     )
 
 
-def step_back_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """Always apply step-back prompting to broaden the query.
+def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
+    """HyDE: Generate hypothetical answer, use for retrieval.
 
-    Transforms any query into broader concepts using vocabulary that matches
-    the knowledge base, improving retrieval coverage.
+    Hypothetical Document Embeddings (HyDE) generates a plausible answer
+    to the query, then searches for real passages similar to this answer.
+    This bridges the semantic gap between question embeddings and document
+    embeddings.
 
-    Based on "Take a Step Back" (Google DeepMind, 2023) which showed
-    +27% improvement on multi-hop reasoning tasks.
+    Research: arXiv:2212.10496 - Outperforms unsupervised dense retrievers
 
     Args:
         query: The user's original query.
-        model: Model for step-back LLM call.
+        model: Model for HyDE LLM call.
 
     Returns:
-        PreprocessedQuery with transformed search_query.
+        PreprocessedQuery with hypothetical passage as search_query.
     """
     start_time = time.time()
     model = model or PREPROCESSING_MODEL
 
-    # Apply step-back transformation
-    step_back_query = _step_back_prompt_fn(query, model=model)
-    logger.info(f"[step_back] Transformed: {step_back_query[:80]}...")
+    # Generate hypothetical answer
+    hyde_passage = _hyde_prompt_fn(query, model=model)
+    logger.info(f"[hyde] Generated hypothetical: {hyde_passage[:80]}...")
 
     elapsed_ms = (time.time() - start_time) * 1000
 
     return PreprocessedQuery(
         original_query=query,
-        search_query=step_back_query,
-        step_back_query=step_back_query,
-        step_back_response=step_back_query,
-        strategy_used="step_back",
+        search_query=hyde_passage,  # Search with hypothetical answer!
+        hyde_passage=hyde_passage,
+        hyde_response=hyde_passage,
+        strategy_used="hyde",
         preprocessing_time_ms=elapsed_ms,
         model=model,
     )
@@ -159,7 +160,7 @@ def decomposition_strategy(query: str, model: Optional[str] = None) -> Preproces
 # Maps strategy ID to strategy function
 STRATEGIES: Dict[str, StrategyFunction] = {
     "none": none_strategy,
-    "step_back": step_back_strategy,
+    "hyde": hyde_strategy,
     "decomposition": decomposition_strategy,
 }
 
@@ -168,7 +169,7 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
     """Get strategy function by ID.
 
     Args:
-        strategy_id: One of "none", "step_back", "decomposition".
+        strategy_id: One of "none", "hyde", "decomposition".
 
     Returns:
         Strategy function that takes (query, model) and returns PreprocessedQuery.
@@ -177,10 +178,10 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
         ValueError: If strategy_id is not registered.
 
     Example:
-        >>> strategy_fn = get_strategy("decomposition")
-        >>> result = strategy_fn("Compare Stoic and Buddhist views", model="openai/gpt-4o-mini")
+        >>> strategy_fn = get_strategy("hyde")
+        >>> result = strategy_fn("Why do we procrastinate?", model="openai/gpt-4o-mini")
         >>> result.strategy_used
-        "decomposition"
+        "hyde"
     """
     if strategy_id not in STRATEGIES:
         available = list(STRATEGIES.keys())

@@ -183,9 +183,10 @@ Based on research in `rag-improve-research.md`:
 |-------------|-----------------|--------|
 | Cross-encoder reranking | +20-35% precision | Tested (Run 4): +4.7% faithfulness, very slow on CPU |
 | Alpha tuning (0.3, 0.7) | Find optimal balance | Ready to test |
-| Step-back prompting | +27% multi-hop | Implemented (step_back strategy) |
+| HyDE (Hypothetical Document Embeddings) | Semantic matching | Implemented (hyde strategy, Dec 23) |
 | Query decomposition | +36.7% MRR@10 | Implemented (decomposition strategy) |
-| Multi-query expansion | +coverage | Implemented (multi_query strategy) |
+| ~~Step-back prompting~~ | ~~+27% multi-hop~~ | Replaced with HyDE (Dec 23) |
+| ~~Multi-query expansion~~ | ~~+coverage~~ | Removed: Subsumed by decomposition (Dec 23) |
 | API-based reranking | Speed + quality | Research complete (see below) |
 
 ---

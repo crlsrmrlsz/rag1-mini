@@ -116,7 +116,7 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 │   ┌──────────────────┐        ┌──────────────────────────────┐ │
 │   │ AVAILABLE_*      │───────▶│ STRATEGIES = {               │ │
 │   │ DEFAULT_*        │        │   "none": none_strategy,     │ │
-│   └──────────────────┘        │   "step_back": step_back_...,│ │
+│   └──────────────────┘        │   "hyde": hyde_strategy,     │ │
 │            │                  │   "decomposition": decomp_...│ │
 │            ▼                  │ }                            │ │
 │   ┌──────────────────┐        │ def get_strategy(id) -> fn   │ │
@@ -154,8 +154,8 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 
 **Available strategies (each applies directly to any query):**
 - `none` - No transformation, use original query (0 LLM calls)
-- `step_back` - Transform to broader concepts for better retrieval (1 LLM call, 1 search)
-- `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call, 3-4 searches)
+- `hyde` - Generate hypothetical answer for semantic matching (1 LLM call, 1 search) [arXiv:2212.10496]
+- `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call, 3-4 searches) [arXiv:2507.00355]
 
 ### To Implement: Chunking Strategies
 

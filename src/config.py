@@ -306,12 +306,12 @@ ENABLE_QUERY_PREPROCESSING = True
 # Format: (strategy_id, display_label, description)
 AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
-    ("step_back", "Step-Back", "Transform to broader concepts for better retrieval"),
-    ("decomposition", "Decomposition", "Break into sub-questions + RRF merge"),
+    ("hyde", "HyDE", "Generate hypothetical answer for semantic matching (arXiv:2212.10496)"),
+    ("decomposition", "Decomposition", "Break into sub-questions + RRF merge (arXiv:2507.00355)"),
 ]
 
 # Default strategy for UI and preprocess_query() when not specified
-DEFAULT_PREPROCESSING_STRATEGY = "step_back"
+DEFAULT_PREPROCESSING_STRATEGY = "hyde"
 
 
 # ============================================================================

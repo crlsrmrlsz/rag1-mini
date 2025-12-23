@@ -2,7 +2,7 @@
 
 A Streamlit application for testing the RAG system with Weaviate backend.
 Features:
-- Query preprocessing (step-back, multi-query, decomposition strategies)
+- Query preprocessing (HyDE, decomposition strategies)
 - Hybrid/vector search with optional cross-encoder reranking
 - LLM-based answer generation
 - Pipeline logging with full prompt visibility
@@ -174,15 +174,17 @@ def _render_pipeline_log():
 
             col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
 
-            if prep.step_back_query and prep.step_back_query != prep.original_query:
+            # Show HyDE section if hyde strategy was used
+            hyde_passage = getattr(prep, 'hyde_passage', None)
+            if hyde_passage and hyde_passage != prep.original_query:
                 st.divider()
-                st.markdown("#### Step-Back Transformation")
+                st.markdown("#### HyDE: Hypothetical Document")
 
-                # Show step-back LLM response (use getattr for backward compat with cached objects)
-                step_back_response = getattr(prep, 'step_back_response', None)
-                if step_back_response:
-                    st.markdown("**Transformed Search Query:**")
-                    st.info(step_back_response)
+                # Show HyDE generated passage (use getattr for backward compat with cached objects)
+                hyde_response = getattr(prep, 'hyde_response', None)
+                if hyde_response:
+                    st.markdown("**Generated Hypothetical Passage (used for retrieval):**")
+                    st.info(hyde_response)
 
             # Show decomposition section if decomposition strategy was used
             sub_queries = getattr(prep, 'sub_queries', None)
@@ -362,7 +364,7 @@ if enable_preprocessing:
         options=list(prep_model_options.keys()),
         index=0,  # Default to first (cheapest)
         format_func=lambda x: prep_model_options[x],
-        help="Model used for query preprocessing (step-back, multi-query, etc.). (Fetched from OpenRouter)",
+        help="Model used for query preprocessing (HyDE, decomposition). (Fetched from OpenRouter)",
     )
 else:
     selected_strategy = "none"
@@ -614,9 +616,10 @@ if st.session_state.search_results:
                 col1.markdown(f"**Strategy:** `{strategy_used}`")
                 col2.markdown(f"**Time:** {prep.preprocessing_time_ms:.0f}ms")
 
-                # Show step-back query if applied
-                if prep.step_back_query and prep.step_back_query != prep.original_query:
-                    st.info(f"**Search Query:** {prep.step_back_query}")
+                # Show HyDE passage if applied
+                hyde_passage = getattr(prep, 'hyde_passage', None)
+                if hyde_passage and hyde_passage != prep.original_query:
+                    st.info(f"**HyDE Passage:** {hyde_passage[:100]}...")
 
                 # Show multi-query info
                 generated_queries = getattr(prep, 'generated_queries', None)

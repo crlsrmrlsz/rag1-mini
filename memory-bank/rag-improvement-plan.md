@@ -564,7 +564,7 @@ Update `evaluation-history.md` with results after each run.
 | 0 | Evaluation CLI improvements | DONE | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
 | 1 | Preprocessing Strategy Infrastructure | DONE | Medium | Enables A/B testing | `strategies.py`, `config.py`, UI, CLI |
 | 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_preprocessing.py` (prompt only) |
-| 3 | Implement Multi-Query Strategy | DONE | Medium | +coverage | `strategies.py`, `rrf.py` |
+| 3 | Multi-Query Strategy | REMOVED (Dec 23) | - | Subsumed by decomposition | - |
 | 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_preprocessing.py` |
 | 5 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
 | 6 | Contextual Chunking | DONE | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
@@ -576,8 +576,7 @@ Update `evaluation-history.md` with results after each run.
 # Test each strategy
 python -m src.stages.run_stage_7_evaluation --preprocessing none          # No transformation
 python -m src.stages.run_stage_7_evaluation --preprocessing step_back     # Current default
-python -m src.stages.run_stage_7_evaluation --preprocessing multi_query   # 4 targeted queries
-python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-questions
+python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-questions + RRF merge
 
 # Compare results in memory-bank/evaluation-history.md
 ```
@@ -930,9 +929,10 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 | ID | Display | Description | When Used |
 |----|---------|-------------|-----------|
 | `none` | None | Return original query unchanged | Baseline testing |
-| `step_back` | Step-Back | Transform to broader concepts for better retrieval | Production default |
-| `multi_query` | Multi-Query | Generate 4 targeted queries + RRF merge | Best coverage |
-| `decomposition` | Decomposition | Break into sub-questions + RRF merge | Complex queries |
+| `step_back` | Step-Back | Transform to broader concepts for better retrieval | Fast path (1 LLM call, 1 search) |
+| `decomposition` | Decomposition | Break into sub-questions + RRF merge | Thorough path (1 LLM call, 3-4 searches) |
+
+**Note:** `multi_query` was removed Dec 23, 2025. Decomposition subsumes its domain-targeting functionality.
 
 ### B.3 Usage Examples
 

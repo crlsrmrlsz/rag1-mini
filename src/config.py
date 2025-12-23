@@ -307,7 +307,6 @@ ENABLE_QUERY_PREPROCESSING = True
 AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
     ("step_back", "Step-Back", "Transform to broader concepts for better retrieval"),
-    ("multi_query", "Multi-Query", "Generate 4 targeted queries + RRF merge"),
     ("decomposition", "Decomposition", "Break into sub-questions + RRF merge"),
 ]
 

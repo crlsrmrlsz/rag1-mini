@@ -66,7 +66,7 @@ def search_multi_query(
     to produce a single ranked list that benefits from query diversity.
 
     Args:
-        queries: List of {type, query} dicts from multi_query_strategy.
+        queries: List of {type, query} dicts from decomposition strategy.
         top_k: Final number of results after merging.
         search_type: "vector" or "hybrid".
         alpha: Hybrid search alpha.

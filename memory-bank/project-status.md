@@ -72,7 +72,6 @@ The pipeline includes RAGAS-based evaluation metrics:
 | Component | Purpose | Status |
 |-----------|---------|--------|
 | Step-Back Prompting | Transform to broader concepts for better retrieval | Complete |
-| Multi-Query Generation | Generate 4 targeted queries + RRF merge | Complete |
 | Query Decomposition | Break into sub-questions + RRF merge | Complete |
 | Answer Generator | Synthesize LLM answer from retrieved chunks | Complete |
 | LLM Call Logging | Log all LLM calls with model and char counts | Complete |
@@ -94,7 +93,7 @@ The pipeline includes RAGAS-based evaluation metrics:
 | 0 | Evaluation CLI (--collection, auto-logging) | COMPLETE |
 | 1 | Preprocessing Strategy Infrastructure | COMPLETE |
 | 2 | Remove Classification + Simplify (Dec 22) | COMPLETE |
-| 3 | Multi-Query Strategy (+RRF merging) | COMPLETE |
+| 3 | Multi-Query Strategy | REMOVED (Dec 23) - Subsumed by decomposition |
 | 4 | Query Decomposition (always-on) | COMPLETE |
 | 2.5 | Domain-Agnostic Refactoring (Dec 22) | COMPLETE |
 | 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
@@ -118,12 +117,12 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 │   │ AVAILABLE_*      │───────▶│ STRATEGIES = {               │ │
 │   │ DEFAULT_*        │        │   "none": none_strategy,     │ │
 │   └──────────────────┘        │   "step_back": step_back_...,│ │
-│            │                  │   "multi_query": multi_...,  │ │
-│            ▼                  │   "decomposition": decomp_...│ │
-│   ┌──────────────────┐        │ }                            │ │
-│   │ UI Dropdown      │        │ def get_strategy(id) -> fn   │ │
-│   │ CLI --arg        │        └──────────────────────────────┘ │
-│   └────────┬─────────┘                     │                   │
+│            │                  │   "decomposition": decomp_...│ │
+│            ▼                  │ }                            │ │
+│   ┌──────────────────┐        │ def get_strategy(id) -> fn   │ │
+│   │ UI Dropdown      │        └──────────────────────────────┘ │
+│   │ CLI --arg        │                       │                   │
+│   └────────┬─────────┘                       │                   │
 │            │                               │                   │
 │            └──────────────────▶ dispatcher() ◀─────────────────┘
 │                                     │                          │
@@ -151,13 +150,12 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `src/config.py:AVAILABLE_PREPROCESSING_STRATEGIES`
 - `src/rag_pipeline/retrieval/preprocessing/strategies.py` (registry)
 - `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` (dispatcher)
-- `src/rag_pipeline/retrieval/rrf.py` (RRF merging for multi_query)
+- `src/rag_pipeline/retrieval/rrf.py` (RRF merging for decomposition)
 
 **Available strategies (each applies directly to any query):**
 - `none` - No transformation, use original query (0 LLM calls)
-- `step_back` - Transform to broader concepts for better retrieval (1 LLM call)
-- `multi_query` - Generate 4 targeted queries + RRF merge (2 LLM calls)
-- `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call)
+- `step_back` - Transform to broader concepts for better retrieval (1 LLM call, 1 search)
+- `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call, 3-4 searches)
 
 ### To Implement: Chunking Strategies
 
@@ -183,7 +181,7 @@ Same pattern for `src/vector_db/retrieval_strategies.py`:
 
 Uses Pydantic schemas for type-safe LLM outputs with JSON Schema enforcement:
 - `src/shared/schemas.py` - `get_openrouter_schema()` utility
-- `src/rag_pipeline/retrieval/preprocessing/schemas.py` - Response models (PrincipleExtraction, MultiQueryResult, DecompositionResult)
+- `src/rag_pipeline/retrieval/preprocessing/schemas.py` - Response models (DecompositionResult)
 
 Key function: `call_structured_completion(messages, model, response_model)` in `openrouter_client.py`
 

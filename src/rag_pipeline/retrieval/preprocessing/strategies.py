@@ -8,9 +8,8 @@ routing - they simply transform queries for better retrieval.
 
 Strategies:
 - none: No transformation (baseline for comparison)
-- step_back: Always abstract to broader concepts (+27% on multi-hop)
-- multi_query: Always generate 4 targeted queries + RRF merge
-- decomposition: Always break into sub-questions + RRF merge
+- step_back: Always abstract to broader concepts (+27% on multi-hop, arXiv:2310.06117)
+- decomposition: Always break into sub-questions + RRF merge (+36.7% MRR@10)
 
 The strategy pattern allows easy A/B testing and adding new strategies
 without modifying existing code.
@@ -35,8 +34,6 @@ from src.config import PREPROCESSING_MODEL
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     PreprocessedQuery,
     step_back_prompt as _step_back_prompt_fn,
-    extract_principles,
-    generate_multi_queries,
     decompose_query,
 )
 from src.shared.files import setup_logging
@@ -107,66 +104,6 @@ def step_back_strategy(query: str, model: Optional[str] = None) -> PreprocessedQ
 
 
 # =============================================================================
-# MULTI-QUERY STRATEGY
-# =============================================================================
-
-
-def multi_query_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """Always generate multiple targeted queries for RRF merging.
-
-    This strategy implements multi-query retrieval:
-    1. Extracts underlying principles/concepts
-    2. Generates 4 targeted queries (neuroscience, philosophy, bridging, broad)
-    3. Includes original query for exact-match coverage
-
-    Based on Multi-Query RAG research showing improved coverage for
-    multi-faceted questions. Results are merged using Reciprocal Rank
-    Fusion (RRF) in the retrieval stage.
-
-    Args:
-        query: The user's original query.
-        model: Model for LLM calls.
-
-    Returns:
-        PreprocessedQuery with generated_queries populated for RRF merging.
-    """
-    start_time = time.time()
-    model = model or PREPROCESSING_MODEL
-
-    # Step 1: Extract principles
-    principles = extract_principles(query, model=model)
-    logger.info(f"[multi_query] Core topic: {principles.get('core_topic', 'N/A')}")
-
-    # Step 2: Generate multiple queries
-    generated = generate_multi_queries(query, principles, model=model)
-    logger.info(f"[multi_query] Generated {len(generated)} queries")
-
-    # Primary search query is the "broad" query or first available
-    primary_query = query  # Default to original
-    for q in generated:
-        if q.get("type") == "broad":
-            primary_query = q.get("query", query)
-            break
-    if primary_query == query and generated:
-        primary_query = generated[0].get("query", query)
-
-    # Add original query to the mix (first in list for RRF priority)
-    all_queries = [{"type": "original", "query": query}] + generated
-
-    elapsed_ms = (time.time() - start_time) * 1000
-
-    return PreprocessedQuery(
-        original_query=query,
-        search_query=primary_query,
-        strategy_used="multi_query",
-        preprocessing_time_ms=elapsed_ms,
-        model=model,
-        generated_queries=all_queries,
-        principle_extraction=principles,
-    )
-
-
-# =============================================================================
 # DECOMPOSITION STRATEGY
 # =============================================================================
 
@@ -223,7 +160,6 @@ def decomposition_strategy(query: str, model: Optional[str] = None) -> Preproces
 STRATEGIES: Dict[str, StrategyFunction] = {
     "none": none_strategy,
     "step_back": step_back_strategy,
-    "multi_query": multi_query_strategy,
     "decomposition": decomposition_strategy,
 }
 
@@ -232,7 +168,7 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
     """Get strategy function by ID.
 
     Args:
-        strategy_id: One of "none", "step_back", "multi_query", "decomposition".
+        strategy_id: One of "none", "step_back", "decomposition".
 
     Returns:
         Strategy function that takes (query, model) and returns PreprocessedQuery.
@@ -256,6 +192,6 @@ def list_strategies() -> List[str]:
     """List all registered strategy IDs.
 
     Returns:
-        List of strategy IDs (e.g., ["none", "step_back", "multi_query", "decomposition"]).
+        List of strategy IDs (e.g., ["none", "step_back", "decomposition"]).
     """
     return list(STRATEGIES.keys())

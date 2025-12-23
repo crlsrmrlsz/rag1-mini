@@ -70,7 +70,7 @@ src/
 │   ├── retrieval/                # Stage 7: Query -> Chunks
 │   │   ├── preprocessing/        # Query transformation
 │   │   ├── reranking.py          # Cross-encoder
-│   │   └── rrf.py                # Multi-query fusion
+│   │   └── rrf.py                # RRF merging for decomposition
 │   └── generation/               # Stage 8: Chunks -> Answer
 │
 ├── evaluation/                   # RAGAS framework
@@ -140,12 +140,10 @@ Update these files when making significant changes to maintain project continuit
 - [x] Unified answer generation prompt
 - [x] Add LLM call logging
 
-**Phase 3: Multi-Query Strategy** - COMPLETE
-- [x] Implement multi_query_strategy in strategies.py
-- [x] Add RRF merging for multiple queries
-- [x] Create src/retrieval/rrf.py with RRF algorithm
-- [x] Add principle extraction + 4 targeted queries generation
-- [x] Update UI to display multi-query results
+**Phase 3: Multi-Query Strategy** - REMOVED (Dec 23)
+- Removed: Decomposition strategy subsumes multi-query's domain-targeting
+- RRF merging infrastructure retained for decomposition strategy
+- See analysis: /.claude/plans/validated-dancing-thacker.md
 
 **Phase 4: Query Decomposition** - COMPLETE
 - [x] Add DECOMPOSITION_PROMPT and decompose_query() function
@@ -174,6 +172,7 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- Removed multi_query strategy: decomposition subsumes its domain-targeting (~380 lines removed) (Dec 23)
 - Contextual chunking strategy (Anthropic-style, +35% failure reduction) (Dec 22)
 - Domain-agnostic refactoring: removed book categories, diversification, generalized prompts (Dec 22)
 - Removed query classification + unified answer prompt (~170 lines removed) (Dec 22)

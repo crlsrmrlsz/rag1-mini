@@ -184,38 +184,6 @@ def _render_pipeline_log():
                     st.markdown("**Transformed Search Query:**")
                     st.info(step_back_response)
 
-            # Show multi-query section if multi_query strategy was used
-            generated_queries = getattr(prep, 'generated_queries', None)
-            if generated_queries and len(generated_queries) > 1:
-                st.divider()
-                st.markdown("#### Multi-Query Generation")
-
-                # Show principle extraction
-                principle_extraction = getattr(prep, 'principle_extraction', None)
-                if principle_extraction:
-                    st.markdown("**Extracted Principles:**")
-                    import json as json_module
-                    st.code(json_module.dumps(principle_extraction, indent=2), language="json")
-
-                # Show principle extraction prompt
-                principle_prompt = getattr(prep, 'principle_extraction_prompt_used', None)
-                if principle_prompt:
-                    st.markdown("**Principle Extraction Prompt:**")
-                    st.code(principle_prompt, language="text")
-
-                # Show multi-query prompt
-                multi_query_prompt = getattr(prep, 'multi_query_prompt_used', None)
-                if multi_query_prompt:
-                    st.markdown("**Multi-Query Generation Prompt:**")
-                    st.code(multi_query_prompt, language="text")
-
-                # Show generated queries
-                st.markdown("**Generated Queries:**")
-                for i, q in enumerate(generated_queries):
-                    q_type = q.get("type", "unknown")
-                    q_text = q.get("query", "")
-                    st.markdown(f"**{i+1}. {q_type}:** {q_text}")
-
             # Show decomposition section if decomposition strategy was used
             sub_queries = getattr(prep, 'sub_queries', None)
             if sub_queries and len(sub_queries) > 0:
@@ -278,7 +246,7 @@ def _render_pipeline_log():
                     df = pd.DataFrame(contrib_data)
                     st.dataframe(df, width="stretch")
         else:
-            st.info("RRF merging was not used (single-query search or non-multi_query strategy).")
+            st.info("RRF merging was not used (single-query search or non-decomposition strategy).")
 
     # Stage 3: Reranking
     with st.expander("Stage 3: Reranking", expanded=True):

@@ -4,8 +4,7 @@
 
 These schemas define the expected structure of LLM responses during
 query preprocessing. Each schema corresponds to a specific preprocessing
-function and ensures type-safe extraction of principles, queries, and
-decomposition results.
+function and ensures type-safe extraction of decomposition results.
 
 Benefits of schema-based parsing:
 1. **Guaranteed types** - No more isinstance() checks or .get() fallbacks
@@ -16,7 +15,6 @@ Benefits of schema-based parsing:
 ## Library Usage
 
 Uses Pydantic v2 BaseModel with:
-- Literal types for enum-like constraints
 - Field() for defaults and descriptions
 - model_validate_json() for parsing
 
@@ -31,84 +29,6 @@ Uses Pydantic v2 BaseModel with:
 from typing import List
 
 from pydantic import BaseModel, Field
-
-
-class PrincipleExtraction(BaseModel):
-    """Extracted concepts from a query - cross-domain aware.
-
-    Used by: extract_principles()
-
-    Contains the semantic decomposition of a query into domain-specific
-    concepts for a dual-domain corpus (neuroscience + philosophy).
-    This is the first step of multi-query generation, identifying
-    the core concepts that should inform query generation.
-
-    Example response:
-        {
-            "core_theme": "fear regulation and courage",
-            "mechanism_terms": ["amygdala", "fear extinction", "stress response", "cortisol"],
-            "principle_terms": ["Stoic courage", "acceptance", "premeditatio malorum"],
-            "bridge_terms": ["resilience", "emotional regulation", "self-mastery"]
-        }
-    """
-
-    core_theme: str = Field(description="The fundamental subject (3-5 words)")
-    mechanism_terms: List[str] = Field(
-        default_factory=list,
-        description="Brain/biological vocabulary: brain regions, neurotransmitters, cognitive processes",
-    )
-    principle_terms: List[str] = Field(
-        default_factory=list,
-        description="Philosophical vocabulary: virtues, practices, wisdom concepts",
-    )
-    bridge_terms: List[str] = Field(
-        default_factory=list,
-        description="Cross-domain vocabulary that appears in both domains",
-    )
-
-
-class GeneratedQuery(BaseModel):
-    """A single generated search query with its type.
-
-    Part of multi-query generation. Each query targets a specific
-    domain of the knowledge base for diverse cross-domain retrieval.
-
-    Types:
-    - mechanism: Brain/biological processes (targets neuroscience texts)
-    - principle: Wisdom/guidance (targets philosophical texts)
-    - synthesis: Combined mechanism + principle vocabulary (bridges domains)
-    - accessible: Everyday language (targets introductory passages)
-    """
-
-    type: str = Field(
-        description="Query category: mechanism, principle, synthesis, accessible"
-    )
-    query: str = Field(description="The search query text (10-15 words)")
-
-
-class MultiQueryResult(BaseModel):
-    """Result of multi-query generation.
-
-    Used by: generate_multi_queries()
-
-    Contains 4 targeted queries for RRF (Reciprocal Rank Fusion) merging.
-    Each query targets a different domain (neuroscience/philosophy/bridge),
-    combined using RRF to produce a diverse, cross-domain result set.
-
-    Example response:
-        {
-            "queries": [
-                {"type": "mechanism", "query": "amygdala fear extinction cortisol stress..."},
-                {"type": "principle", "query": "Stoic courage acceptance premeditatio..."},
-                {"type": "synthesis", "query": "fear regulation emotional resilience..."},
-                {"type": "accessible", "query": "overcoming fear practical techniques..."}
-            ]
-        }
-    """
-
-    queries: List[GeneratedQuery] = Field(
-        description="List of 4 generated search queries targeting different domains"
-    )
 
 
 class DecompositionResult(BaseModel):

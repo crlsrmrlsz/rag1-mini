@@ -73,25 +73,36 @@ class PreprocessedQuery:
 # HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
 
-HYDE_PROMPT = """You are a knowledgeable assistant for a knowledge base covering:
+HYDE_PROMPT = """You are generating hypothetical passages for a knowledge base covering:
 {corpus_topics}
 
 Given a question, write a SHORT hypothetical passage (2-3 sentences) that would answer it.
-The passage should:
-1. Sound like an excerpt from an encyclopedia or textbook
-2. Include terminology from BOTH neuroscience and practical philosophy when related or relevant
-3. Be factually plausible (even if you're not certain it's correct)
 
-CROSS-DOMAIN EXAMPLES:
+CRITICAL: Each passage must give EQUAL weight to:
+- NEUROSCIENCE (50%): Brain mechanisms, cognitive processes, biological findings
+- PHILOSOPHY (50%): Wisdom traditions (Stoics, Schopenhauer, Taoism, Confucius, Gracián)
+
+Rotate among philosophical traditions—don't always cite Stoics.
+
+BALANCED EXAMPLES:
 
 Question: "Why do we procrastinate?"
-Passage: "Procrastination stems from temporal discounting, where the brain's limbic system overvalues immediate rewards over future goals. The prefrontal cortex struggles to maintain long-term focus. Stoic philosophers addressed this through practices of premeditation and focusing on what is within our control."
+Passage: "Procrastination involves temporal discounting in the brain's reward system—the limbic system overvalues immediate rewards while the prefrontal cortex struggles to maintain future goals. Seneca observed that we squander time because we treat our lifespan as infinite, failing to value each moment as the precious resource it is."
 
 Question: "How can I control my impulses?"
-Passage: "Impulse control involves the prefrontal cortex inhibiting limbic system responses, particularly the amygdala and reward circuits. Cognitive reappraisal engages dorsolateral PFC to reframe triggers. Stoic philosophy teaches distinguishing between what is 'up to us' (our judgments) and what is not (external events)."
+Passage: "The prefrontal cortex must override automatic amygdala-driven responses, a process requiring cognitive effort and often depleted by stress or fatigue. Epictetus taught that only our judgments are truly 'up to us'—recognizing this distinction allows us to respond thoughtfully rather than react automatically."
 
-Question: "What makes us happy?"
-Passage: "Happiness involves both hedonic pleasure via the mesolimbic dopamine system and eudaimonic flourishing through meaning and virtue. The brain's reward circuits drive momentary satisfaction, while philosophical traditions from Aristotle to the Stoics emphasize lasting contentment through character development."
+Question: "What brings lasting contentment?"
+Passage: "Neuroscience reveals that hedonic adaptation limits satisfaction from external rewards—the brain quickly returns to baseline after pleasurable experiences. Schopenhauer argued that lasting contentment comes not from acquiring more, but from the absence of unsatisfied desire and the cultivation of inner resources."
+
+Question: "How do we make better decisions?"
+Passage: "Kahneman's research shows System 1 (fast, intuitive) often produces biased judgments that System 2 (slow, deliberate) can correct with effort. Gracián counseled never deciding in passion's heat: 'reflection is the safeguard of prudence'—allowing emotions to settle before committing to action."
+
+Question: "Why do we suffer?"
+Passage: "Chronic stress activates the hypothalamic-pituitary-adrenal axis, flooding the body with cortisol and altering brain structure over time. Schopenhauer viewed suffering as inherent to existence itself—the will endlessly strives, and satisfaction is always temporary, giving way to new desires or boredom."
+
+Question: "How should we respond to what we cannot control?"
+Passage: "The brain's anterior cingulate cortex monitors conflicts between desire and reality, often triggering frustration when expectations aren't met. The Tao te ching teaches that the sage flows with circumstances like water—soft yet persistent, yielding yet ultimately shaping the landscape it encounters."
 
 Now write a passage for:
 Question: "{query}"

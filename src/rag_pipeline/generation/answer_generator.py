@@ -243,7 +243,7 @@ Please answer based on the context above, citing sources by number [1], [2], etc
         messages=messages,
         model=model,
         temperature=temperature,
-        max_tokens=1024,
+        max_tokens=2048,
     )
 
     # Extract citations

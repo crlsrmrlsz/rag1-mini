@@ -30,7 +30,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import requests
 from pydantic import ValidationError as PydanticValidationError
 
-from src.config import PREPROCESSING_MODEL, CORPUS_TOPICS
+from src.config import PREPROCESSING_MODEL
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
@@ -73,36 +73,11 @@ class PreprocessedQuery:
 # HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
 
-HYDE_PROMPT = """You are generating hypothetical passages for a knowledge base covering:
-{corpus_topics}
+HYDE_PROMPT = """Write a passage from a knowledge base covering cognitive science and philosophical wisdom traditions.
 
-Given a question, write a SHORT hypothetical passage (2-3 sentences) that would answer it.
+Given a question, write a SHORT passage (2-3 sentences) that directly answers it.
+Include relevant mechanisms, concepts, or insights that would appear in such a knowledge base.
 
-CRITICAL: Each passage must give EQUAL weight to:
-- NEUROSCIENCE (50%): Brain mechanisms, cognitive processes, biological findings
-- PHILOSOPHY (50%): Wisdom traditions (Stoics, Schopenhauer, Taoism, Confucius, Gracián)
-
-BALANCED EXAMPLES:
-
-Question: "Why do we procrastinate?"
-Passage: "Procrastination involves temporal discounting in the brain's reward system—the limbic system overvalues immediate rewards while the prefrontal cortex struggles to maintain future goals. Seneca observed that we squander time because we treat our lifespan as infinite, failing to value each moment as the precious resource it is."
-
-Question: "How can I control my impulses?"
-Passage: "The prefrontal cortex must override automatic amygdala-driven responses, a process requiring cognitive effort and often depleted by stress or fatigue. Epictetus taught that only our judgments are truly 'up to us'—recognizing this distinction allows us to respond thoughtfully rather than react automatically."
-
-Question: "What brings lasting contentment?"
-Passage: "Neuroscience reveals that hedonic adaptation limits satisfaction from external rewards—the brain quickly returns to baseline after pleasurable experiences. Schopenhauer argued that lasting contentment comes not from acquiring more, but from the absence of unsatisfied desire and the cultivation of inner resources."
-
-Question: "How do we make better decisions?"
-Passage: "Kahneman's research shows System 1 (fast, intuitive) often produces biased judgments that System 2 (slow, deliberate) can correct with effort. Gracián counseled never deciding in passion's heat: 'reflection is the safeguard of prudence'—allowing emotions to settle before committing to action."
-
-Question: "Why do we suffer?"
-Passage: "Chronic stress activates the hypothalamic-pituitary-adrenal axis, flooding the body with cortisol and altering brain structure over time. Schopenhauer viewed suffering as inherent to existence itself—the will endlessly strives, and satisfaction is always temporary, giving way to new desires or boredom."
-
-Question: "How should we respond to what we cannot control?"
-Passage: "The brain's anterior cingulate cortex monitors conflicts between desire and reality, often triggering frustration when expectations aren't met. The Tao te ching teaches that the sage flows with circumstances like water—soft yet persistent, yielding yet ultimately shaping the landscape it encounters."
-
-Now write a passage for:
 Question: "{query}"
 
 Passage:"""
@@ -112,58 +87,17 @@ Passage:"""
 # DECOMPOSITION PROMPTS
 # =============================================================================
 
-DECOMPOSITION_PROMPT = """You break down complex questions for a cross-domain knowledge retrieval system.
+DECOMPOSITION_PROMPT = """Break down this question for a knowledge base covering cognitive science and philosophical wisdom traditions.
 
-The knowledge base covers:
-{corpus_topics}
+Create 3-4 sub-questions that together would answer the original question.
+Each sub-question should target a specific aspect that could be answered by a passage in the knowledge base.
 
-TASK: Decompose this question into 3-4 sub-questions with EQUAL representation from neuroscience and philosophy.
-
-VOCABULARY FROM THE KNOWLEDGE BASE:
-
-NEUROSCIENCE - Use terms like:
-- Decision/cognition: System 1/System 2, heuristics, cognitive biases, cognitive load, temporal discounting
-- Brain regions: prefrontal cortex, amygdala, anterior cingulate cortex, limbic system, hippocampus
-- Mechanisms: dopamine, serotonin, cortisol, HPA axis, hedonic adaptation, reward baseline
-- Behavior: impulse control, cognitive reappraisal, stress response, fear conditioning
-
-PHILOSOPHY - Use terms authentic to each tradition:
-- Stoics: "what is up to us", impressions, assent, virtue as only good, tranquility, preferred indifferents
-- Schopenhauer: will to live, denial of will, absence of desire, thing-in-itself, vanity of existence
-- Taoism: wu wei (non-action), the Tao, soft overcomes hard, inner stillness, the sage
-- Confucius: ren (benevolence), junzi (superior person), li (ritual propriety), filial piety
-- Gracián: prudence, discretion, fortune, concealment, strategic self-presentation
-
-BALANCED EXAMPLES:
-
-Question: "How can I become less anxious?"
-Sub-questions:
-1. "How do the amygdala and prefrontal cortex interact during anxiety, and what calms the stress response?"
-2. "What does Epictetus's 'dichotomy of control' teach about letting go of what is not 'up to us'?"
-3. "What does the Tao te ching teach about yielding to circumstances rather than resisting them?"
-4. "How do contemplative practices affect cortisol levels and brain stress circuits?"
-
-Question: "Why is self-control so hard?"
-Sub-questions:
-1. "What causes prefrontal cortex fatigue and how does it lead to self-control failure?"
-2. "What does Schopenhauer teach about the 'will to live' and why desire always returns?"
-3. "What does Gracián advise about prudence and waiting until passion subsides before deciding?"
-4. "How do dopamine reward systems drive impulsive behavior despite long-term goals?"
-
-Question: "What makes people happy?"
-Sub-questions:
-1. "What does neuroscience reveal about hedonic adaptation and the brain's reward baseline?"
-2. "What does Schopenhauer argue about contentment through 'absence of unsatisfied desire'?"
-3. "What does Confucius teach about the happiness of cultivating ren (benevolence) and becoming a junzi?"
-4. "How do Kahneman's findings on System 1/2 biases affect our pursuit of satisfaction?"
-
-Now decompose:
 Question: "{query}"
 
 Respond with JSON:
 {{
   "sub_questions": ["...", "...", "..."],
-  "reasoning": "Brief explanation of decomposition"
+  "reasoning": "Brief explanation"
 }}"""
 
 
@@ -190,11 +124,8 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
     """
     model = model or PREPROCESSING_MODEL
 
-    # Format prompt with corpus topics and query
-    prompt = HYDE_PROMPT.format(
-        corpus_topics=CORPUS_TOPICS,
-        query=query,
-    )
+    # Format prompt with query only (self-contained domain description)
+    prompt = HYDE_PROMPT.format(query=query)
 
     messages = [
         {"role": "user", "content": prompt},
@@ -246,11 +177,8 @@ def decompose_query(query: str, model: Optional[str] = None) -> Tuple[List[str],
     """
     model = model or PREPROCESSING_MODEL
 
-    # Format prompt with corpus topics for vocabulary grounding
-    prompt = DECOMPOSITION_PROMPT.format(
-        query=query,
-        corpus_topics=CORPUS_TOPICS,
-    )
+    # Format prompt with query only (self-contained domain description)
+    prompt = DECOMPOSITION_PROMPT.format(query=query)
 
     messages = [
         {"role": "user", "content": prompt},

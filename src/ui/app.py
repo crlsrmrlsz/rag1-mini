@@ -647,6 +647,25 @@ if st.session_state.search_results:
             col2.caption(f"Sources cited: {ans.sources_used}")
             col3.caption(f"Generated in {ans.generation_time_ms:.0f}ms")
 
+            # Display formatted references for cited sources
+            results = st.session_state.search_results
+            if ans.sources_used and results:
+                st.markdown("---")
+                st.caption("References")
+                for idx in sorted(ans.sources_used):
+                    if 1 <= idx <= len(results):
+                        chunk = results[idx - 1]  # Convert 1-based to 0-based
+                        book_parts = chunk["book_id"].rsplit("(", 1)
+                        book_title = book_parts[0].strip()
+                        author = book_parts[1].rstrip(")") if len(book_parts) > 1 else ""
+                        section = chunk.get("section", "")
+                        ref_text = f"[{idx}] {book_title}"
+                        if author:
+                            ref_text += f" — {author}"
+                        if section:
+                            ref_text += f", Section: {section}"
+                        st.caption(ref_text)
+
         else:
             st.info("Answer generation is disabled. Enable it in the sidebar to see synthesized answers.")
 
@@ -663,6 +682,20 @@ if st.session_state.search_results:
     # -------------------------------------------------------------------------
     with tab_chunks:
         st.markdown(f"### Retrieved Chunks ({len(st.session_state.search_results)})")
+
+        # Show score explanation based on retrieval method
+        prep = st.session_state.preprocess_result
+        strategy = getattr(prep, 'strategy_used', 'none') if prep else 'none'
+        reranked = st.session_state.rerank_data is not None
+
+        if reranked:
+            score_info = "Scores: cross-encoder semantic relevance (0.0–1.0+, higher = more relevant)"
+        elif strategy == "decomposition":
+            score_info = "Scores: RRF (Reciprocal Rank Fusion, k=60). Range ~0.01–0.05. See: Cormack et al. (2009)"
+        else:
+            score_info = "Scores: cosine similarity (0.0–1.0, higher = more semantically similar)"
+
+        st.caption(score_info)
         _display_chunks(st.session_state.search_results)
 
 elif query and not st.session_state.search_results:

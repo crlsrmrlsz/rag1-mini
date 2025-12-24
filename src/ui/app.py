@@ -690,7 +690,7 @@ if st.session_state.search_results:
 
         if reranked:
             score_info = "Scores: cross-encoder semantic relevance (0.0–1.0+, higher = more relevant)"
-        elif strategy == "decomposition":
+        elif st.session_state.get("rrf_data") is not None:
             score_info = "Scores: RRF (Reciprocal Rank Fusion, k=60). Range ~0.01–0.05. See: Cormack et al. (2009)"
         else:
             score_info = "Scores: cosine similarity (0.0–1.0, higher = more semantically similar)"

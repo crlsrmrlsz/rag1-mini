@@ -1,0 +1,134 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2025-12-24",
+    "description": "Curated 10-question subset for comprehensive evaluation. Balanced across neuroscience/philosophy and single-concept/cross-domain difficulty levels.",
+    "selection_criteria": "High-quality ground truth, diverse topics, balanced difficulty",
+    "total_questions": 10
+  },
+  "questions": [
+    {
+      "id": "neuro_behave_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "What structural change occurs in the amygdala with long-term PTSD according to Sapolsky?",
+      "reference": "The amygdala expands in size with long-term PTSD. In PTSD sufferers, the amygdala is overreactive to mildly fearful stimuli and is slow in calming down after being activated.",
+      "ground_truth_quote": "the amygdala expands in size with long-term PTSD",
+      "expected_books": ["Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)"]
+    },
+    {
+      "id": "neuro_psychobio_01",
+      "category": "neuroscience",
+      "difficulty": "single_concept",
+      "question": "From which amino acid is serotonin synthesized?",
+      "reference": "Serotonin (5-hydroxytryptamine or 5-HT) is synthesized from the essential amino acid tryptophan. They both are indoles with an aromatic structure.",
+      "ground_truth_quote": "Serotonin (5-hydroxytryptamine or 5-HT) is synthesized from the essential amino acid tryptophan",
+      "expected_books": ["Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"]
+    },
+    {
+      "id": "phil_kahneman_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "How does Daniel Kahneman define System 1 thinking?",
+      "reference": "System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control. In contrast, System 2 allocates attention to the effortful mental activities that demand it, including complex computations.",
+      "ground_truth_quote": "System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control",
+      "expected_books": ["Thinking Fast and Slow (Daniel Kahneman)"]
+    },
+    {
+      "id": "phil_enchiridion_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What is the fundamental distinction Epictetus makes about what is within our control?",
+      "reference": "Epictetus teaches that some things are within our control and some things are not. It is only after you have faced up to this fundamental rule and learned to distinguish between what you can and can't control that inner tranquility and outer effectiveness become possible.",
+      "ground_truth_quote": "Some things are within our control, and some things are not",
+      "expected_books": ["The Enchiridion (Epictetus)"]
+    },
+    {
+      "id": "phil_tao_01",
+      "category": "philosophy",
+      "difficulty": "single_concept",
+      "question": "What is the opening paradox of the Tao Te Ching?",
+      "reference": "The Tao Te Ching opens with a fundamental paradox about the nature of the Way: the way you can go isn't the real way, and the name you can say isn't the real name. This points to the ineffability of the Tao.",
+      "ground_truth_quote": "The way you can go isn't the real way. The name you can say isn't the real name.",
+      "expected_books": ["Tao te ching Lao_tzu (Lao Tzu)"]
+    },
+    {
+      "id": "cross_consciousness_01",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What is the role of the thalamus in consciousness according to neuroscience research?",
+      "reference": "The thalamus plays a critical role in consciousness across multiple dimensions. Core consciousness depends on the functions of the brainstem and thalamus - it occurs when an organism is alive, awake, alert, and aware of the current moment. All sensory input except smell passes through the thalamus, which has neuronal connections forming loops with specific cortical regions that coordinate activity and contribute to consciousness. Attention, awareness, and consciousness all critically depend on the information-conveying capacity of the thalamus. The intralaminar nuclei provide diffuse input to large cortical areas; even small injury to these nuclei can produce profound reduction in consciousness. Consciousness arises from interactions between subcortical systems (brainstem, hypothalamus), the thalamus, and the cortex.",
+      "ground_truth_quote": "\"Core consciousness depends on the functions of the brainstem and thalamus\" (Gazzaniga); \"All sensory input except smell passes through the thalamus\" (Eagleman); \"The intralaminar nuclei provide diffuse input to large cortical areas\" (Gazzaniga); \"consciousness itself arise from interactions between these subcortical systems, the thalamus, and the cortex\" (Psychobiology); \"the mighty thalamus located deep in the heart of the brain connects to nearly every region in the cortex and together they form the cortical core, the central machinery of the brain\" (Fundamentals of Cognitive Neuroscience)",
+      "expected_books": [
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)"
+      ]
+    },
+    {
+      "id": "cross_freewill_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "What determines human choices and actions, and to what extent can we control our own decisions?",
+      "reference": "From a neuroscience perspective, Sapolsky argues that all behavior results from prior deterministic causes - neural firing seconds before, hormonal changes hours to days before, childhood experiences, fetal environment, genetic makeup, and evolutionary pressures. The prefrontal cortex makes decisions up to ten seconds before conscious awareness. We are the cumulative product of biological and environmental factors over which we had no control. However, ancient wisdom traditions offer complementary perspectives: Stoic philosophy distinguishes between what is within our control (our judgments, desires, and will) versus what is not (external circumstances, our bodies, others' actions). Epictetus taught that while we cannot control external events, we can control our response to them. The Tao Te Ching advocates wu wei (non-action), suggesting alignment with natural processes rather than forced willfulness. Marcus Aurelius counseled acceptance of fate while maintaining virtue. These perspectives converge on recognizing that while our choices emerge from prior causes, wisdom lies in focusing attention on what remains within our sphere of influence - our attitudes, judgments, and character.",
+      "ground_truth_quote": "\"the PFC was making its decision up to ten seconds before subjects felt they were consciously deciding\" (Sapolsky); \"Some things are within our control, and some things are not\" (Epictetus Art of Living); \"Within our control are our own opinions, aspirations, desires\" (Epictetus Art of Living); \"Cognitive control allows us to use our perceptions, knowledge, and goals to bias the selection of action and thoughts from a multitude of possibilities\" (Gazzaniga); \"if he attempts to avoid anything independent of his will, he knows that sometimes he will fall in with something which he wishes to avoid\" (Epictetus Enchiridion); \"No man can hinder you to live according to the plan of your nature\" (Marcus Aurelius); \"Do without doing. Act without action\" (Tao te ching)",
+      "expected_books": [
+        "Determined, a science of life without free will (Robert M. Sapolsky)",
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "The Enchiridion (Epictetus)",
+        "The Meditations (Marcus Aurelius)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "Tao te ching Lao_tzu (Lao Tzu)"
+      ]
+    },
+    {
+      "id": "cross_selfcontrol_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "Why do humans struggle with self-control, and what methods help overcome impulsive behavior?",
+      "reference": "Self-control failures stem from the architecture of the brain itself. Kahneman's research distinguishes System 1 (fast, automatic, intuitive) from System 2 (slow, deliberate, rational) thinking. Most impressions and thoughts arise without conscious awareness, and System 1 operates silently as 'the secret author of many choices and judgments.' Self-control requires System 2 to override automatic responses, which demands metabolic effort and depletes cognitive resources. The prefrontal cortex, which mediates self-regulation, continues developing into early adulthood, explaining why adolescents struggle with impulse control. Childhood experiences shape how the brain responds to stimuli, creating lasting patterns. Stoic philosophy offers practical remedies: Epictetus taught that we can control our judgments about external events - pausing to examine impressions before assenting to them. Seneca emphasized that mastering desires requires constant practice, not merely knowing what is right. The goal is 'tranquility' achieved through training the rational faculty to govern passions. Both neuroscience and philosophy agree that self-control is a skill developed through practice, that automatic reactions can be retrained, and that understanding the sources of impulse is the first step toward mastery.",
+      "ground_truth_quote": "\"the intuitive System 1 is more influential than your experience tells you, and it is the secret author of many of the choices and judgments you make\" (Kahneman); \"It is only after you have faced up to this fundamental rule and learned to distinguish between what you can and can't control that inner tranquility and outer effectiveness become possible\" (Epictetus)",
+      "expected_books": [
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "The Enchiridion (Epictetus)",
+        "Letters from a Stoic (Seneca)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
+      ]
+    },
+    {
+      "id": "cross_suffering_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "What causes psychological suffering, and how do humans develop resilience to adversity?",
+      "reference": "The sympathetic nervous system mediates the body's stress response, producing 'fight or flight' reactions to perceived threats. Chronic stress dysregulates this system, creating lasting changes in brain circuitry, particularly in fear-processing regions like the amygdala. Childhood adversity and trauma can reshape neural development, affecting emotional regulation into adulthood. Resilience involves the capacity to activate and then appropriately deactivate stress responses, a skill that varies based on genetics, early experiences, and learned coping strategies. Schopenhauer viewed suffering as intrinsic to existence, not aberrant - we are 'all engaged in a struggle against suffering.' Accepting suffering as inevitable rather than fighting its reality paradoxically reduces psychological distress. Stoic philosophy transforms adversity into opportunity: Seneca compared philosophical counsels to 'prescriptions of useful drugs' that minister to 'sores which, if not wholly cured, have at least ceased to spread.' Marcus Aurelius taught that obstacles to virtue are themselves material for practicing virtue. Epictetus emphasized that we suffer not from events but from our judgments about them. Both neuroscience and philosophy agree that resilience can be developed through understanding suffering's sources, practicing adaptive responses, and finding meaning in adversity rather than merely enduring it.",
+      "ground_truth_quote": "\"Nothing truly stops you. Nothing truly holds you back. For your own will is always within your control\" (Epictetus); \"Instead of averting your eyes from the painful events of life, look at them squarely and contemplate them often\" (Epictetus); \"Sickness may challenge your body. But are you merely your body?\" (Epictetus)",
+      "expected_books": [
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "Biopsychology (John Pinel, Steven Barnes)",
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "The Meditations (Marcus Aurelius)",
+        "Letters from a Stoic (Seneca)"
+      ]
+    },
+    {
+      "id": "cross_happiness_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "What creates lasting happiness, and why does pleasure often fail to satisfy?",
+      "reference": "Neuroscience reveals that the brain's reward systems show hedonic adaptation - what brings pleasure initially loses its power with repeated exposure, requiring escalation for the same subjective experience. Dopamine mediates 'wanting' (motivation to pursue rewards) rather than 'liking' (hedonic pleasure), creating a treadmill of desire that never reaches satisfaction. Sustainable contentment depends on balanced functioning across motivational, emotional, and cognitive systems rather than maximizing any single reward signal. Schopenhauer inverted traditional hedonic philosophy: 'happiness means merely the diminution of suffering,' not a positive state. The goal is avoiding unnecessary suffering rather than chasing positive states. He argued that 'a healthy beggar is happier than an ailing king' - personality and health outweigh external possessions. The Stoics taught that true happiness comes from alignment with reason and virtue, not external circumstances. Epictetus emphasized that 'happiness and personal fulfillment are the natural consequences of doing the right thing.' Seneca counseled that freedom comes from simplicity and independence, not accumulation. Both neuroscience and philosophy converge on the insight that pursuing pleasure directly is self-defeating; lasting contentment requires accepting limits, cultivating internal resources, and redirecting desire toward meaning rather than sensation.",
+      "ground_truth_quote": "\"The happiest lot is not to have experienced the keenest delights or the greatest pleasures, but to have brought life to a close without any very great pain\" (Schopenhauer); \"By facing the realities of death, infirmity, loss, and disappointment, you free yourself of illusions and false hopes\" (Epictetus)",
+      "expected_books": [
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "Wisdom of Life (Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "Letters from a Stoic (Seneca)"
+      ]
+    }
+  ]
+}

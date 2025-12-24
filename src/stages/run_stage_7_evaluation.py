@@ -33,6 +33,11 @@ Usage Examples:
     # Custom output path
     python -m src.stages.run_stage_7_evaluation -o data/evaluation/results/alpha_0.3.json
 
+    # COMPREHENSIVE MODE: Test all combinations (collections x alphas x strategies)
+    python -m src.stages.run_stage_7_evaluation --comprehensive
+    # Uses curated 10-question subset, tests all collections, alphas (0.0-1.0), strategies
+    # Generates leaderboard report with metric breakdowns
+
 Arguments:
     -n, --questions N         Limit to first N questions
     -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision)
@@ -44,6 +49,7 @@ Arguments:
     --evaluation-model MODEL  RAGAS judge model (default: anthropic/claude-haiku-4.5)
     -o, --output PATH         Output JSON file path (default: results/eval_TIMESTAMP.json)
     --no-log                  Skip auto-logging to evaluation-history.md
+    --comprehensive           Run grid search across all collections, alphas, strategies
 
 Output:
     1. JSON report: data/evaluation/results/eval_TIMESTAMP.json
@@ -81,6 +87,9 @@ from src.config import (
 )
 from src.evaluation import run_evaluation
 from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg, OverwriteMode
+
+# Comprehensive evaluation imports (lazy-loaded in function)
+COMPREHENSIVE_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "comprehensive_questions.json"
 
 logger = setup_logging(__name__)
 
@@ -457,6 +466,229 @@ def generate_report(
 
 
 # ============================================================================
+# COMPREHENSIVE EVALUATION
+# ============================================================================
+
+
+def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
+    """Run comprehensive evaluation across all combinations.
+
+    Tests: collections x alpha values x preprocessing strategies
+    - No reranking (always disabled)
+    - Uses curated 10-question subset
+    - Generates leaderboard report with metric breakdown
+    - No individual run logging to evaluation-history.md
+
+    Args:
+        args: Command-line arguments (uses generation_model, evaluation_model, output).
+    """
+    from src.ui.services.search import list_collections
+    from src.rag_pipeline.retrieval.preprocessing.strategies import list_strategies
+
+    logger.info("Starting comprehensive evaluation mode...")
+
+    # Load curated question subset
+    questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
+    logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
+
+    # Get all collections, alphas, strategies
+    collections = list_collections()
+    alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
+    strategies = list_strategies()
+
+    if not collections:
+        logger.error("No RAG collections found in Weaviate. Run stage 6 first.")
+        return
+
+    # Calculate total combinations
+    total_combinations = len(collections) * len(alphas) * len(strategies)
+    logger.info(f"Testing {total_combinations} combinations:")
+    logger.info(f"  Collections ({len(collections)}): {collections}")
+    logger.info(f"  Alphas ({len(alphas)}): {alphas}")
+    logger.info(f"  Strategies ({len(strategies)}): {strategies}")
+
+    # Run all combinations
+    all_results = []
+    count = 0
+
+    for collection in collections:
+        for alpha in alphas:
+            for strategy in strategies:
+                count += 1
+                logger.info(
+                    f"\n[{count}/{total_combinations}] "
+                    f"{collection} | alpha={alpha} | strategy={strategy}"
+                )
+
+                try:
+                    results = run_evaluation(
+                        test_questions=questions,
+                        metrics=["faithfulness", "relevancy", "context_precision"],
+                        top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
+                        generation_model=args.generation_model,
+                        evaluation_model=args.evaluation_model,
+                        collection_name=collection,
+                        use_reranking=False,  # Always disabled
+                        alpha=alpha,
+                        preprocessing_strategy=strategy,
+                        preprocessing_model=None,
+                    )
+
+                    # Store configuration + scores
+                    all_results.append({
+                        "collection": collection,
+                        "alpha": alpha,
+                        "strategy": strategy,
+                        "scores": results["scores"],
+                        "num_questions": len(questions),
+                    })
+
+                    scores = results["scores"]
+                    logger.info(
+                        f"  -> faith={scores.get('faithfulness', 0):.3f} "
+                        f"relev={scores.get('relevancy', 0):.3f} "
+                        f"ctx_prec={scores.get('context_precision', 0):.3f}"
+                    )
+
+                except Exception as e:
+                    logger.error(f"  -> FAILED: {e}")
+                    all_results.append({
+                        "collection": collection,
+                        "alpha": alpha,
+                        "strategy": strategy,
+                        "scores": {"faithfulness": 0, "relevancy": 0, "context_precision": 0},
+                        "num_questions": len(questions),
+                        "error": str(e),
+                    })
+
+    # Generate comprehensive report
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = Path(args.output) if args.output else RESULTS_DIR / f"comprehensive_{timestamp}.json"
+
+    generate_comprehensive_report(all_results, questions, output_path)
+
+    logger.info("Comprehensive evaluation complete!")
+
+
+def generate_comprehensive_report(
+    all_results: List[Dict[str, Any]],
+    questions: List[Dict[str, Any]],
+    output_path: Path,
+) -> None:
+    """Generate leaderboard and metric breakdown for comprehensive evaluation.
+
+    Args:
+        all_results: List of result dicts with collection, alpha, strategy, scores.
+        questions: Original test questions.
+        output_path: Path for output JSON file.
+    """
+    # Create results directory if needed
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Calculate composite score for ranking (average of all metrics)
+    # Use `or 0` to handle None values (not just missing keys)
+    for result in all_results:
+        scores = result["scores"]
+        faithfulness = scores.get("faithfulness") or 0
+        relevancy = scores.get("relevancy") or 0
+        context_precision = scores.get("context_precision") or 0
+        result["composite_score"] = (faithfulness + relevancy + context_precision) / 3
+
+    # Sort by composite score (descending)
+    sorted_results = sorted(
+        all_results,
+        key=lambda x: x["composite_score"],
+        reverse=True
+    )
+
+    # Count successful vs failed runs
+    successful_runs = [r for r in all_results if "error" not in r]
+    failed_runs = [r for r in all_results if "error" in r]
+
+    # Build report
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "mode": "comprehensive",
+        "num_questions": len(questions),
+        "num_combinations": len(all_results),
+        "successful_runs": len(successful_runs),
+        "failed_runs": len(failed_runs),
+        "metrics": ["faithfulness", "relevancy", "context_precision"],
+        "leaderboard": sorted_results,
+    }
+
+    # Save JSON report
+    with open(output_path, "w") as f:
+        json.dump(report, f, indent=2)
+
+    logger.info(f"Comprehensive report saved to: {output_path}")
+
+    # Print leaderboard to console
+    print("\n" + "=" * 100)
+    print("COMPREHENSIVE EVALUATION LEADERBOARD")
+    print("=" * 100)
+    print(f"\nTested {len(all_results)} combinations on {len(questions)} questions")
+    print(f"Successful: {len(successful_runs)} | Failed: {len(failed_runs)}")
+    print("\n" + "-" * 100)
+    print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'Avg':<8}")
+    print("-" * 100)
+
+    # Show all results (sorted)
+    for i, result in enumerate(sorted_results, 1):
+        scores = result["scores"]
+        faith = scores.get("faithfulness", 0)
+        relev = scores.get("relevancy", 0)
+        ctx_prec = scores.get("context_precision", 0)
+        avg = result["composite_score"]
+
+        # Truncate long collection names
+        collection_short = result["collection"][:35]
+        error_marker = " *" if "error" in result else ""
+
+        print(
+            f"{i:<5} {collection_short:<35} {result['alpha']:<7} "
+            f"{result['strategy']:<15} {faith:<8.3f} {relev:<8.3f} "
+            f"{ctx_prec:<8.3f} {avg:<8.3f}{error_marker}"
+        )
+
+    # Helper function for metric breakdowns (DRY)
+    def _print_breakdown(title: str, group_key: str, format_label=str):
+        print("\n" + "=" * 100)
+        print(title)
+        print("=" * 100)
+        groups = sorted(set(r[group_key] for r in successful_runs))
+        for group in groups:
+            group_results = [r for r in successful_runs if r[group_key] == group]
+            if not group_results:
+                continue
+            n = len(group_results)
+            avg_faith = sum((r["scores"].get("faithfulness") or 0) for r in group_results) / n
+            avg_relev = sum((r["scores"].get("relevancy") or 0) for r in group_results) / n
+            avg_ctx = sum((r["scores"].get("context_precision") or 0) for r in group_results) / n
+            label = format_label(group)
+            print(f"\n{label} (n={n}):")
+            print(f"  Faithfulness:      {avg_faith:.3f}")
+            print(f"  Relevancy:         {avg_relev:.3f}")
+            print(f"  Context Precision: {avg_ctx:.3f}")
+
+    # Print breakdowns by each dimension
+    _print_breakdown("BREAKDOWN BY PREPROCESSING STRATEGY", "strategy", str.upper)
+    _print_breakdown("BREAKDOWN BY ALPHA (hybrid search: 0.0=keyword, 1.0=vector)", "alpha", lambda a: f"ALPHA={a}")
+    _print_breakdown("BREAKDOWN BY COLLECTION", "collection")
+
+    # Show failed runs if any
+    if failed_runs:
+        print("\n" + "=" * 100)
+        print("FAILED RUNS")
+        print("=" * 100)
+        for result in failed_runs:
+            print(f"  {result['collection']} | alpha={result['alpha']} | {result['strategy']}")
+            print(f"    Error: {result.get('error', 'Unknown')}")
+
+    print("\n" + "=" * 100)
+
+
+# ============================================================================
 # MAIN
 # ============================================================================
 
@@ -558,8 +790,19 @@ def main():
         default="prompt",
         help="Overwrite behavior for custom -o path: prompt (default), skip, all",
     )
+    parser.add_argument(
+        "--comprehensive",
+        action="store_true",
+        default=False,
+        help="Run comprehensive evaluation across all collections, alphas (0.0-1.0), and strategies",
+    )
 
     args = parser.parse_args()
+
+    # Comprehensive mode: different execution path
+    if args.comprehensive:
+        run_comprehensive_evaluation(args)
+        return
 
     overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
 

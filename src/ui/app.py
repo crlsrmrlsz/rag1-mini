@@ -346,7 +346,7 @@ enable_preprocessing = st.sidebar.checkbox(
 
 if enable_preprocessing:
     # Strategy selector
-    strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES if s[0] != "none"}
+    strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
     strategy_ids = list(strategy_options.keys())
     default_idx = strategy_ids.index(DEFAULT_PREPROCESSING_STRATEGY) if DEFAULT_PREPROCESSING_STRATEGY in strategy_ids else 0
     selected_strategy = st.sidebar.selectbox(

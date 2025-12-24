@@ -82,8 +82,6 @@ CRITICAL: Each passage must give EQUAL weight to:
 - NEUROSCIENCE (50%): Brain mechanisms, cognitive processes, biological findings
 - PHILOSOPHY (50%): Wisdom traditions (Stoics, Schopenhauer, Taoism, Confucius, Gracián)
 
-Rotate among philosophical traditions—don't always cite Stoics.
-
 BALANCED EXAMPLES:
 
 Question: "Why do we procrastinate?"
@@ -119,38 +117,45 @@ DECOMPOSITION_PROMPT = """You break down complex questions for a cross-domain kn
 The knowledge base covers:
 {corpus_topics}
 
-DOMAIN STRUCTURE:
-- NEUROSCIENCE domain: Explains HOW (brain mechanisms, biological processes)
-- PRACTICAL PHILOSOPHY domain: Explains WHY and WHAT TO DO (wisdom, virtues, practices)
+TASK: Decompose this question into 3-4 sub-questions with EQUAL representation from neuroscience and philosophy.
 
-TASK: Decompose this question into 3-4 sub-questions that target different aspects:
+VOCABULARY FROM THE KNOWLEDGE BASE:
 
-DECOMPOSITION STRATEGY:
-1. First, identify if the question spans both domains (most do)
-2. Create sub-questions that:
-   - MECHANISM: Ask "how does the brain/body handle this?"
-   - PRINCIPLE: Ask "what do wisdom traditions advise?"
-   - SYNTHESIS: Ask "how do these perspectives connect?"
+NEUROSCIENCE - Use terms like:
+- Decision/cognition: System 1/System 2, heuristics, cognitive biases, cognitive load, temporal discounting
+- Brain regions: prefrontal cortex, amygdala, anterior cingulate cortex, limbic system, hippocampus
+- Mechanisms: dopamine, serotonin, cortisol, HPA axis, hedonic adaptation, reward baseline
+- Behavior: impulse control, cognitive reappraisal, stress response, fear conditioning
 
-CROSS-DOMAIN EXAMPLES:
+PHILOSOPHY - Use terms authentic to each tradition:
+- Stoics: "what is up to us", impressions, assent, virtue as only good, tranquility, preferred indifferents
+- Schopenhauer: will to live, denial of will, absence of desire, thing-in-itself, vanity of existence
+- Taoism: wu wei (non-action), the Tao, soft overcomes hard, inner stillness, the sage
+- Confucius: ren (benevolence), junzi (superior person), li (ritual propriety), filial piety
+- Gracián: prudence, discretion, fortune, concealment, strategic self-presentation
+
+BALANCED EXAMPLES:
 
 Question: "How can I become less anxious?"
 Sub-questions:
-1. "What brain mechanisms underlie anxiety and the stress response?"
-2. "What do Stoic philosophers teach about managing worry and fear?"
-3. "How do modern stress-reduction techniques relate to ancient wisdom practices?"
+1. "How do the amygdala and prefrontal cortex interact during anxiety, and what calms the stress response?"
+2. "What does Epictetus's 'dichotomy of control' teach about letting go of what is not 'up to us'?"
+3. "What does the Tao te ching teach about yielding to circumstances rather than resisting them?"
+4. "How do contemplative practices affect cortisol levels and brain stress circuits?"
 
 Question: "Why is self-control so hard?"
 Sub-questions:
-1. "How does the prefrontal cortex regulate impulses and what causes self-control failure?"
-2. "What techniques do Stoics and Taoists recommend for mastering desires?"
-3. "How do philosophical concepts of willpower compare to neuroscience findings?"
+1. "What causes prefrontal cortex fatigue and how does it lead to self-control failure?"
+2. "What does Schopenhauer teach about the 'will to live' and why desire always returns?"
+3. "What does Gracián advise about prudence and waiting until passion subsides before deciding?"
+4. "How do dopamine reward systems drive impulsive behavior despite long-term goals?"
 
 Question: "What makes people happy?"
 Sub-questions:
-1. "What does neuroscience reveal about reward systems and hedonic adaptation?"
-2. "How do Stoic, Buddhist, and Schopenhauerian views define happiness and contentment?"
-3. "Where do scientific and philosophical accounts of well-being converge?"
+1. "What does neuroscience reveal about hedonic adaptation and the brain's reward baseline?"
+2. "What does Schopenhauer argue about contentment through 'absence of unsatisfied desire'?"
+3. "What does Confucius teach about the happiness of cultivating ren (benevolence) and becoming a junzi?"
+4. "How do Kahneman's findings on System 1/2 biases affect our pursuit of satisfaction?"
 
 Now decompose:
 Question: "{query}"

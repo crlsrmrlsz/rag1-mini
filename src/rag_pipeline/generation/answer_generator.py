@@ -59,30 +59,80 @@ class GeneratedAnswer:
 
 
 # =============================================================================
+# DOMAIN CLASSIFICATION
+# =============================================================================
+
+# Keywords to identify neuroscience sources (default: philosophy/wisdom)
+NEUROSCIENCE_KEYWORDS = [
+    "behave", "biopsychology", "brain", "cognitive", "neuroscience",
+    "psychobiology", "determined", "sapolsky", "eagleman", "gazzaniga",
+    "kahneman", "thinking fast", "pinel", "barnes", "downar", "tommasi",
+    "nadel", "fountoulakis", "gage", "bernard",
+]
+
+
+def _get_domain(book_id: str) -> str:
+    """Classify a book as neuroscience or philosophy/wisdom.
+
+    Args:
+        book_id: The book identifier from chunk metadata.
+
+    Returns:
+        'neuroscience' or 'philosophy' based on keyword matching.
+    """
+    book_lower = book_id.lower()
+    for keyword in NEUROSCIENCE_KEYWORDS:
+        if keyword in book_lower:
+            return "neuroscience"
+    return "philosophy"
+
+
+# =============================================================================
 # SYSTEM PROMPT
 # =============================================================================
 
-SYSTEM_PROMPT = """You are a knowledgeable assistant that synthesizes information from multiple
-sources to provide comprehensive, accurate answers.
+SYSTEM_PROMPT = """You are a knowledgeable assistant that synthesizes cross-domain knowledge,
+bridging neuroscience and philosophical wisdom.
 
-Your approach:
-- Draw on all relevant information from the provided context
-- Synthesize insights across sources when applicable
-- Be substantive and thorough - questions deserve depth
-- Cite sources [1], [2] so the user can verify and explore further
-- If context is limited, work with what's available and note any gaps
+The context includes sources from two domains:
+- [NEURO] = Neuroscience sources (brain mechanisms, biology, cognitive science)
+- [WISDOM] = Philosophy/wisdom sources (Stoics, Schopenhauer, Confucius, Lao Tzu, etc.)
 
-Context will be provided as numbered passages."""
+RESPONSE STRUCTURE:
+Organize your answer in three sections:
+
+## 🧠 Scientific Understanding
+Explain what neuroscience and cognitive science reveal about this topic.
+Cite [NEURO] sources. Focus on mechanisms, brain regions, biological processes.
+
+## 📜 Practical Wisdom
+Explain what philosophical traditions teach about this topic.
+Cite [WISDOM] sources. Focus on principles, practices, and actionable advice.
+
+## 🔗 Convergence & Divergence
+Analyze how these perspectives relate:
+- Where do ancient wisdom and modern neuroscience **converge**?
+- Where do they **diverge** or offer different insights?
+- Does the philosophical advice have a grounded neuroscientific basis?
+
+GUIDELINES:
+- Each section should be substantive - questions deserve depth
+- If only one domain has relevant sources, write that section and note the gap
+- The synthesis section should be analytical, not just summary
+- Cite sources [1], [2] so users can explore further"""
 
 
 def _format_context(chunks: List[Dict[str, Any]]) -> str:
     """Format retrieved chunks as numbered context for the LLM.
 
+    Each chunk is labeled with its domain ([NEURO] or [WISDOM]) to help
+    the LLM organize its response by perspective.
+
     Args:
         chunks: List of chunk dictionaries from search results.
 
     Returns:
-        Formatted context string with numbered passages.
+        Formatted context string with numbered, domain-labeled passages.
     """
     context_parts = []
 
@@ -92,8 +142,12 @@ def _format_context(chunks: List[Dict[str, Any]]) -> str:
         section = chunk.get("section", "")
         text = chunk.get("text", "")
 
-        # Format: [1] Book (Section): Text
-        header = f"[{i}] {book_id}"
+        # Add domain label for structured response
+        domain = _get_domain(book_id)
+        domain_label = "[NEURO]" if domain == "neuroscience" else "[WISDOM]"
+
+        # Format: [1] [NEURO] Book (Section): Text
+        header = f"[{i}] {domain_label} {book_id}"
         if section:
             header += f" ({section})"
 

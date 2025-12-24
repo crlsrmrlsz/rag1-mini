@@ -322,14 +322,16 @@ def extract_strategy_from_collection(collection_name: str) -> str:
     if len(parts) < 3:
         return "unknown"
 
-    # Check for semantic_X.X pattern (strategy is 2 parts)
-    if parts[0] == "semantic" and len(parts) >= 2:
-        # Try to parse the second part as a threshold
+    # Check for semantic_X_Y pattern (threshold X.Y was sanitized to X_Y)
+    # Collection names replace "." with "_", so "semantic_0.5" becomes "semantic_0_5"
+    if parts[0] == "semantic" and len(parts) >= 3:
+        # Try to reconstruct decimal threshold from "0_5" -> "0.5"
         try:
-            float(parts[1])
-            return f"{parts[0]}_{parts[1]}"
+            threshold = f"{parts[1]}.{parts[2]}"
+            float(threshold)  # Validate it's a valid number
+            return f"{parts[0]}_{threshold}"
         except ValueError:
-            pass  # Not a threshold, treat as single-part strategy
+            pass  # Not a valid threshold pattern
 
     # Single-part strategy
     return parts[0]

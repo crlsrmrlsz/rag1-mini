@@ -684,9 +684,9 @@ if st.session_state.search_results:
         st.markdown(f"### Retrieved Chunks ({len(st.session_state.search_results)})")
 
         # Show score explanation based on retrieval method
-        prep = st.session_state.preprocess_result
+        prep = st.session_state.get("preprocess_result")
         strategy = getattr(prep, 'strategy_used', 'none') if prep else 'none'
-        reranked = st.session_state.rerank_data is not None
+        reranked = st.session_state.get("rerank_data") is not None
 
         if reranked:
             score_info = "Scores: cross-encoder semantic relevance (0.0–1.0+, higher = more relevant)"

@@ -97,7 +97,6 @@ def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
         original_query=query,
         search_query=hyde_passage,  # Search with hypothetical answer!
         hyde_passage=hyde_passage,
-        hyde_response=hyde_passage,
         strategy_used="hyde",
         preprocessing_time_ms=elapsed_ms,
         model=model,
@@ -193,6 +192,6 @@ def list_strategies() -> List[str]:
     """List all registered strategy IDs.
 
     Returns:
-        List of strategy IDs (e.g., ["none", "step_back", "decomposition"]).
+        List of strategy IDs (e.g., ["none", "hyde", "decomposition"]).
     """
     return list(STRATEGIES.keys())

@@ -25,6 +25,7 @@ A single unified prompt handles all query types effectively.
 5. Return GeneratedAnswer with text and metadata
 """
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
@@ -111,8 +112,6 @@ def _extract_source_citations(answer: str, num_chunks: int) -> List[int]:
     Returns:
         List of unique citation numbers found (1-based).
     """
-    import re
-
     citations = set()
     # Match [1], [2], etc.
     for match in re.finditer(r'\[(\d+)\]', answer):

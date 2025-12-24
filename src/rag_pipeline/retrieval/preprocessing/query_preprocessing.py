@@ -25,7 +25,7 @@ Pydantic schemas ensure structured LLM outputs.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 import requests
 from pydantic import ValidationError as PydanticValidationError
@@ -51,7 +51,6 @@ class PreprocessedQuery:
         preprocessing_time_ms: Time taken for preprocessing in milliseconds.
         model: Model ID used for preprocessing (for logging).
         hyde_passage: The hypothetical passage generated (hyde strategy).
-        hyde_response: Raw HyDE response from LLM (same as hyde_passage).
         sub_queries: Decomposed sub-questions (decomposition strategy).
         generated_queries: List of {type, query} dicts for multi-query retrieval.
         decomposition_response: Raw decomposition response from LLM.
@@ -64,7 +63,6 @@ class PreprocessedQuery:
     model: str = ""
     # HyDE strategy fields
     hyde_passage: Optional[str] = None
-    hyde_response: Optional[str] = None
     # Decomposition strategy fields (generated_queries used for RRF)
     generated_queries: List[Dict[str, str]] = field(default_factory=list)
     sub_queries: List[str] = field(default_factory=list)
@@ -81,7 +79,7 @@ HYDE_PROMPT = """You are a knowledgeable assistant for a knowledge base covering
 Given a question, write a SHORT hypothetical passage (2-3 sentences) that would answer it.
 The passage should:
 1. Sound like an excerpt from an encyclopedia or textbook
-2. Include terminology from BOTH neuroscience and philosophy when relevant
+2. Include terminology from BOTH neuroscience and practical philosophy when related or relevant
 3. Be factually plausible (even if you're not certain it's correct)
 
 CROSS-DOMAIN EXAMPLES:
@@ -112,7 +110,7 @@ The knowledge base covers:
 
 DOMAIN STRUCTURE:
 - NEUROSCIENCE domain: Explains HOW (brain mechanisms, biological processes)
-- PHILOSOPHY domain: Explains WHY and WHAT TO DO (wisdom, virtues, practices)
+- PRACTICAL PHILOSOPHY domain: Explains WHY and WHAT TO DO (wisdom, virtues, practices)
 
 TASK: Decompose this question into 3-4 sub-questions that target different aspects:
 
@@ -206,7 +204,7 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
 # =============================================================================
 
 
-def decompose_query(query: str, model: Optional[str] = None) -> tuple[List[str], str]:
+def decompose_query(query: str, model: Optional[str] = None) -> Tuple[List[str], str]:
     """Decompose a complex query into sub-questions for parallel retrieval.
 
     Breaks complex comparison or multi-aspect questions into simpler
@@ -285,18 +283,18 @@ def preprocess_query(
         model: Override model for LLM calls.
         strategy: Preprocessing strategy ID. Options:
             - "none": Return original query unchanged (no LLM calls)
-            - "step_back": Transform to broader concepts for better retrieval
+            - "hyde": Generate hypothetical answer for semantic matching
             - "decomposition": Break into sub-questions + RRF merge
 
     Returns:
         PreprocessedQuery with transformed query and strategy_used.
 
     Example:
-        >>> result = preprocess_query("How should I live?", strategy="step_back")
+        >>> result = preprocess_query("How should I live?", strategy="hyde")
         >>> result.search_query
-        "Stoic philosophy meaning purpose good life virtue wisdom"
+        "Eudaimonia, the ancient Greek concept of flourishing..."
         >>> result.strategy_used
-        "step_back"
+        "hyde"
     """
     # Import here to avoid circular imports
     from src.config import DEFAULT_PREPROCESSING_STRATEGY

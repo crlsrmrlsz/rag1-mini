@@ -180,11 +180,11 @@ def _render_pipeline_log():
                 st.divider()
                 st.markdown("#### HyDE: Hypothetical Document")
 
-                # Show HyDE generated passage (use getattr for backward compat with cached objects)
-                hyde_response = getattr(prep, 'hyde_response', None)
-                if hyde_response:
+                # Show HyDE generated passage
+                hyde_passage = getattr(prep, 'hyde_passage', None)
+                if hyde_passage:
                     st.markdown("**Generated Hypothetical Passage (used for retrieval):**")
-                    st.info(hyde_response)
+                    st.info(hyde_passage)
 
             # Show decomposition section if decomposition strategy was used
             sub_queries = getattr(prep, 'sub_queries', None)

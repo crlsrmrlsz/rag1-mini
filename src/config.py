@@ -262,7 +262,7 @@ CORPUS_TOPICS = (
     "virtue ethics, practical wisdom, cognitive biases, the will, suffering"
 )
 
-# Model for query preprocessing (step-back, multi-query, decomposition)
+# Model for query preprocessing (hyde, decomposition)
 # Using fast, cheap model since these are simple transformation tasks
 PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"
 
@@ -502,7 +502,6 @@ def get_embedding_folder_path(strategy: str) -> Path:
     """
     # Sanitize strategy to prevent path traversal
     # Replace all path separators and multiple dots with underscores
-    import re
     safe_strategy = re.sub(r'[/\\]+', '_', strategy)  # Replace path separators
     safe_strategy = re.sub(r'\.{2,}', '_', safe_strategy)  # Replace multiple dots
     return DIR_EMBEDDINGS / safe_strategy

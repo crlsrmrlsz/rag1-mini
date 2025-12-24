@@ -78,7 +78,7 @@ def _build_preprocessing(prep) -> Dict:
         "strategy": getattr(prep, "strategy_used", "unknown"),
         "model": getattr(prep, "model", ""),
         "search_query": prep.search_query,
-        "step_back_query": getattr(prep, "step_back_query", None),
+        "hyde_passage": getattr(prep, "hyde_passage", None),
         "time_ms": round(prep.preprocessing_time_ms, 1),
     }
 

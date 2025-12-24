@@ -213,7 +213,7 @@ def run_evaluation(
         use_reranking: If True, apply cross-encoder reranking to improve retrieval.
                        Default: True (enabled for best accuracy).
         alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
-        preprocessing_strategy: Query preprocessing strategy ("none", "baseline", "step_back").
+        preprocessing_strategy: Query preprocessing strategy ("none", "hyde", "decomposition").
                                Default: "none" for clean baseline evaluation.
         preprocessing_model: Model for preprocessing LLM calls (default from config).
 

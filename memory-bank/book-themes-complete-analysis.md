@@ -451,3 +451,71 @@ Comprehensive analysis of all 19 books in the RAG corpus, extracted from context
 1. **Schopenhauer (all 3 books)** - Will, suffering, consciousness, death - all have neuroscience correlates
 2. **Stoics (Seneca, Epictetus, Marcus Aurelius)** - Self-control, emotions, fear - directly map to brain systems
 3. **Tao te ching** - Non-action, balance, stillness - relate to consciousness research
+
+---
+
+# PART 4: EVALUATION QUESTIONS VERIFICATION (Dec 2025)
+
+## Verification Methodology
+
+All 26 cross-domain evaluation questions were systematically verified against:
+1. Theme occurrence counts from this document
+2. Actual chunk content (grep searches for key terms)
+3. Decision thresholds: Neuroscience ≥50 occurrences = CONFIRM, 20-49 = VERIFY, <20 = LIKELY REMOVE
+
+## Changes Applied (v3.2)
+
+### Books Added to expected_books:
+| Question | Book Added | Rationale |
+|----------|-----------|-----------|
+| cross_motivation_01 | Biopsychology | 40 motivation occurrences |
+| cross_consciousness_01 | Fundamentals of Cognitive Neuroscience | 298 consciousness occurrences |
+| cross_consciousness_02 | Fundamentals of Cognitive Neuroscience | 298 consciousness occurrences |
+| cross_reputation_01 | Art of Living (Epictetus) | Explicit quotes on reputation/opinion |
+| cross_drives_01 | Art of Living (Epictetus) | Explicit teaching on transcending base drives |
+
+### Books Removed from expected_books:
+| Question | Book Removed | Rationale |
+|----------|-------------|-----------|
+| cross_anger_01 | Biopsychology | Only 8 aggression occurrences (below threshold) |
+
+### Question Replaced:
+- **Removed**: `neuro_tommasi_01` (kangaroo rats cache-finding - too narrow, single-book)
+- **Added**: `cross_decision_reward_01` (decision-making and reward - cross-domain, well-covered)
+
+## Theme Coverage Strength Matrix (Verified)
+
+| Theme | Strongest Neuroscience | Strongest Philosophy |
+|-------|----------------------|---------------------|
+| **Consciousness** | Gazzaniga (375), Fundamentals (298), Eagleman (232) | Schopenhauer, Taoism |
+| **Decision-making** | Kahneman (484), Eagleman (178), Determined (84) | Gracian, Confucius |
+| **Free will** | Determined (271), Gazzaniga (22) | Stoics (all 3), Taoism |
+| **Self-control** | Kahneman (System 1/2), Behave (PFC) | Epictetus, Marcus Aurelius |
+| **Emotions** | Eagleman (181), Gazzaniga (218), Fundamentals (104) | Seneca, Schopenhauer |
+| **Social behavior** | Behave (257), Gazzaniga (105), Eagleman (129) | Confucius (ren), Stoics |
+| **Aggression** | Behave (155), Psychobiology (44) | Seneca (anger), Taoism |
+| **Addiction** | Biopsychology (52), Psychobiology (51) | Schopenhauer (will) |
+| **Sleep** | Biopsychology (231), Psychobiology (184), Eagleman (153) | Schopenhauer (rest) |
+| **Suffering** | Behave (stress), Biopsychology | Schopenhauer (central), Stoics |
+| **Happiness** | Psychobiology (reward), Eagleman | Schopenhauer (absence of pain), Stoics |
+| **Memory** | Biopsychology (137), Gazzaniga (320), Eagleman (167) | Confucius, Seneca |
+| **Motivation/Reward** | Psychobiology (73), Eagleman (176), Gazzaniga (61) | Epictetus, Schopenhauer |
+
+## Books with Weakest Cross-Domain Coverage (Avoid for Cross-Domain Questions)
+
+1. **Cognitive Biology (Tommasi)** - Narrow evolutionary focus, limited philosophy connections
+2. **Confucius (Analects)** - Cultural specificity limits broad applicability
+3. **Pocket Oracle (Gracian)** - Pragmatic focus, limited neuroscience connections
+
+## Recommendations for Future Question Creation
+
+1. **High-confidence cross-domain pairs**:
+   - Kahneman + Gracian (decision biases + prudence)
+   - Determined + Stoics (free will + fate acceptance)
+   - Schopenhauer + Biopsychology (suffering + pain processing)
+   - Behave + Confucius (social behavior + benevolence)
+
+2. **Verify before including**:
+   - Fundamentals (good breadth but textbook style)
+   - Wisdom of Life (narrower than Essays and Aphorisms)
+   - Cognitive Biology (limited cross-domain reach)

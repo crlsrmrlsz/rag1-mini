@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "version": "3.1",
+    "version": "3.2",
     "created": "2025-12-19",
-    "updated": "2025-12-23",
-    "description": "Evaluation questions with verified ground truth and source quotes (19 single-book + 26 cross-domain = 45 total). All questions include ground_truth_quote for retrieval validation.",
+    "updated": "2025-12-24",
+    "description": "Evaluation questions with verified ground truth and source quotes (18 single-book + 27 cross-domain = 45 total). All questions include ground_truth_quote for retrieval validation. Version 3.2: Verified all expected_books against theme analysis; added missing books; replaced neuro_tommasi_01 with cross-domain decision/reward question.",
     "categories": ["neuroscience", "philosophy", "cross_domain"],
     "difficulty_levels": ["single_concept", "cross_domain"]
   },
@@ -54,13 +54,19 @@
       "expected_books": ["Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)"]
     },
     {
-      "id": "neuro_tommasi_01",
-      "category": "neuroscience",
-      "difficulty": "single_concept",
-      "question": "How much better are kangaroo rats at finding their own caches compared to competitors?",
-      "reference": "In a study of Merriam's kangaroo rats, despite the small arena size and plenty of time for hungry pilferers to find the caches, their success rate was on average 30 percent less than that of the original owner.",
-      "ground_truth_quote": "their success rate was on average 30 percent less than that of the original owner",
-      "expected_books": ["Cognitive Biology , Evolutionary and Developmental Perspectives on Mind Brain and Behavior (Luca Tommasi, Mary A.Peterson, Lynn Nadel)"]
+      "id": "cross_decision_reward_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "How do reward expectations shape decision-making, and what determines whether we act on impulse or deliberation?",
+      "reference": "Decision-making involves interplay between reward systems and executive control. Dopamine neurons in the VTA encode reward prediction errors - the difference between expected and received rewards - signaling when outcomes are better or worse than anticipated. This signal updates future expectations and drives learning. The mesolimbic pathway projects dopamine to the nucleus accumbens, creating 'wanting' that motivates behavior toward anticipated rewards. However, the prefrontal cortex can override immediate reward-seeking through deliberate control. Kahneman's dual-process theory describes this as System 1 (fast, automatic, intuitive) versus System 2 (slow, deliberate, rational). System 1 generates impulses based on learned associations; System 2 can intervene but requires effort and is easily depleted. Schopenhauer viewed all human striving as manifestations of the blind 'Will' - an unconscious force that creates endless desires. The will operates through us without rational direction, explaining why we often pursue goals that don't bring satisfaction. Epictetus taught that mastering desires requires redirecting attention from externals (which we cannot control) to our own judgments and responses (which we can). Both perspectives converge: reward expectations emerge from biological systems operating largely outside conscious awareness, yet wisdom involves developing the capacity to examine and transcend automatic impulses through cultivated deliberation.",
+      "ground_truth_quote": "\"System 1 operates automatically and quickly, with little or no effort and no sense of voluntary control\" (Kahneman); \"The intuitive System 1 is more influential than your experience tells you, and it is the secret author of many of the choices and judgments you make\" (Kahneman)",
+      "expected_books": [
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
+      ]
     },
     {
       "id": "neuro_determined_01",
@@ -189,7 +195,8 @@
       "expected_books": [
         "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
         "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
-        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Biopsychology (John Pinel, Steven Barnes)"
       ]
     },
     {
@@ -214,7 +221,8 @@
       "expected_books": [
         "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
         "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
-        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)"
       ]
     },
     {
@@ -227,7 +235,8 @@
       "expected_books": [
         "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
         "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
-        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)"
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)"
       ]
     },
     {
@@ -301,7 +310,6 @@
       "ground_truth_quote": "\"human violence is contextualized - we don't hate violence itself but violence in the wrong context\" (Sapolsky); \"They prosper without boasting, or domineering, or arrogance, prosper because they can't help it, prosper without violence\" (Lao Tzu)",
       "expected_books": [
         "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
-        "Biopsychology (John Pinel, Steven Barnes)",
         "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
         "Letters from a Stoic (Seneca)",
         "Tao te ching Lao_tzu (Lao Tzu)",
@@ -399,7 +407,8 @@
         "Thinking Fast and Slow (Daniel Kahneman)",
         "Wisdom of Life (Schopenhauer)",
         "The Pocket Oracle and Art of Prudence (Baltasar Gracian)",
-        "The Meditations (Marcus Aurelius)"
+        "The Meditations (Marcus Aurelius)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
       ]
     },
     {
@@ -569,7 +578,8 @@
         "Biopsychology (John Pinel, Steven Barnes)",
         "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
         "Essays and Aphorisms (Arthur Schopenhauer)",
-        "Wisdom of Life (Schopenhauer)"
+        "Wisdom of Life (Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
       ]
     }
   ]

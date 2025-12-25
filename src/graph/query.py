@@ -327,6 +327,78 @@ def enrich_results_with_graph(
     return vector_results, graph_only
 
 
+def hybrid_graph_retrieval(
+    query: str,
+    driver: Driver,
+    vector_results: List[Dict[str, Any]],
+    top_k: int = 10,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Merge vector search results with graph traversal.
+
+    Enhances vector search with knowledge graph context:
+    1. Traverses graph from query entities to find related chunks
+    2. Boosts vector results that also appear in graph traversal
+    3. Adds community summaries for thematic context
+
+    Args:
+        query: User query string.
+        driver: Neo4j driver instance.
+        vector_results: Results from Weaviate vector search (list of dicts).
+        top_k: Number of results to return.
+
+    Returns:
+        Tuple of:
+        - Merged results (graph-boosted results first, then others)
+        - Metadata dict with entities, graph context, and communities
+
+    Example:
+        >>> driver = get_driver()
+        >>> results, meta = hybrid_graph_retrieval("What is dopamine?", driver, vector_results)
+        >>> print(meta["query_entities"])
+    """
+    # Get graph chunk IDs and metadata
+    graph_chunk_ids, graph_meta = get_graph_chunk_ids(query, driver)
+
+    # Get community context for thematic enrichment
+    community_context = retrieve_community_context(query)
+
+    # Build metadata
+    metadata = {
+        "query_entities": graph_meta.get("query_entities", []),
+        "graph_context": graph_meta.get("graph_context", []),
+        "community_context": community_context,
+        "graph_chunk_count": len(graph_chunk_ids),
+    }
+
+    if not graph_chunk_ids:
+        # No graph results, return vector results as-is
+        logger.info("No graph chunks found, returning vector results only")
+        return vector_results[:top_k], metadata
+
+    # Enrich vector results with graph boost flag
+    enriched, graph_only_ids = enrich_results_with_graph(
+        vector_results, graph_chunk_ids, community_context
+    )
+
+    # Sort: graph-boosted results first, then by original score
+    # This is a simple boost strategy; could use RRF for more sophistication
+    boosted = [r for r in enriched if r.get("graph_boost")]
+    non_boosted = [r for r in enriched if not r.get("graph_boost")]
+
+    # Combine: boosted first (preserving their order), then non-boosted
+    merged = boosted + non_boosted
+
+    logger.info(
+        f"Hybrid retrieval: {len(boosted)} graph-boosted, "
+        f"{len(non_boosted)} vector-only, {len(graph_only_ids)} graph-only (not fetched)"
+    )
+
+    metadata["boosted_count"] = len(boosted)
+    metadata["graph_only_count"] = len(graph_only_ids)
+
+    return merged[:top_k], metadata
+
+
 def format_graph_context_for_generation(
     metadata: Dict[str, Any],
     max_chars: int = 2000,

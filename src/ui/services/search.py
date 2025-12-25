@@ -47,10 +47,12 @@ class SearchOutput:
         results: List of chunk dictionaries.
         rerank_data: If reranking was used, contains RerankResult for logging.
         rrf_data: If RRF merging was used, contains RRFResult for logging.
+        graph_metadata: If GraphRAG was used, contains entity/community info.
     """
     results: List[Dict[str, Any]] = field(default_factory=list)
     rerank_data: Optional[Any] = None  # RerankResult when reranking is used
     rrf_data: Optional[Any] = None  # RRFResult when multi-query is used
+    graph_metadata: Optional[Dict[str, Any]] = None  # GraphRAG metadata
 
 
 def search_multi_query(
@@ -132,6 +134,7 @@ def search_chunks(
     collection_name: Optional[str] = None,
     use_reranking: bool = False,
     multi_queries: Optional[List[Dict[str, str]]] = None,
+    strategy: Optional[str] = None,
 ) -> SearchOutput:
     """
     Search Weaviate for relevant chunks with optional reranking and RRF merging.
@@ -150,9 +153,11 @@ def search_chunks(
                        This is slower but significantly improves result quality.
         multi_queries: If provided, execute all queries and merge with RRF.
                        Expected format: [{"type": "neuro", "query": "..."}, ...]
+        strategy: Preprocessing strategy name. If "graphrag", enables hybrid
+                  graph+vector retrieval via Neo4j.
 
     Returns:
-        SearchOutput with results list and optional rerank_data/rrf_data for logging.
+        SearchOutput with results list and optional rerank_data/rrf_data/graph_metadata.
 
     Raises:
         weaviate.exceptions.WeaviateConnectionError: If Weaviate is not running.
@@ -162,14 +167,14 @@ def search_chunks(
         >>> output = search_chunks("What is consciousness?", search_type="hybrid")
         >>> results = output.results
         >>>
-        >>> # With multi-query RRF merging
-        >>> queries = [{"type": "neuro", "query": "..."}, {"type": "philo", "query": "..."}]
-        >>> output = search_chunks("What is consciousness?", multi_queries=queries)
-        >>> print(output.rrf_data.merge_time_ms)  # See RRF performance
+        >>> # With GraphRAG strategy
+        >>> output = search_chunks("What is dopamine?", strategy="graphrag")
+        >>> print(output.graph_metadata["query_entities"])
     """
     collection_name = collection_name or get_collection_name()
     rerank_data = None
     rrf_data = None
+    graph_metadata = None
 
     # Multi-query path: execute all queries and merge with RRF
     if multi_queries and len(multi_queries) > 1:
@@ -240,10 +245,33 @@ def search_chunks(
         for r in results
     ]
 
+    # GraphRAG: Merge vector results with Neo4j graph traversal
+    if strategy == "graphrag":
+        try:
+            from src.graph.neo4j_client import get_driver
+            from src.graph.query import hybrid_graph_retrieval
+
+            driver = get_driver()
+            try:
+                result_dicts, graph_metadata = hybrid_graph_retrieval(
+                    query=query,
+                    driver=driver,
+                    vector_results=result_dicts,
+                    top_k=top_k,
+                )
+            finally:
+                driver.close()
+        except Exception as e:
+            # Log error but don't fail search - fall back to vector-only results
+            import logging
+            logging.getLogger(__name__).warning(f"GraphRAG retrieval failed: {e}")
+            graph_metadata = {"error": str(e)}
+
     return SearchOutput(
         results=result_dicts,
         rerank_data=rerank_data,
         rrf_data=rrf_data,
+        graph_metadata=graph_metadata,
     )
 
 

@@ -115,6 +115,9 @@ if "rerank_data" not in st.session_state:
 if "rrf_data" not in st.session_state:
     st.session_state.rrf_data = None
 
+if "graph_metadata" not in st.session_state:
+    st.session_state.graph_metadata = None
+
 if "retrieval_settings" not in st.session_state:
     st.session_state.retrieval_settings = {}
 
@@ -249,6 +252,30 @@ def _render_pipeline_log():
                     st.dataframe(df, width="stretch")
         else:
             st.info("RRF merging was not used (single-query search or non-decomposition strategy).")
+
+    # Stage 2.6: GraphRAG (if graphrag strategy was used)
+    graph_meta = st.session_state.graph_metadata
+    with st.expander("Stage 2.6: GraphRAG", expanded=True):
+        if graph_meta and not graph_meta.get("error"):
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Entities Found", len(graph_meta.get("query_entities", [])))
+            col2.metric("Graph Chunks", graph_meta.get("graph_chunk_count", 0))
+            col3.metric("Boosted Results", graph_meta.get("boosted_count", 0))
+
+            # Show extracted entities
+            if graph_meta.get("query_entities"):
+                st.markdown("**Entities Extracted from Query:**")
+                st.code(", ".join(graph_meta["query_entities"]))
+
+            # Show community context
+            if graph_meta.get("community_context"):
+                st.markdown("**Relevant Communities:**")
+                for comm in graph_meta["community_context"][:3]:
+                    st.markdown(f"- {comm['summary'][:200]}...")
+        elif graph_meta and graph_meta.get("error"):
+            st.warning(f"GraphRAG failed: {graph_meta['error']}")
+        else:
+            st.info("GraphRAG was not used (select 'graphrag' preprocessing strategy).")
 
     # Stage 3: Reranking
     with st.expander("Stage 3: Reranking", expanded=True):
@@ -540,10 +567,12 @@ if search_clicked and query:
                     collection_name=selected_collection,
                     use_reranking=use_reranking,
                     multi_queries=multi_queries,
+                    strategy=selected_strategy,
                 )
                 st.session_state.search_results = search_output.results
                 st.session_state.rerank_data = search_output.rerank_data
                 st.session_state.rrf_data = search_output.rrf_data
+                st.session_state.graph_metadata = search_output.graph_metadata
                 st.session_state.last_query = query
                 st.session_state.retrieval_settings = {
                     "search_type": search_type,
@@ -557,6 +586,7 @@ if search_clicked and query:
                 st.session_state.generated_answer = None
                 st.session_state.rerank_data = None
                 st.session_state.rrf_data = None
+                st.session_state.graph_metadata = None
                 preprocessed = None
 
         # Step 4: Answer Generation (optional)

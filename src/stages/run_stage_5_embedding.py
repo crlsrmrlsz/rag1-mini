@@ -24,19 +24,14 @@ from typing import List, Dict
 
 from src.config import (
     DIR_FINAL_CHUNKS,
-    PROJECT_ROOT,
-    TOKENIZER_MODEL,
     EMBEDDING_MODEL,
-    MAX_BATCH_TOKENS,
-    MAX_RETRIES,
     DEFAULT_CHUNKING_STRATEGY,
     SEMANTIC_SIMILARITY_THRESHOLD,
     get_semantic_folder_name,
     get_embedding_folder_path,
 )
 
-from src.shared.files import setup_logging, get_file_list, OverwriteContext, parse_overwrite_arg
-from src.shared.tokens import count_tokens
+from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg
 from src.rag_pipeline.embedding.embedder import embed_texts
 from src.rag_pipeline.chunking.strategies import list_strategies
 
@@ -51,45 +46,20 @@ logger = setup_logging("Stage5_Embedding")
 # ---------------------------------------------------------------------------
 
 def load_chunks(file_path: Path) -> List[Dict]:
-    """Load chunk list from a JSON file."""
+    """Load chunk list from a JSON file.
+
+    Handles both flat list format (section/contextual) and nested format (raptor).
+    RAPTOR files have structure: {"book_id": ..., "tree_metadata": ..., "chunks": [...]}
+    """
     with file_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
 
+    # Handle nested format (raptor)
+    if isinstance(data, dict) and "chunks" in data:
+        return data["chunks"]
 
-def batch_chunks_by_token_limit(chunks: List[Dict]) -> List[List[Dict]]:
-    """
-    Group chunks into batches that stay under MAX_BATCH_TOKENS.
-
-    This prevents API failures and rate-limit issues.
-    """
-    batches = []
-    current_batch = []
-    current_tokens = 0
-
-    for chunk in chunks:
-        tokens = chunk["token_count"]
-
-        # Single chunk too large (should not happen, but be safe)
-        if tokens > MAX_BATCH_TOKENS:
-            logger.warning(
-                f"Chunk {chunk['chunk_id']} exceeds batch limit "
-                f"({tokens} tokens). Embedding alone."
-            )
-            batches.append([chunk])
-            continue
-
-        if current_tokens + tokens > MAX_BATCH_TOKENS:
-            batches.append(current_batch)
-            current_batch = []
-            current_tokens = 0
-
-        current_batch.append(chunk)
-        current_tokens += tokens
-
-    if current_batch:
-        batches.append(current_batch)
-
-    return batches
+    # Handle flat list format (section, contextual, semantic)
+    return data
 
 
 def embed_book(file_path: Path, output_dir: Path):
@@ -105,32 +75,27 @@ def embed_book(file_path: Path, output_dir: Path):
         fields like 'original_text' and 'contextual_snippet' for contextual
         chunking). Adds embedding fields: 'embedding', 'embedding_model',
         'embedding_dim'.
+
+        Batching is handled internally by embed_texts() to stay under
+        MAX_BATCH_TOKENS per API call.
     """
     logger.info(f"Embedding book: {file_path.stem}")
 
     chunks = load_chunks(file_path)
-    batches = batch_chunks_by_token_limit(chunks)
+    texts = [c["text"] for c in chunks]
 
+    logger.info(f"  Embedding {len(texts)} chunks...")
+    embeddings = embed_texts(texts)  # Batching handled internally
+
+    # Build embedded chunks preserving all existing fields
     embedded_chunks = []
-
-    for batch_idx, batch in enumerate(batches):
-        texts = [c["text"] for c in batch]
-
-        logger.info(
-            f"  Batch {batch_idx + 1}/{len(batches)} "
-            f"({sum(c['token_count'] for c in batch)} tokens)"
-        )
-
-        embeddings = embed_texts(texts)
-
-        for chunk, vector in zip(batch, embeddings):
-            # Preserve all existing chunk fields (strategy-specific included)
-            embedded_chunks.append({
-                **chunk,
-                "embedding": vector,
-                "embedding_model": EMBEDDING_MODEL,
-                "embedding_dim": len(vector)
-            })
+    for chunk, vector in zip(chunks, embeddings):
+        embedded_chunks.append({
+            **chunk,
+            "embedding": vector,
+            "embedding_model": EMBEDDING_MODEL,
+            "embedding_dim": len(vector)
+        })
 
     # Save per-book embedding file
     output_path = output_dir / f"{file_path.stem}.json"
@@ -141,9 +106,7 @@ def embed_book(file_path: Path, output_dir: Path):
             "chunks": embedded_chunks
         }, f, ensure_ascii=False, indent=2)
 
-    logger.info(
-        f"  Saved {len(embedded_chunks)} embeddings to {output_path}"
-    )
+    logger.info(f"  Saved {len(embedded_chunks)} embeddings to {output_path}")
 
 
 # ---------------------------------------------------------------------------

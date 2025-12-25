@@ -99,8 +99,8 @@ The pipeline includes RAGAS-based evaluation metrics:
 | 2.5 | Domain-Agnostic Refactoring (Dec 22) | COMPLETE |
 | 5 | Comprehensive Evaluation + Alpha Tuning (Dec 24) | COMPLETE |
 | 6 | Contextual Chunking (Anthropic-style, Dec 22) | COMPLETE |
-| 7 | RAPTOR (hierarchical summarization) | TODO |
-| 8 | GraphRAG (Neo4j integration) | TODO |
+| 7 | RAPTOR (hierarchical summarization, Dec 25) | COMPLETE |
+| 8 | GraphRAG (Neo4j integration, Dec 25) | COMPLETE |
 
 See `memory-bank/rag-improvement-plan.md` for detailed implementation plans.
 
@@ -157,6 +157,7 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `none` - No transformation, use original query (0 LLM calls)
 - `hyde` - Generate hypothetical answer for semantic matching (1 LLM call, 1 search) [arXiv:2212.10496]
 - `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call, 3-4 searches) [arXiv:2507.00355]
+- `graphrag` - Hybrid graph + vector retrieval via RRF (entity traversal + semantic search) [arXiv:2404.16130]
 
 ### Implemented: Chunking Strategies
 
@@ -170,10 +171,7 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `section` - 800-token section-aware chunks with 2-sentence overlap
 - `semantic` - Similarity threshold-based boundaries
 - `contextual` - LLM-generated context prepended to chunks (Anthropic-style)
-
-### To Implement: Chunking Strategies
-
-- `raptor` - Hierarchical summarization tree
+- `raptor` - Hierarchical summarization tree with dynamic n_neighbors (sqrt formula like original RAPTOR) [arXiv:2401.18059]
 
 ### To Implement: Embedding Strategies
 
@@ -181,12 +179,12 @@ Same pattern for `src/ingest/embedding_strategies.py`:
 - `text-embedding-3-large` - Current OpenAI model
 - `voyage-3` - Higher quality, different pricing
 
-### To Implement: Retrieval Strategies
+### Implemented: Retrieval Strategies
 
-Same pattern for `src/vector_db/retrieval_strategies.py`:
-- `vector` - Pure semantic search
-- `hybrid` - BM25 + vector with alpha
-- `graphrag` - Graph-augmented retrieval
+Retrieval is handled via search functions in `src/rag_pipeline/indexing/weaviate_query.py`:
+- `vector` - Pure semantic search via `query_similar()`
+- `hybrid` - BM25 + vector with alpha via `query_hybrid()`
+- `graphrag` - Graph-augmented retrieval via `src/graph/query.py` (COMPLETE)
 
 ## LLM Response Validation
 
@@ -201,13 +199,24 @@ Key function: `call_structured_completion(messages, model, response_model)` in `
 ```bash
 conda activate rag1-mini
 
-# Pipeline stages
+# Pipeline stages (baseline)
 python -m src.stages.run_stage_1_extraction
 python -m src.stages.run_stage_2_processing
 python -m src.stages.run_stage_3_segmentation
 python -m src.stages.run_stage_4_chunking
 python -m src.stages.run_stage_5_embedding
 python -m src.stages.run_stage_6_weaviate
+
+# RAPTOR (hierarchical summarization)
+# Tree depth is dynamic based on corpus size:
+#   - 100-1000 chunks: typically 2 levels
+#   - 5000+ chunks: typically 3-4 levels
+# Uses dynamic n_neighbors = sqrt(n-1) like original RAPTOR paper
+python -m src.stages.run_stage_4_5_raptor
+
+# GraphRAG (Neo4j knowledge graph)
+python -m src.stages.run_stage_4_6_graph_extract  # Extract entities/relationships
+python -m src.stages.run_stage_6b_neo4j           # Upload to Neo4j + Leiden communities
 
 # UI
 streamlit run src/ui/app.py

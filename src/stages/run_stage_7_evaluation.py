@@ -773,7 +773,7 @@ def main():
         "--preprocessing",
         "-p",
         type=str,
-        choices=["none", "hyde", "decomposition"],
+        choices=["none", "hyde", "decomposition", "graphrag"],
         default="none",
         help="Query preprocessing strategy (default: none for clean baseline)",
     )

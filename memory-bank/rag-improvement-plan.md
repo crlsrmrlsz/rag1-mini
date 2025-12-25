@@ -170,7 +170,7 @@ python -m src.stages.run_stage_7_evaluation --collection RAG_contextual_embed3la
 
 ### 1.1 Create Contextual Chunker
 
-**New file**: `src/ingest/contextual_chunker.py`
+**File**: `src/rag_pipeline/chunking/contextual_chunker.py` (IMPLEMENTED)
 
 ```python
 def create_contextual_chunks(chunks: List[Dict], book_text: str) -> List[Dict]:
@@ -194,12 +194,9 @@ within the document. Start with "This passage..."
 
 ### 1.2 New Stage 4 Variant
 
-**New file**: `src/run_stage_4_contextual.py`
+**Stage runner**: `python -m src.stages.run_stage_4_chunking --strategy contextual` (IMPLEMENTED)
 
-1. Run standard chunking
-2. For each chunk, generate context summary via LLM
-3. Prepend context to chunk text
-4. Save to `data/processed/05_final_chunks/contextual/`
+Run via: `python -m src.stages.run_stage_4_chunking --strategy contextual`
 
 ### 1.3 Embedding & Upload
 
@@ -236,7 +233,7 @@ Level 0:  [c1][c2][c3]   [c4][c5]      [c6][c7][c8]  ← Original chunks
 
 ### 2.2 Create RAPTOR Chunker
 
-**New file**: `src/ingest/raptor_chunker.py`
+**File**: `src/rag_pipeline/chunking/raptor/raptor_chunker.py` (IMPLEMENTED)
 
 ```python
 def build_raptor_tree(chunks: List[Dict], max_levels: int = 3) -> List[Dict]:
@@ -303,11 +300,9 @@ def query_raptor(query: str, collection: str, top_k: int = 10):
 
 ### 2.5 New Stage 4 Variant
 
-**New file**: `src/run_stage_4_raptor.py`
+**Stage runner**: `python -m src.stages.run_stage_4_5_raptor` (IMPLEMENTED)
 
-1. Load standard chunks
-2. Build RAPTOR tree (3 levels)
-3. Save all nodes (leaves + summaries) to `data/processed/05_final_chunks/raptor/`
+Run via: `python -m src.stages.run_stage_4_5_raptor`
 
 ### 2.6 Test from UI
 
@@ -445,50 +440,7 @@ Add search mode toggle:
 
 ---
 
-## Phase 4: Step-Back Prompt Enhancement
-
-**Expected Impact**: Improved retrieval precision through domain-specific vocabulary
-
-> **SUPERSEDED (Dec 23, 2024)**: The `step_back` strategy has been **replaced with HyDE** (Hypothetical Document Embeddings, arXiv:2212.10496). Analysis showed that step-back prompting is a reasoning technique, not a RAG-specific paper. HyDE is a proper RAG research technique. The section below is retained for historical reference.
-
-**Concept**: ~~Enhance the step-back prompting technique with Chain-of-Thought examples and concrete vocabulary from the knowledge base.~~ Replaced with HyDE.
-
-**Research**: See `memory-bank/step-back-prompting-research.md` for full analysis (now historical).
-
-### 4.1 Current Problem (HISTORICAL)
-
-~~The current step-back prompt generates generic queries like:~~
-```
-"neuroscience of social validation; philosophical ethics of external approval"
-```
-
-~~This is too abstract and doesn't use vocabulary that matches chunk content.~~
-
-### 4.2 Improved Prompt
-
-Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_preprocessing.py` with a version that:
-1. Uses Chain-of-Thought examples ("Think: Core=..., Mechanisms=...")
-2. Includes domain-specific vocabulary (author names, brain regions, philosophical schools)
-3. Generates mixed-term queries for better hybrid retrieval
-
-**Expected output after improvement**:
-```
-"dopamine social reward approval seeking Stoic virtue external validation Marcus Aurelius"
-```
-
-### 4.3 Implementation
-
-**File**: `src/preprocessing/query_preprocessing.py` (lines 268-286)
-**Change**: Prompt text only, no code logic changes
-
-### 4.4 Future Iterations (if metrics improve)
-
-1. **Multi-Query Generation**: Generate 4 targeted queries + RRF merging
-2. **Principle Extraction**: Add explicit concept extraction step
-
----
-
-## Phase 5: Query Decomposition (MULTI_HOP)
+## Phase 4: Query Decomposition
 
 **Expected Impact**: +36.7% MRR@10 improvement
 
@@ -496,7 +448,7 @@ Replace `STEP_BACK_PROMPT` in `src/preprocessing/query_preprocessing.py` with a 
 
 ### 5.1 Implement Decomposition
 
-**Modify**: `src/preprocessing/query_preprocessing.py`
+**File**: `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` (IMPLEMENTED)
 
 ```python
 def decompose_query(query: str, model: Optional[str] = None) -> List[str]:
@@ -565,13 +517,13 @@ Update `evaluation-history.md` with results after each run.
 |-------|-------|--------|--------|--------|-------|
 | 0 | Evaluation CLI improvements | DONE | Low | Enables A/B testing | `run_stage_7_evaluation.py` |
 | 1 | Preprocessing Strategy Infrastructure | DONE | Medium | Enables A/B testing | `strategies.py`, `config.py`, UI, CLI |
-| 2 | Test Step-Back Prompt Improvements | DONE | Low | Better retrieval | `query_preprocessing.py` (prompt only) |
+| 2 | HyDE Strategy | DONE (Dec 23) | Low | Better retrieval | `strategies.py` |
 | 3 | Multi-Query Strategy | REMOVED (Dec 23) | - | Subsumed by decomposition | - |
-| 4 | Implement Query Decomposition (MULTI_HOP) | DONE | Medium | +36.7% MRR | `strategies.py`, `query_preprocessing.py` |
-| 5 | Alpha tuning experiments | TODO | Low | TBD | CLI only |
-| 6 | Contextual Chunking | DONE | Medium | +35% failures | `contextual_chunker.py`, Stage 4 |
-| 7 | RAPTOR | TODO | High | +20% comprehension | `raptor_chunker.py`, Stage 4 |
-| 8 | GraphRAG | TODO | High | +70% coverage | `graph/`, Neo4j |
+| 4 | Implement Query Decomposition | DONE | Medium | +36.7% MRR | `strategies.py`, `rrf.py` |
+| 5 | Alpha tuning (Comprehensive eval) | DONE (Dec 24) | Low | Grid search | CLI only |
+| 6 | Contextual Chunking | DONE (Dec 22) | Medium | +35% failures | `contextual_chunker.py` |
+| 7 | RAPTOR | DONE (Dec 25) | High | +20% comprehension | `raptor/` module |
+| 8 | GraphRAG | DONE (Dec 25) | High | +70% coverage | `graph/`, Neo4j |
 
 **Preprocessing Strategies Testing Workflow**:
 ```bash
@@ -600,28 +552,33 @@ For each improvement:
 
 ---
 
-## Files to Create/Modify
+## Implemented Files (All Complete)
 
-### New Files
-- `src/ingest/contextual_chunker.py` - Contextual enrichment
-- `src/ingest/raptor_chunker.py` - RAPTOR tree building
-- `src/run_stage_4_contextual.py` - Contextual chunking stage
-- `src/run_stage_4_raptor.py` - RAPTOR chunking stage
+### Chunking Strategies
+- `src/rag_pipeline/chunking/strategies.py` - Strategy registry
+- `src/rag_pipeline/chunking/section_chunker.py` - Section strategy (baseline)
+- `src/rag_pipeline/chunking/semantic_chunker.py` - Semantic strategy
+- `src/rag_pipeline/chunking/contextual_chunker.py` - Contextual strategy (Anthropic-style)
+- `src/rag_pipeline/chunking/raptor/` - RAPTOR module (tree_builder.py, clustering.py, summarizer.py)
+
+### Preprocessing Strategies
+- `src/rag_pipeline/retrieval/preprocessing/strategies.py` - Strategy registry
+- `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` - Dispatcher
+- `src/rag_pipeline/retrieval/rrf.py` - RRF merging for decomposition/graphrag
+
+### GraphRAG Module
 - `src/graph/extractor.py` - Entity extraction
-- `src/graph/neo4j_client.py` - Neo4j connection
-- `src/graph/query.py` - Graph-augmented retrieval
-- `src/run_stage_4b_graph_extract.py` - Graph extraction stage
-- `src/run_stage_6b_neo4j.py` - Neo4j upload stage
+- `src/graph/neo4j_client.py` - Neo4j operations
+- `src/graph/community.py` - Leiden communities
+- `src/graph/query.py` - Hybrid graph+vector retrieval
+- `src/graph/schemas.py` - GraphEntity, Community models
 
-### Modified Files
-- `src/run_stage_7_evaluation.py` - Add --collection arg, auto-logging to evaluation-history.md
-- `src/config.py` - Add graph config
-- `src/preprocessing/query_preprocessing.py` - Improve STEP_BACK_PROMPT (Phase 4), add query decomposition (Phase 5)
-- `src/vector_db/weaviate_client.py` - RAPTOR schema fields
-- `docker-compose.yml` - Add Neo4j service
-
-### Research Files
-- `memory-bank/step-back-prompting-research.md` - Full analysis of step-back technique with improved prompts
+### Stage Runners
+- `src/stages/run_stage_4_chunking.py` - All chunking strategies via `--strategy` arg
+- `src/stages/run_stage_4_5_raptor.py` - RAPTOR tree building
+- `src/stages/run_stage_4_6_graph_extract.py` - GraphRAG entity extraction
+- `src/stages/run_stage_6b_neo4j.py` - Neo4j upload + Leiden communities
+- `src/stages/run_stage_7_evaluation.py` - Evaluation with `--preprocessing` arg
 
 ---
 
@@ -920,21 +877,20 @@ When adding a new strategy domain (e.g., chunking), follow these steps:
 ### B.1 Current Implementation
 
 **Files:**
-- `src/config.py` (lines 300-310)
-- `src/preprocessing/strategies.py`
-- `src/preprocessing/query_preprocessing.py`
-- `src/ui/app.py` (Stage 1 sidebar)
-- `src/run_stage_7_evaluation.py`
+- `src/config.py` - `AVAILABLE_PREPROCESSING_STRATEGIES`
+- `src/rag_pipeline/retrieval/preprocessing/strategies.py` - Strategy registry
+- `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` - Dispatcher
+- `src/ui/app.py` - UI strategy dropdown
+- `src/stages/run_stage_7_evaluation.py` - CLI `--preprocessing` argument
 
 ### B.2 Available Strategies
 
 | ID | Display | Description | When Used |
 |----|---------|-------------|-----------|
 | `none` | None | Return original query unchanged | Baseline testing |
-| `hyde` | HyDE | Generate hypothetical answer for semantic matching | Fast path (1 LLM call, 1 search) |
-| `decomposition` | Decomposition | Break into sub-questions + RRF merge | Thorough path (1 LLM call, 3-4 searches) |
-
-**Note:** `step_back` was replaced with `hyde` Dec 23, 2024. `multi_query` was removed Dec 23, 2024 (decomposition subsumes its functionality).
+| `hyde` | HyDE | Generate hypothetical answer for semantic matching | 1 LLM call, 1 search |
+| `decomposition` | Decomposition | Break into sub-questions + RRF merge | 1 LLM call, 3-4 searches |
+| `graphrag` | GraphRAG | Hybrid graph + vector retrieval via RRF | Neo4j traversal + search |
 
 ### B.3 Usage Examples
 
@@ -956,41 +912,14 @@ print(result.strategy_used)  # "decomposition"
 python -m src.stages.run_stage_7_evaluation --preprocessing none
 python -m src.stages.run_stage_7_evaluation --preprocessing hyde
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition
+python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 ```
 
 ### B.4 Adding New Preprocessing Strategy
 
-Example: Adding a `multi_query` strategy that generates multiple search queries.
+To add a new strategy:
 
-1. Add to config:
-```python
-AVAILABLE_PREPROCESSING_STRATEGIES = [
-    # ... existing ...
-    ("multi_query", "Multi-Query", "Generate 4 queries + RRF merge"),
-]
-```
-
-2. Implement in strategies.py:
-```python
-def multi_query_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """Generate multiple queries for RRF merging."""
-    # 1. Classify query
-    classification = classify_query(query, model=model)
-
-    # 2. Generate multiple search queries
-    queries = generate_multi_queries(query, model=model)
-
-    return PreprocessedQuery(
-        original_query=query,
-        query_type=classification.query_type,
-        search_query=queries[0],  # Primary query
-        sub_queries=queries[1:],  # Additional queries
-        strategy_used="multi_query",
-        # ...
-    )
-
-# Add to registry
-STRATEGIES["multi_query"] = multi_query_strategy
-```
-
-3. Update retrieval to use `sub_queries` if present
+1. Add to `AVAILABLE_PREPROCESSING_STRATEGIES` in `src/config.py`
+2. Implement function in `src/rag_pipeline/retrieval/preprocessing/strategies.py`
+3. Add to `STRATEGIES` registry dict
+4. Test via CLI: `python -m src.stages.run_stage_7_evaluation --preprocessing new_strategy`

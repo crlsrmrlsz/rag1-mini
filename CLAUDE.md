@@ -181,10 +181,10 @@ Update these files when making significant changes to maintain project continuit
 - [x] Add contextual_strategy to strategies.py
 - [x] Run via: `python -m src.stages.run_stage_4_chunking --strategy contextual`
 
-**Phase 7: RAPTOR** (Hierarchical summarization, +20% comprehension)
-- [ ] Create raptor_chunker.py (hierarchical tree building)
-- [ ] Add raptor_strategy to strategies.py
-- [ ] Add RAPTOR query strategy
+**Phase 7: RAPTOR** - COMPLETE (Dec 25)
+- [x] Create raptor/ module (tree_builder.py, clustering.py, summarizer.py, schemas.py)
+- [x] Add raptor_strategy to strategies.py
+- [x] Run via: `python -m src.stages.run_stage_4_5_raptor`
 
 **Phase 8: GraphRAG** - COMPLETE (Dec 25)
 - [x] Add Neo4j to docker-compose.yml (with GDS plugin for Leiden)
@@ -197,8 +197,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- RAPTOR hierarchical summarization: Tree building + GMM clustering + LLM summaries (Dec 25)
 - GraphRAG implementation: Neo4j + Leiden communities + hybrid retrieval via RRF (Dec 25)
 - Comprehensive evaluation mode: `--comprehensive` for grid search across all configs (Dec 24)
 - Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496) - proper RAG research technique (Dec 23)
 - Removed multi_query strategy: decomposition subsumes its domain-targeting (~380 lines removed) (Dec 23)
-- Contextual chunking strategy (Anthropic-style, +35% failure reduction) (Dec 22)

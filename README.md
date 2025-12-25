@@ -15,6 +15,7 @@ A production-quality Retrieval-Augmented Generation (RAG) pipeline designed for 
 |----------|-------|
 | **Language** | Python 3.8+ |
 | **Vector Database** | Weaviate (HNSW + BM25 hybrid) |
+| **Graph Database** | Neo4j (GDS plugin for Leiden communities) |
 | **LLM API** | OpenRouter (GPT-4, Claude, embeddings) |
 | **NLP** | spaCy (en_core_sci_sm), tiktoken |
 | **PDF Processing** | Docling |
@@ -75,7 +76,7 @@ PDF Documents
 # Setup environment
 conda activate rag1-mini
 
-# Run pipeline stages
+# Run pipeline stages (baseline)
 python -m src.stages.run_stage_1_extraction   # Extract PDFs
 python -m src.stages.run_stage_2_processing   # Clean markdown
 python -m src.stages.run_stage_3_segmentation # NLP segmentation
@@ -83,8 +84,15 @@ python -m src.stages.run_stage_4_chunking     # Create chunks
 python -m src.stages.run_stage_5_embedding    # Generate embeddings
 python -m src.stages.run_stage_6_weaviate     # Upload to Weaviate
 
+# Advanced: RAPTOR hierarchical summarization
+python -m src.stages.run_stage_4_5_raptor     # Build summary tree
+
+# Advanced: GraphRAG knowledge graph
+python -m src.stages.run_stage_4_6_graph_extract  # Extract entities
+python -m src.stages.run_stage_6b_neo4j           # Upload to Neo4j
+
 # Launch search UI
-docker compose up -d                          # Start Weaviate
+docker compose up -d                          # Start Weaviate + Neo4j
 streamlit run src/ui/app.py                   # Open http://localhost:8501
 
 # Run evaluation
@@ -98,24 +106,25 @@ The codebase is organized into two main phases for learners:
 
 ```
 RAG1-Mini: A Teaching RAG Pipeline
-══════════════════════════════════
+==================================
 
-📚 CONTENT PREPARATION (Stages 1-3)
-   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-   │ Extraction  │ →  │  Cleaning   │ →  │Segmentation │
-   │ (PDF→MD)    │    │ (Fix MD)    │    │ (Sentences) │
-   └─────────────┘    └─────────────┘    └─────────────┘
-         ↓
-🤖 RAG PIPELINE (Stages 4-8)
-   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-   │  Chunking   │ →  │  Embedding  │ →  │  Indexing   │
-   │ (Sections)  │    │ (Vectors)   │    │ (Weaviate)  │
-   └─────────────┘    └─────────────┘    └─────────────┘
-         ↓
-   ┌─────────────────────────────────────────────────────┐
-   │              RETRIEVAL (Stage 7)                    │
-   │  Query → Preprocess → Search → Rerank → Generate   │
-   └─────────────────────────────────────────────────────┘
+CONTENT PREPARATION (Stages 1-3)
+   +-------------+    +-------------+    +-------------+
+   | Extraction  | -> |  Cleaning   | -> |Segmentation |
+   | (PDF->MD)   |    | (Fix MD)    |    | (Sentences) |
+   +-------------+    +-------------+    +-------------+
+         |
+RAG PIPELINE (Stages 4-8)
+   +-------------+    +-------------+    +-------------+
+   |  Chunking   | -> |  Embedding  | -> |  Indexing   |
+   | (Strategies)|    | (Vectors)   |    |(Weaviate/   |
+   +-------------+    +-------------+    | Neo4j)      |
+         |                               +-------------+
+         v
+   +-----------------------------------------------------+
+   |              RETRIEVAL (Stage 7)                    |
+   |  Query -> Preprocess -> Search -> Rerank -> Answer  |
+   +-----------------------------------------------------+
 ```
 
 ### Directory Layout
@@ -132,19 +141,27 @@ rag1-mini/
 │   │       └── nlp_segmenter.py
 │   │
 │   ├── rag_pipeline/                # Phase 2: RAG System
-│   │   ├── chunking/                # Stage 4: Text → Chunks
-│   │   │   └── section_chunker.py
-│   │   ├── embedding/               # Stage 5: Chunks → Vectors
+│   │   ├── chunking/                # Stage 4: Text -> Chunks
+│   │   │   ├── section_chunker.py   # Baseline chunking
+│   │   │   ├── contextual_chunker.py # Anthropic-style context
+│   │   │   └── raptor/              # RAPTOR hierarchical tree
+│   │   ├── embedding/               # Stage 5: Chunks -> Vectors
 │   │   │   └── embedder.py
 │   │   ├── indexing/                # Stage 6: Vector DB
 │   │   │   ├── weaviate_client.py
 │   │   │   └── weaviate_query.py
-│   │   ├── retrieval/               # Stage 7: Query → Chunks
+│   │   ├── retrieval/               # Stage 7: Query -> Chunks
 │   │   │   ├── preprocessing/       # Query transformation
 │   │   │   ├── reranking.py         # Cross-encoder
 │   │   │   └── rrf.py               # Multi-query fusion
-│   │   └── generation/              # Stage 8: Chunks → Answer
+│   │   └── generation/              # Stage 8: Chunks -> Answer
 │   │       └── answer_generator.py
+│   │
+│   ├── graph/                       # GraphRAG: Knowledge graph
+│   │   ├── extractor.py             # Entity extraction
+│   │   ├── neo4j_client.py          # Neo4j operations
+│   │   ├── community.py             # Leiden communities
+│   │   └── query.py                 # Hybrid graph+vector retrieval
 │   │
 │   ├── evaluation/                  # RAGAS framework
 │   │   └── ragas_evaluator.py
@@ -206,6 +223,8 @@ This project implements advanced RAG patterns from recent research:
 | **HyDE** | Generates hypothetical answers for semantic matching | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
 | **Query Decomposition** | Breaks complex questions into sub-queries with RRF merging (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
 | **Contextual Chunking** | LLM-generated context prepended to chunks (Anthropic-style, -35% failures) | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
+| **RAPTOR** | Hierarchical summarization tree for multi-level retrieval (+20% comprehension) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
+| **GraphRAG** | Knowledge graph + Leiden communities for hybrid graph+vector retrieval | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) |
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
 | **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |

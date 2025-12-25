@@ -324,8 +324,7 @@ AVAILABLE_CHUNKING_STRATEGIES = [
     ("section", "Section (Baseline)", "Sequential with sentence overlap, respects markdown sections"),
     ("semantic", "Semantic", "Embedding similarity-based boundaries for topic coherence"),
     ("contextual", "Contextual", "LLM-generated chunk context (Anthropic-style, +35% improvement)"),
-    # Future strategies (uncomment when implemented):
-    # ("raptor", "RAPTOR", "Hierarchical summarization tree"),
+    ("raptor", "RAPTOR", "Hierarchical summarization tree (+20% comprehension, arXiv:2401.18059)"),
 ]
 
 # Default strategy for CLI when not specified
@@ -441,6 +440,11 @@ STRATEGY_REGISTRY: Dict[str, StrategyMetadata] = {
         display_name="Contextual Chunking",
         description="LLM-generated context prepended (+35% improvement)",
     ),
+    "raptor": StrategyMetadata(
+        key="raptor",
+        display_name="RAPTOR (Hierarchical)",
+        description="Multi-level summary tree for theme + detail retrieval (+20%)",
+    ),
     # Semantic strategies are generated dynamically based on threshold
 }
 
@@ -505,3 +509,41 @@ def get_embedding_folder_path(strategy: str) -> Path:
     safe_strategy = re.sub(r'[/\\]+', '_', strategy)  # Replace path separators
     safe_strategy = re.sub(r'\.{2,}', '_', safe_strategy)  # Replace multiple dots
     return DIR_EMBEDDINGS / safe_strategy
+
+
+# ============================================================================
+# RAPTOR SETTINGS (Hierarchical Summarization)
+# ============================================================================
+# RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval
+# Paper: arXiv:2401.18059 (ICLR 2024)
+# Builds a hierarchical tree of summaries enabling multi-level retrieval.
+
+# Model for generating cluster summaries (reuse contextual model for consistency)
+RAPTOR_SUMMARY_MODEL = CONTEXTUAL_MODEL  # "anthropic/claude-3-haiku"
+
+# Tree building constraints
+RAPTOR_MAX_LEVELS = 4  # Maximum tree depth (0=leaves, 1-4=summaries)
+RAPTOR_MIN_CLUSTER_SIZE = 3  # Minimum nodes required to attempt clustering
+
+# UMAP dimensionality reduction parameters (from paper)
+RAPTOR_UMAP_N_NEIGHBORS = 10  # Balance local/global structure
+RAPTOR_UMAP_N_COMPONENTS = 10  # Target dimensions for GMM
+
+# GMM clustering parameters
+RAPTOR_MIN_CLUSTERS = 2  # Minimum K for BIC search
+RAPTOR_MAX_CLUSTERS = 50  # Maximum K for BIC search
+RAPTOR_CLUSTER_PROBABILITY_THRESHOLD = 0.3  # Soft assignment threshold
+
+# Summarization parameters
+RAPTOR_MAX_SUMMARY_TOKENS = 150  # Output limit (paper avg: 131)
+RAPTOR_MAX_CONTEXT_TOKENS = 8000  # Input context limit for LLM
+
+# Summarization prompt template
+RAPTOR_SUMMARY_PROMPT = """Write a comprehensive summary of the following text passages.
+Include as many key details, names, and specific concepts as possible.
+The summary should capture the main ideas while preserving important specifics.
+
+Passages:
+{context}
+
+Summary:"""

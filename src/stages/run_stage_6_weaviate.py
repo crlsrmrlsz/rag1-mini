@@ -35,6 +35,7 @@ from src.shared.files import setup_logging
 from src.rag_pipeline.indexing import (
     get_client,
     create_collection,
+    create_raptor_collection,
     delete_collection,
     upload_embeddings,
     get_collection_count,
@@ -67,7 +68,9 @@ def load_embedding_file(file_path: Path) -> List[Dict]:
     return data.get("chunks", [])
 
 
-def upload_book(client, collection_name: str, file_path: Path) -> int:
+def upload_book(
+    client, collection_name: str, file_path: Path, is_raptor: bool = False
+) -> int:
     """
     Upload all chunks from a single book to Weaviate.
 
@@ -75,6 +78,7 @@ def upload_book(client, collection_name: str, file_path: Path) -> int:
         client: Connected Weaviate client.
         collection_name: Target collection name.
         file_path: Path to the embedding JSON file.
+        is_raptor: If True, include RAPTOR tree properties in upload.
 
     Returns:
         Number of chunks uploaded.
@@ -87,7 +91,7 @@ def upload_book(client, collection_name: str, file_path: Path) -> int:
         logger.warning(f"  No chunks found in {file_path.name}")
         return 0
 
-    count = upload_embeddings(client, collection_name, chunks)
+    count = upload_embeddings(client, collection_name, chunks, is_raptor=is_raptor)
     logger.info(f"  Uploaded {count} chunks")
 
     return count
@@ -160,15 +164,20 @@ def main():
         if delete_collection(client, collection_name):
             logger.info(f"Deleted existing collection: {collection_name}")
 
-        # Create fresh collection
-        create_collection(client, collection_name)
-        logger.info(f"Created collection: {collection_name}")
+        # Create fresh collection (RAPTOR needs extended schema)
+        is_raptor = args.strategy == "raptor"
+        if is_raptor:
+            create_raptor_collection(client, collection_name)
+            logger.info(f"Created RAPTOR collection: {collection_name}")
+        else:
+            create_collection(client, collection_name)
+            logger.info(f"Created collection: {collection_name}")
 
         # Upload each book
         total_chunks = 0
         for file_path in sorted(files):
             try:
-                count = upload_book(client, collection_name, file_path)
+                count = upload_book(client, collection_name, file_path, is_raptor=is_raptor)
                 total_chunks += count
             except Exception as e:
                 logger.error(f"Failed uploading {file_path.name}: {e}")

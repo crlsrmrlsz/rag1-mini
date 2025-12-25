@@ -1,0 +1,110 @@
+"""
+Stage 4.5: Build RAPTOR hierarchical summary trees.
+
+This stage runs between Stage 4 (chunking) and Stage 5 (embedding).
+It takes section chunks as input and builds a tree of summaries.
+
+RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval
+Paper: arXiv:2401.18059 (ICLR 2024)
+
+Usage:
+    python -m src.stages.run_stage_4_5_raptor
+    python -m src.stages.run_stage_4_5_raptor --max-levels 3
+    python -m src.stages.run_stage_4_5_raptor --overwrite all
+
+Input:  data/processed/05_final_chunks/section/{book}.json
+Output: data/processed/05_final_chunks/raptor/{book}.json
+"""
+
+import argparse
+
+from src.config import (
+    DIR_FINAL_CHUNKS,
+    RAPTOR_MAX_LEVELS,
+    RAPTOR_MIN_CLUSTER_SIZE,
+    RAPTOR_SUMMARY_MODEL,
+)
+from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg
+from src.rag_pipeline.chunking.raptor.raptor_chunker import run_raptor_chunking
+
+logger = setup_logging("Stage4_5_RAPTOR")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Stage 4.5: Build RAPTOR hierarchical summary trees"
+    )
+    parser.add_argument(
+        "--max-levels",
+        type=int,
+        default=RAPTOR_MAX_LEVELS,
+        help=f"Maximum tree depth (default: {RAPTOR_MAX_LEVELS})",
+    )
+    parser.add_argument(
+        "--min-cluster-size",
+        type=int,
+        default=RAPTOR_MIN_CLUSTER_SIZE,
+        help=f"Minimum nodes for clustering (default: {RAPTOR_MIN_CLUSTER_SIZE})",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=RAPTOR_SUMMARY_MODEL,
+        help=f"OpenRouter model for summarization (default: {RAPTOR_SUMMARY_MODEL})",
+    )
+    parser.add_argument(
+        "--overwrite",
+        type=str,
+        choices=["prompt", "skip", "all"],
+        default="prompt",
+        help="Overwrite behavior: prompt (default), skip, all",
+    )
+    args = parser.parse_args()
+
+    overwrite_context = OverwriteContext(parse_overwrite_arg(args.overwrite))
+
+    logger.info("=" * 60)
+    logger.info("Stage 4.5: RAPTOR Tree Building")
+    logger.info("=" * 60)
+    logger.info(f"Input:  {DIR_FINAL_CHUNKS}/section/")
+    logger.info(f"Output: {DIR_FINAL_CHUNKS}/raptor/")
+    logger.info(f"Max levels: {args.max_levels}")
+    logger.info(f"Min cluster size: {args.min_cluster_size}")
+    logger.info(f"Summary model: {args.model}")
+    logger.info("-" * 60)
+
+    try:
+        stats = run_raptor_chunking(
+            max_levels=args.max_levels,
+            min_cluster_size=args.min_cluster_size,
+            summary_model=args.model,
+            overwrite_context=overwrite_context,
+        )
+
+        logger.info("-" * 60)
+        logger.info(f"Stage 4.5 complete. Processed {len(stats)} books.")
+        logger.info(f"Total nodes: {sum(stats.values())}")
+
+        # Print per-book statistics
+        if stats:
+            logger.info("-" * 60)
+            logger.info("Per-book statistics:")
+            for book_name, node_count in sorted(stats.items()):
+                logger.info(f"  {book_name}: {node_count} nodes")
+
+        logger.info("=" * 60)
+        logger.info("Next step: python -m src.stages.run_stage_5_embedding --strategy raptor")
+
+    except FileNotFoundError as e:
+        logger.error(str(e))
+        logger.error("Run section chunking first:")
+        logger.error("  python -m src.stages.run_stage_4_chunking --strategy section")
+        raise
+
+    except Exception as e:
+        logger.error(f"Stage 4.5 failed: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

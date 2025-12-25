@@ -74,6 +74,56 @@ def create_collection(
     )
 
 
+def create_raptor_collection(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+) -> None:
+    """
+    Create a collection with extended schema for RAPTOR trees.
+
+    Extends the base RAG chunk schema with tree-specific properties:
+    - tree_level: Depth in tree (0=leaf, 1+=summary)
+    - is_summary: Quick filter for summary nodes
+    - parent_ids: Parent chunk IDs (for tree traversal)
+    - child_ids: Child chunk IDs (for tree traversal)
+    - cluster_id: Cluster identifier at this level
+    - source_chunk_ids: (Summaries) Original leaf chunks in subtree
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Name for the new collection.
+
+    Raises:
+        weaviate.exceptions.WeaviateBaseError: If collection creation fails.
+    """
+    client.collections.create(
+        name=collection_name,
+        vector_config=Configure.Vectors.self_provided(
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
+        ),
+        properties=[
+            # Base chunk properties (same as create_collection)
+            Property(name="chunk_id", data_type=DataType.TEXT),
+            Property(name="book_id", data_type=DataType.TEXT),
+            Property(name="section", data_type=DataType.TEXT),
+            Property(name="context", data_type=DataType.TEXT),
+            Property(name="text", data_type=DataType.TEXT),
+            Property(name="token_count", data_type=DataType.INT),
+            Property(name="chunking_strategy", data_type=DataType.TEXT),
+            Property(name="embedding_model", data_type=DataType.TEXT),
+            # RAPTOR-specific tree properties
+            Property(name="tree_level", data_type=DataType.INT),
+            Property(name="is_summary", data_type=DataType.BOOL),
+            Property(name="parent_ids", data_type=DataType.TEXT_ARRAY),
+            Property(name="child_ids", data_type=DataType.TEXT_ARRAY),
+            Property(name="cluster_id", data_type=DataType.TEXT),
+            Property(name="source_chunk_ids", data_type=DataType.TEXT_ARRAY),
+        ],
+    )
+
+
 def delete_collection(
     client: weaviate.WeaviateClient,
     collection_name: str,
@@ -112,15 +162,20 @@ def upload_embeddings(
     collection_name: str,
     chunks: List[Dict[str, Any]],
     batch_size: int = WEAVIATE_BATCH_SIZE,
+    is_raptor: bool = False,
 ) -> int:
     """
     Upload embedded chunks to a Weaviate collection.
+
+    Handles both regular chunks and RAPTOR tree nodes. For RAPTOR nodes,
+    includes additional tree properties (tree_level, parent_ids, etc.).
 
     Args:
         client: Connected Weaviate client.
         collection_name: Target collection name.
         chunks: List of chunk dicts with 'embedding' and metadata fields.
         batch_size: Number of objects per batch (default from config).
+        is_raptor: If True, include RAPTOR tree properties.
 
     Returns:
         Number of successfully uploaded objects.
@@ -133,6 +188,7 @@ def upload_embeddings(
 
     with collection.batch.fixed_size(batch_size=batch_size) as batch:
         for chunk in chunks:
+            # Base properties (all strategies)
             properties = {
                 "chunk_id": chunk["chunk_id"],
                 "book_id": chunk["book_id"],
@@ -143,6 +199,18 @@ def upload_embeddings(
                 "chunking_strategy": chunk.get("chunking_strategy", ""),
                 "embedding_model": chunk.get("embedding_model", ""),
             }
+
+            # Add RAPTOR tree properties if applicable
+            if is_raptor:
+                properties.update({
+                    "tree_level": chunk.get("tree_level", 0),
+                    "is_summary": chunk.get("is_summary", False),
+                    "parent_ids": chunk.get("parent_ids", []),
+                    "child_ids": chunk.get("child_ids", []),
+                    "cluster_id": chunk.get("cluster_id", ""),
+                    "source_chunk_ids": chunk.get("source_chunk_ids", []),
+                })
+
             batch.add_object(
                 properties=properties,
                 vector=chunk["embedding"],

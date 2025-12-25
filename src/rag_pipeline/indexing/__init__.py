@@ -4,6 +4,7 @@
 from .weaviate_client import (
     get_client,
     create_collection,
+    create_raptor_collection,
     delete_collection,
     upload_embeddings,
     get_collection_count,

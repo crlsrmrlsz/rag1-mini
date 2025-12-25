@@ -130,7 +130,8 @@ def build_raptor_tree(
                 n_components=RAPTOR_UMAP_N_COMPONENTS,
             )
         except ValueError as e:
-            logger.warning(f"UMAP failed: {e}. Stopping tree building.")
+            # This is expected termination when tree is fully compressed
+            logger.info(f"Tree building complete: {e}")
             break
 
         # Step 2c: Find optimal K via BIC
@@ -247,12 +248,28 @@ def _embed_nodes(nodes: List[RaptorNode]) -> np.ndarray:
 
     Returns:
         Numpy array of embeddings (n_nodes, embedding_dim).
+
+    Raises:
+        ValueError: If embedding API returns empty or mismatched count.
     """
     texts = [node.text for node in nodes]
     logger.info(f"Embedding {len(texts)} nodes...")
 
     # embed_texts returns List[List[float]]
     embeddings_list = embed_texts(texts)
+
+    # Validate embedding results
+    if not embeddings_list:
+        raise ValueError(
+            f"Embedding API returned empty results for {len(texts)} texts. "
+            "Check API key, rate limits, or network connectivity."
+        )
+
+    if len(embeddings_list) != len(texts):
+        raise ValueError(
+            f"Embedding count mismatch: expected {len(texts)}, got {len(embeddings_list)}. "
+            "Some API calls may have failed silently."
+        )
 
     return np.array(embeddings_list)
 

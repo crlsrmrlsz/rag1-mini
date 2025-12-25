@@ -48,7 +48,7 @@ def run_raptor_chunking(
     min_cluster_size: int = RAPTOR_MIN_CLUSTER_SIZE,
     summary_model: str = RAPTOR_SUMMARY_MODEL,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> Dict[str, TreeMetadata]:
     """Build RAPTOR trees for all section chunks.
 
     Main entry point for RAPTOR strategy. Loads section chunks and builds
@@ -64,7 +64,7 @@ def run_raptor_chunking(
         overwrite_context: Context for handling existing file overwrites.
 
     Returns:
-        Dict mapping book names to total node counts.
+        Dict mapping book names to TreeMetadata with full tree statistics.
 
     Raises:
         FileNotFoundError: If section chunks don't exist.
@@ -114,21 +114,26 @@ def run_raptor_chunking(
             continue
 
         try:
-            node_count = _process_single_book(
+            metadata = _process_single_book(
                 file_path,
                 output_path,
                 max_levels=max_levels,
                 min_cluster_size=min_cluster_size,
                 summary_model=summary_model,
             )
-            results[book_name] = node_count
-            logger.info(f"  {book_name}: {node_count} nodes")
+            results[book_name] = metadata
+            logger.info(
+                f"  {book_name}: {metadata.total_nodes} nodes "
+                f"({metadata.leaf_count} leaves, {metadata.summary_count} summaries), "
+                f"{metadata.max_level} levels"
+            )
 
         except Exception as e:
             logger.error(f"Failed processing {book_name}: {e}")
             raise
 
-    logger.info(f"RAPTOR tree building complete: {sum(results.values())} total nodes")
+    total_nodes = sum(m.total_nodes for m in results.values())
+    logger.info(f"RAPTOR tree building complete: {total_nodes} total nodes")
     if skipped_count > 0:
         logger.info(f"Skipped {skipped_count} files (already exist)")
 
@@ -141,7 +146,7 @@ def _process_single_book(
     max_levels: int,
     min_cluster_size: int,
     summary_model: str,
-) -> int:
+) -> TreeMetadata:
     """Process a single book's section chunks into a RAPTOR tree.
 
     Args:
@@ -152,7 +157,7 @@ def _process_single_book(
         summary_model: Model for summarization.
 
     Returns:
-        Total node count (leaves + summaries).
+        TreeMetadata with full tree statistics.
     """
     book_id = input_path.stem
 
@@ -188,7 +193,7 @@ def _process_single_book(
             indent=2,
         )
 
-    return len(all_nodes)
+    return metadata
 
 
 if __name__ == "__main__":
@@ -196,4 +201,5 @@ if __name__ == "__main__":
     logger.info("Starting RAPTOR tree building (standalone)...")
     stats = run_raptor_chunking()
     logger.info(f"Completed! Processed {len(stats)} books")
-    logger.info(f"Total nodes: {sum(stats.values())}")
+    total = sum(m.total_nodes for m in stats.values())
+    logger.info(f"Total nodes: {total}")

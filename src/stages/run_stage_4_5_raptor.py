@@ -82,15 +82,26 @@ def main():
         )
 
         logger.info("-" * 60)
+        total_nodes = sum(m.total_nodes for m in stats.values())
+        total_leaves = sum(m.leaf_count for m in stats.values())
+        total_summaries = sum(m.summary_count for m in stats.values())
+        max_depth = max(m.max_level for m in stats.values()) if stats else 0
         logger.info(f"Stage 4.5 complete. Processed {len(stats)} books.")
-        logger.info(f"Total nodes: {sum(stats.values())}")
+        logger.info(
+            f"Total: {total_nodes} nodes ({total_leaves} leaves, {total_summaries} summaries)"
+        )
+        logger.info(f"Max tree depth across all books: {max_depth} levels")
 
         # Print per-book statistics
         if stats:
             logger.info("-" * 60)
             logger.info("Per-book statistics:")
-            for book_name, node_count in sorted(stats.items()):
-                logger.info(f"  {book_name}: {node_count} nodes")
+            for book_name, metadata in sorted(stats.items()):
+                logger.info(
+                    f"  {book_name}: {metadata.total_nodes} nodes "
+                    f"({metadata.leaf_count} leaves, {metadata.summary_count} summaries), "
+                    f"{metadata.max_level} levels, {metadata.build_time_seconds:.1f}s"
+                )
 
         logger.info("=" * 60)
         logger.info("Next step: python -m src.stages.run_stage_5_embedding --strategy raptor")

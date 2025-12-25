@@ -58,10 +58,17 @@ def reduce_dimensions(
     embeddings while preserving both local and global structure. This makes
     subsequent GMM clustering more effective.
 
+    Uses dynamic n_neighbors like the original RAPTOR implementation:
+    n_neighbors = min(config_value, sqrt(n-1), n-1)
+
+    This allows clustering to continue with fewer nodes, enabling deeper trees.
+    For small sample sizes (< 15), uses random initialization instead of spectral
+    to avoid scipy sparse matrix errors.
+
     Args:
         embeddings: Input embeddings array of shape (n_samples, embedding_dim).
-        n_neighbors: Number of neighbors for UMAP (controls local vs global).
-            Higher values preserve more global structure.
+        n_neighbors: Maximum neighbors for UMAP (actual value is dynamic).
+            The effective value is min(n_neighbors, sqrt(n-1), n-1).
         n_components: Target dimensionality (typically 10 for GMM input).
         random_state: Random seed for reproducibility.
 
@@ -69,30 +76,38 @@ def reduce_dimensions(
         Reduced embeddings of shape (n_samples, n_components).
 
     Raises:
-        ValueError: If embeddings.shape[0] < n_neighbors.
+        ValueError: If embeddings.shape[0] < 3 (minimum for meaningful UMAP).
     """
     # Lazy import to avoid loading UMAP unless needed
     from umap import UMAP
 
     n_samples = embeddings.shape[0]
 
-    if n_samples < n_neighbors:
+    # Dynamic n_neighbors like original RAPTOR: sqrt(n-1)
+    # This allows clustering to continue with fewer nodes for deeper trees
+    dynamic_neighbors = int((n_samples - 1) ** 0.5)
+    effective_neighbors = min(n_neighbors, dynamic_neighbors, n_samples - 1)
+
+    # Minimum 2 neighbors needed for UMAP, which requires at least 3 samples
+    if effective_neighbors < 2:
         raise ValueError(
-            f"Not enough samples ({n_samples}) for UMAP with n_neighbors={n_neighbors}. "
-            f"Need at least {n_neighbors} samples."
+            f"Too few samples ({n_samples}) for meaningful UMAP reduction. "
+            f"Need at least 3 samples."
         )
 
-    # Adjust n_neighbors if close to sample count
-    effective_neighbors = min(n_neighbors, n_samples - 1)
     if effective_neighbors != n_neighbors:
-        logger.warning(
-            f"Adjusted n_neighbors from {n_neighbors} to {effective_neighbors} "
-            f"for {n_samples} samples"
+        logger.info(
+            f"Dynamic n_neighbors: {n_neighbors} -> {effective_neighbors} "
+            f"(sqrt({n_samples}-1) = {dynamic_neighbors})"
         )
+
+    # Use random init for small samples to avoid spectral layout crash
+    # Spectral layout fails with scipy sparse matrix when k >= N
+    init_method = "random" if n_samples < 15 else "spectral"
 
     logger.info(
         f"UMAP: {embeddings.shape[1]} dims -> {n_components} dims "
-        f"(n_neighbors={effective_neighbors})"
+        f"(n_neighbors={effective_neighbors}, init={init_method})"
     )
 
     reducer = UMAP(
@@ -101,6 +116,7 @@ def reduce_dimensions(
         min_dist=0.0,  # Tight clusters for GMM
         metric="cosine",  # Match embedding distance metric
         random_state=random_state,
+        init=init_method,
     )
 
     reduced = reducer.fit_transform(embeddings)

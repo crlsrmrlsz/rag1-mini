@@ -89,6 +89,7 @@ streamlit run src/ui/app.py                   # Open http://localhost:8501
 
 # Run evaluation
 python -m src.stages.run_stage_7_evaluation   # RAGAS quality metrics
+python -m src.stages.run_stage_7_evaluation --comprehensive  # Grid search all configs
 ```
 
 ## Project Structure
@@ -202,9 +203,9 @@ This project implements advanced RAG patterns from recent research:
 | Technique | Description | Paper/Source |
 |-----------|-------------|--------------|
 | **Hybrid Search** | BM25 keyword + vector semantic search | Weaviate docs |
-| **Step-Back Prompting** | Abstracts questions to broader concepts (+27% on multi-hop) | [arXiv:2310.06117](https://arxiv.org/abs/2310.06117) |
-| **Multi-Query + RRF** | Generates targeted queries, merges with Reciprocal Rank Fusion | [Query Decomposition](https://arxiv.org/html/2507.00355v1) |
-| **Query Decomposition** | Breaks complex questions into sub-queries (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
+| **HyDE** | Generates hypothetical answers for semantic matching | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
+| **Query Decomposition** | Breaks complex questions into sub-queries with RRF merging (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
+| **Contextual Chunking** | LLM-generated context prepended to chunks (Anthropic-style, -35% failures) | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
 | **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |

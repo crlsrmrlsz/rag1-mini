@@ -1,6 +1,6 @@
 # RAG1-Mini Project Status
 
-**Last Updated:** December 22, 2025
+**Last Updated:** December 25, 2025
 
 ## Overview
 
@@ -71,7 +71,7 @@ The pipeline includes RAGAS-based evaluation metrics:
 
 | Component | Purpose | Status |
 |-----------|---------|--------|
-| Step-Back Prompting | Transform to broader concepts for better retrieval | Complete |
+| HyDE | Generate hypothetical answers for semantic matching | Complete |
 | Query Decomposition | Break into sub-questions + RRF merge | Complete |
 | Answer Generator | Synthesize LLM answer from retrieved chunks | Complete |
 | LLM Call Logging | Log all LLM calls with model and char counts | Complete |
@@ -94,10 +94,11 @@ The pipeline includes RAGAS-based evaluation metrics:
 | 1 | Preprocessing Strategy Infrastructure | COMPLETE |
 | 2 | Remove Classification + Simplify (Dec 22) | COMPLETE |
 | 3 | Multi-Query Strategy | REMOVED (Dec 23) - Subsumed by decomposition |
+| 3b | Step-Back → HyDE (Dec 23) | COMPLETE |
 | 4 | Query Decomposition (always-on) | COMPLETE |
 | 2.5 | Domain-Agnostic Refactoring (Dec 22) | COMPLETE |
-| 5 | Quick Wins (lost-in-middle, alpha tuning) | TODO |
-| 6 | Contextual Chunking (+35% failure reduction) | TODO |
+| 5 | Comprehensive Evaluation + Alpha Tuning (Dec 24) | COMPLETE |
+| 6 | Contextual Chunking (Anthropic-style, Dec 22) | COMPLETE |
 | 7 | RAPTOR (hierarchical summarization) | TODO |
 | 8 | GraphRAG (Neo4j integration) | TODO |
 
@@ -157,11 +158,21 @@ The project uses a **Strategy Pattern with Registry** for modular, testable RAG 
 - `hyde` - Generate hypothetical answer for semantic matching (1 LLM call, 1 search) [arXiv:2212.10496]
 - `decomposition` - Break into 2-4 sub-questions + RRF merge (1 LLM call, 3-4 searches) [arXiv:2507.00355]
 
+### Implemented: Chunking Strategies
+
+**Files:**
+- `src/config.py:AVAILABLE_CHUNKING_STRATEGIES`
+- `src/rag_pipeline/chunking/strategies.py` (registry)
+- `src/rag_pipeline/chunking/section_chunker.py` (section strategy)
+- `src/rag_pipeline/chunking/contextual_chunker.py` (contextual strategy)
+
+**Available strategies:**
+- `section` - 800-token section-aware chunks with 2-sentence overlap
+- `semantic` - Similarity threshold-based boundaries
+- `contextual` - LLM-generated context prepended to chunks (Anthropic-style)
+
 ### To Implement: Chunking Strategies
 
-Same pattern for `src/ingest/chunking_strategies.py`:
-- `naive` - Current 800-token section-aware chunks
-- `contextual` - Anthropic-style context prepending
 - `raptor` - Hierarchical summarization tree
 
 ### To Implement: Embedding Strategies
@@ -202,7 +213,8 @@ python -m src.stages.run_stage_6_weaviate
 streamlit run src/ui/app.py
 
 # Evaluation (see model-selection.md for model options)
-python -m src.stages.run_stage_7_evaluation
+python -m src.stages.run_stage_7_evaluation                  # Single config
+python -m src.stages.run_stage_7_evaluation --comprehensive  # Grid search all configs
 ```
 
 ## Code Standards

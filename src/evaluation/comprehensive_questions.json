@@ -2,7 +2,7 @@
   "metadata": {
     "version": "2.0",
     "created": "2025-12-24",
-    "description": "Curated 10-question subset for comprehensive evaluation. Synced with test_questions.json version 4.0. All questions have coherent reference, ground_truth_quote, and expected_books.",
+    "description": "Curated 10-question subset for comprehensive evaluation. Synced with test_questions.json version 4.1. All questions have coherent reference, ground_truth_quote, and expected_books.",
     "selection_criteria": "High-quality ground truth, diverse topics, balanced difficulty",
     "total_questions": 10,
     "updated": "2025-12-25"
@@ -89,7 +89,8 @@
         "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
         "The Enchiridion (Epictetus)",
         "The Meditations (Marcus Aurelius)",
-        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "Tao te ching Lao_tzu (Lao Tzu)"
       ]
     },
     {
@@ -130,9 +131,10 @@
       "category": "cross_domain",
       "difficulty": "cross_domain",
       "question": "What creates lasting happiness, and why does pleasure often fail to satisfy?",
-      "reference": "Neuroscience reveals that the brain's reward systems show hedonic adaptation - what brings pleasure initially loses its power with repeated exposure, requiring escalation for the same subjective experience. Dopamine mediates 'wanting' (motivation to pursue rewards) rather than 'liking' (hedonic pleasure), creating a treadmill of desire that never reaches satisfaction. Sustainable contentment depends on balanced functioning across motivational, emotional, and cognitive systems rather than maximizing any single reward signal. Schopenhauer inverted traditional hedonic philosophy: 'happiness means merely the diminution of suffering,' not a positive state. The goal is avoiding unnecessary suffering rather than chasing positive states. He argued that 'a healthy beggar is happier than an ailing king' - personality and health outweigh external possessions. The Stoics taught that true happiness comes from alignment with reason and virtue, not external circumstances. Epictetus emphasized that 'happiness and personal fulfillment are the natural consequences of doing the right thing.' Seneca counseled that freedom comes from simplicity and independence, not accumulation. Both neuroscience and philosophy converge on the insight that pursuing pleasure directly is self-defeating; lasting contentment requires accepting limits, cultivating internal resources, and redirecting desire toward meaning rather than sensation.",
-      "ground_truth_quote": "\"The happiest lot is not to have experienced the keenest delights or the greatest pleasures, but to have brought life to a close without any very great pain\" (Schopenhauer); \"By facing the realities of death, infirmity, loss, and disappointment, you free yourself of illusions and false hopes\" (Epictetus)",
+      "reference": "Neuroscience reveals the 'hedonic treadmill' - the tendency of our brains to remain at the same overall level of happiness despite the transient joys of life's rewards. No matter how fast we run in pursuit of happiness, our expectations gather speed as well, so we end up back in the same place once again. Classic studies found that lottery winners ended up no happier than controls in the long run. Dopamine circuits code for prediction error - the gap between expectation and reality - rather than reward itself, so as expectations rise the hedonic response drops. Schopenhauer inverted traditional hedonic philosophy: 'happiness means merely the diminution of suffering,' not a positive state. The goal is avoiding unnecessary suffering rather than chasing positive states. He argued that 'a healthy beggar is happier than an ailing king' - personality and health outweigh external possessions. The Stoics taught that true happiness comes from alignment with reason and virtue, not external circumstances. Epictetus emphasized that 'happiness and personal fulfillment are the natural consequences of doing the right thing.' Both neuroscience and philosophy converge on the insight that pursuing pleasure directly is self-defeating; lasting contentment requires accepting limits, cultivating internal resources, and redirecting desire toward meaning rather than sensation.",
+      "ground_truth_quote": "\"The tendency of our brains to remain at the same overall level of happiness in the long run, despite the transient joys of life's rewards, has been called the hedonic treadmill\" (Eagleman); \"No matter how fast we run in pursuit of happiness, our expectations gather speed as well, so that we end up back in the same place once again\" (Eagleman); \"The happiest lot is not to have experienced the keenest delights or the greatest pleasures, but to have brought life to a close without any very great pain\" (Schopenhauer); \"By facing the realities of death, infirmity, loss, and disappointment, you free yourself of illusions and false hopes\" (Epictetus)",
       "expected_books": [
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
         "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
         "Essays and Aphorisms (Arthur Schopenhauer)",
         "Wisdom of Life (Schopenhauer)"

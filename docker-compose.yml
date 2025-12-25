@@ -75,3 +75,61 @@ services:
       # We don't need any ML modules since we pre-compute embeddings
       # If you later want Weaviate to call OpenAI for you, add:
       # ENABLE_MODULES: 'text2vec-openai'
+
+  # ============================================================================
+  # NEO4J GRAPH DATABASE (for GraphRAG)
+  # ============================================================================
+  # Neo4j with Graph Data Science (GDS) plugin for:
+  # - Knowledge graph storage (entities + relationships)
+  # - Leiden community detection algorithm
+  # - Graph traversal queries via Cypher
+  #
+  # GraphRAG Architecture:
+  # 1. Entity extraction: LLM extracts entities/relationships from chunks
+  # 2. Graph construction: Store in Neo4j with embeddings
+  # 3. Community detection: Leiden algorithm clusters related entities
+  # 4. Summarization: LLM generates community summaries
+  # 5. Query: Hybrid graph traversal + vector search via RRF
+
+  neo4j:
+    # Neo4j Enterprise with GDS plugin (required for Leiden algorithm)
+    # GDS plugin is pre-installed in the official neo4j image with APOC
+    image: neo4j:5.26.0-enterprise
+
+    container_name: neo4j_rag
+
+    ports:
+      - "7474:7474"   # HTTP (Browser UI)
+      - "7687:7687"   # Bolt (Python driver)
+
+    volumes:
+      - ./neo4j_data:/data
+      - ./neo4j_logs:/logs
+      - ./neo4j_plugins:/plugins
+
+    environment:
+      # Accept enterprise license (required for GDS)
+      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+
+      # Authentication (change in production!)
+      NEO4J_AUTH: neo4j/rag1mini_graphrag
+
+      # Enable GDS plugin
+      NEO4J_PLUGINS: '["graph-data-science"]'
+
+      # Memory configuration (adjust based on your system)
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_dbms_memory_pagecache_size: 512m
+
+      # Allow CSV import from anywhere (for data loading)
+      NEO4J_dbms_security_allow__csv__import__from__file__urls: "true"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+    restart: unless-stopped

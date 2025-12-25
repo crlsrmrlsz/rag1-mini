@@ -17,13 +17,15 @@ conda activate rag1-mini
 ### Run Pipeline Stages
 
 ```bash
-python -m src.stages.run_stage_1_extraction   # PDF to Markdown
-python -m src.stages.run_stage_2_processing   # Markdown cleaning
-python -m src.stages.run_stage_3_segmentation # NLP sentence segmentation
-python -m src.stages.run_stage_4_chunking     # Section-aware chunking (800 tokens, 2-sentence overlap)
-python -m src.stages.run_stage_5_embedding    # Generate embeddings (requires OpenRouter API key)
-python -m src.stages.run_stage_6_weaviate     # Upload to Weaviate (requires running Weaviate)
-python -m src.stages.run_stage_7_evaluation   # RAGAS evaluation
+python -m src.stages.run_stage_1_extraction     # PDF to Markdown
+python -m src.stages.run_stage_2_processing     # Markdown cleaning
+python -m src.stages.run_stage_3_segmentation   # NLP sentence segmentation
+python -m src.stages.run_stage_4_chunking       # Section-aware chunking (800 tokens, 2-sentence overlap)
+python -m src.stages.run_stage_4_6_graph_extract # GraphRAG: Extract entities/relationships
+python -m src.stages.run_stage_5_embedding      # Generate embeddings (requires OpenRouter API key)
+python -m src.stages.run_stage_6_weaviate       # Upload to Weaviate (requires running Weaviate)
+python -m src.stages.run_stage_6b_neo4j         # GraphRAG: Upload to Neo4j + Leiden communities
+python -m src.stages.run_stage_7_evaluation     # RAGAS evaluation
 ```
 
 ## Code Standards
@@ -66,12 +68,19 @@ src/
 ├── rag_pipeline/                 # Phase 2: RAG System (Stages 4-8)
 │   ├── chunking/                 # Stage 4: Text -> Chunks
 │   ├── embedding/                # Stage 5: Chunks -> Vectors
-│   ├── indexing/                 # Stage 6: Vector DB
+│   ├── indexing/                 # Stage 6: Vector DB (Weaviate)
 │   ├── retrieval/                # Stage 7: Query -> Chunks
-│   │   ├── preprocessing/        # Query transformation
+│   │   ├── preprocessing/        # Query transformation (strategies)
 │   │   ├── reranking.py          # Cross-encoder
-│   │   └── rrf.py                # RRF merging for decomposition
+│   │   └── rrf.py                # RRF merging for decomposition/graphrag
 │   └── generation/               # Stage 8: Chunks -> Answer
+│
+├── graph/                        # GraphRAG: Knowledge graph + communities
+│   ├── schemas.py                # GraphEntity, Community models
+│   ├── extractor.py              # LLM entity extraction
+│   ├── neo4j_client.py           # Neo4j operations
+│   ├── community.py              # Leiden + summarization
+│   └── query.py                  # Hybrid graph retrieval
 │
 ├── evaluation/                   # RAGAS framework
 ├── ui/                           # Streamlit app
@@ -93,6 +102,10 @@ src/
 | `src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py` | Query preprocessing | `preprocess_query(query) -> PreprocessedQuery` |
 | `src/rag_pipeline/generation/answer_generator.py` | Answer synthesis | `generate_answer(query, chunks) -> GeneratedAnswer` |
 | `src/shared/openrouter_client.py` | Unified LLM API | `call_chat_completion()`, `call_structured_completion()` |
+| `src/graph/extractor.py` | Entity extraction | `run_extraction(strategy) -> Dict` |
+| `src/graph/neo4j_client.py` | Neo4j operations | `upload_extraction_results(driver, results) -> counts` |
+| `src/graph/community.py` | Leiden communities | `detect_and_summarize_communities(driver, gds) -> List[Community]` |
+| `src/graph/query.py` | Graph retrieval | `hybrid_graph_retrieval(query, results, driver) -> merged` |
 
 ## Configuration (src/config.py)
 
@@ -149,7 +162,7 @@ Update these files when making significant changes to maintain project continuit
 - Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496)
 - HyDE generates hypothetical answers for semantic matching (proper RAG research)
 - step_back was a reasoning technique adapted for RAG, not from RAG research
-- Available strategies now: `none`, `hyde`, `decomposition`
+- Available strategies now: `none`, `hyde`, `decomposition`, `graphrag`
 
 **Phase 4: Query Decomposition** - COMPLETE
 - [x] Add DECOMPOSITION_PROMPT and decompose_query() function
@@ -157,8 +170,11 @@ Update these files when making significant changes to maintain project continuit
 - [x] Register decomposition in STRATEGIES dict
 - [x] Update config, CLI, logger, and UI
 
-**Phase 5: Alpha Tuning**
-- [ ] Alpha tuning experiments (0.3, 0.5, 0.7) via CLI
+**Phase 5: Alpha Tuning** - COMPLETE (Dec 24)
+- [x] Comprehensive evaluation mode: `--comprehensive` flag for grid search
+- [x] Tests all combinations: collections x alphas (0.0-1.0) x strategies
+- [x] Curated 10-question subset in `comprehensive_questions.json`
+- [x] Leaderboard report with metric breakdowns
 
 **Phase 6: Contextual Retrieval** - COMPLETE (Dec 22)
 - [x] Create contextual_chunker.py (prepend LLM context to chunks)
@@ -170,19 +186,19 @@ Update these files when making significant changes to maintain project continuit
 - [ ] Add raptor_strategy to strategies.py
 - [ ] Add RAPTOR query strategy
 
-**Phase 8: GraphRAG** (Neo4j, +70% comprehensiveness)
-- [ ] Add Neo4j to docker-compose.yml
-- [ ] Create src/graph/ module (extractor, neo4j_client, query)
-- [ ] Create graph extraction and upload stages
+**Phase 8: GraphRAG** - COMPLETE (Dec 25)
+- [x] Add Neo4j to docker-compose.yml (with GDS plugin for Leiden)
+- [x] Create src/graph/ module (schemas, extractor, neo4j_client, community, query)
+- [x] Add Stage 4.6 (entity extraction) and Stage 6b (Neo4j upload + Leiden)
+- [x] Add graphrag preprocessing strategy with hybrid retrieval (RRF merge)
+- [x] Run via: `python -m src.stages.run_stage_4_6_graph_extract`
+- [x] Upload: `python -m src.stages.run_stage_6b_neo4j`
 
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
+- GraphRAG implementation: Neo4j + Leiden communities + hybrid retrieval via RRF (Dec 25)
+- Comprehensive evaluation mode: `--comprehensive` for grid search across all configs (Dec 24)
 - Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496) - proper RAG research technique (Dec 23)
 - Removed multi_query strategy: decomposition subsumes its domain-targeting (~380 lines removed) (Dec 23)
 - Contextual chunking strategy (Anthropic-style, +35% failure reduction) (Dec 22)
-- Domain-agnostic refactoring: removed book categories, diversification, generalized prompts (Dec 22)
-- Removed query classification + unified answer prompt (~170 lines removed) (Dec 22)
-- Pydantic structured outputs for LLM responses with JSON Schema enforcement (Dec 22)
-- Major codebase refactoring: Two-phase architecture (content_preparation/, rag_pipeline/) for pedagogical clarity (Dec 21)
-- Unified OpenRouter API client (src/shared/openrouter_client.py) replacing 3 duplicate implementations (Dec 21)

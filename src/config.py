@@ -308,6 +308,7 @@ AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
     ("hyde", "HyDE", "Generate hypothetical answer for semantic matching (arXiv:2212.10496)"),
     ("decomposition", "Decomposition", "Break into sub-questions + RRF merge (arXiv:2507.00355)"),
+    ("graphrag", "GraphRAG", "Hybrid graph + vector retrieval via RRF (arXiv:2404.16130)"),
 ]
 
 # Default strategy for UI and preprocess_query() when not specified
@@ -547,3 +548,122 @@ Passages:
 {context}
 
 Summary:"""
+
+
+# ============================================================================
+# GRAPHRAG SETTINGS (Knowledge Graph + Leiden Communities)
+# ============================================================================
+# GraphRAG: Graph Retrieval-Augmented Generation (Microsoft Research)
+# Paper: arXiv:2404.16130 (Apr 2024)
+# Builds a knowledge graph of entities/relationships, detects communities
+# via Leiden algorithm, and generates community summaries for global queries.
+
+# Neo4j connection settings
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "rag1mini_graphrag")
+
+# Model for entity/relationship extraction
+# Using claude-3-haiku for consistency with RAPTOR and contextual
+GRAPHRAG_EXTRACTION_MODEL = CONTEXTUAL_MODEL  # "anthropic/claude-3-haiku"
+
+# Model for community summarization (same as extraction for consistency)
+GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL
+
+# Entity extraction parameters
+GRAPHRAG_MAX_EXTRACTION_TOKENS = 2000  # Max tokens for extraction response
+
+# Domain-specific entity types for neuroscience/philosophy corpus
+# These guide the LLM to extract relevant entities
+GRAPHRAG_ENTITY_TYPES = [
+    # Neuroscience entities
+    "BRAIN_REGION",          # Prefrontal cortex, amygdala, hippocampus
+    "NEUROTRANSMITTER",      # Dopamine, serotonin, cortisol
+    "NEURAL_PROCESS",        # Synaptic plasticity, long-term potentiation
+    "COGNITIVE_FUNCTION",    # Working memory, decision-making, attention
+    "BEHAVIOR",              # Aggression, altruism, stress response
+    # Philosophy entities
+    "PHILOSOPHER",           # Marcus Aurelius, Schopenhauer, Confucius
+    "PHILOSOPHICAL_CONCEPT", # Virtue ethics, will, Tao, Stoic acceptance
+    "PHILOSOPHICAL_SCHOOL",  # Stoicism, Taoism, German Pessimism
+    "TEXT_OR_WORK",          # Meditations, The Art of Worldly Wisdom
+    # Research entities
+    "RESEARCHER",            # Sapolsky, Kahneman, Tversky
+    "STUDY_OR_EXPERIMENT",   # Stanford prison experiment, marshmallow test
+    "COGNITIVE_BIAS",        # Confirmation bias, loss aversion
+    # General entities
+    "PERSON",                # Historical figures, case study subjects
+    "ORGANIZATION",          # Universities, research institutions
+    "BOOK_OR_CHAPTER",       # Source document references
+]
+
+# Relationship types for knowledge graph edges
+GRAPHRAG_RELATIONSHIP_TYPES = [
+    # Causal/mechanistic relationships
+    "CAUSES",                # A causes B
+    "INHIBITS",              # A inhibits/blocks B
+    "MODULATES",             # A modulates/affects B
+    "REGULATES",             # A regulates B
+    # Associative relationships
+    "ASSOCIATED_WITH",       # A is associated with B
+    "PART_OF",               # A is part of B
+    "LOCATED_IN",            # A is located in B
+    # Philosophical relationships
+    "PROPOSES",              # Philosopher proposes concept
+    "INFLUENCES",            # A influences B
+    "CONTRADICTS",           # A contradicts B
+    "BUILDS_ON",             # A builds on B
+    "ADVOCATES_FOR",         # A advocates for B
+    # Research relationships
+    "STUDIES",               # Researcher studies phenomenon
+    "DEMONSTRATES",          # Study demonstrates finding
+    "CITES",                 # A cites B
+    # Attribution relationships
+    "AUTHORED_BY",           # Work authored by person
+    "AFFILIATED_WITH",       # Person affiliated with organization
+]
+
+# Leiden community detection parameters
+GRAPHRAG_LEIDEN_RESOLUTION = 1.0    # Higher = more, smaller communities
+GRAPHRAG_LEIDEN_MAX_LEVELS = 10     # Maximum hierarchy depth
+GRAPHRAG_MIN_COMMUNITY_SIZE = 3     # Minimum nodes per community
+
+# Community summarization parameters
+GRAPHRAG_MAX_SUMMARY_TOKENS = 200   # Max tokens per community summary
+GRAPHRAG_MAX_CONTEXT_TOKENS = 6000  # Max input tokens for summarization
+
+# Community summary prompt template
+GRAPHRAG_COMMUNITY_PROMPT = """You are analyzing a community of related entities from a knowledge graph.
+This community was detected via the Leiden algorithm and contains semantically related concepts.
+
+Community entities and their relationships:
+{community_context}
+
+Write a comprehensive summary (2-3 paragraphs) that:
+1. Identifies the main theme or topic connecting these entities
+2. Explains the key relationships and how concepts interact
+3. Highlights important details, names, and specific findings
+
+Summary:"""
+
+# Entity extraction prompt template
+# Uses structured output for reliable parsing
+GRAPHRAG_EXTRACTION_PROMPT = """Extract entities and relationships from the following text.
+
+Entity types to look for: {entity_types}
+Relationship types to look for: {relationship_types}
+
+Text:
+{text}
+
+Extract all entities and relationships following the JSON schema provided.
+Be thorough but precise - only extract entities that are explicitly mentioned.
+For relationships, only include those that are clearly stated or strongly implied."""
+
+# Graph retrieval parameters
+GRAPHRAG_TOP_COMMUNITIES = 3        # Number of communities to retrieve
+GRAPHRAG_TRAVERSE_DEPTH = 2         # Hops for entity traversal
+GRAPHRAG_RRF_K = 60                 # RRF constant for score fusion
+
+# Output directory for graph data
+DIR_GRAPH_DATA = DATA_DIR / "processed" / "07_graph"

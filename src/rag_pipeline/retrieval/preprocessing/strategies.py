@@ -10,6 +10,7 @@ Strategies:
 - none: No transformation (baseline for comparison)
 - hyde: Generate hypothetical answer for semantic matching (arXiv:2212.10496)
 - decomposition: Break into sub-questions + RRF merge (+36.7% MRR@10, arXiv:2507.00355)
+- graphrag: Hybrid graph + vector retrieval via RRF (arXiv:2404.16130)
 
 The strategy pattern allows easy A/B testing and adding new strategies
 without modifying existing code.
@@ -153,6 +154,64 @@ def decomposition_strategy(query: str, model: Optional[str] = None) -> Preproces
 
 
 # =============================================================================
+# GRAPHRAG STRATEGY
+# =============================================================================
+
+
+def graphrag_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
+    """GraphRAG: Hybrid graph + vector retrieval.
+
+    This strategy extracts entities from the query and sets up metadata
+    for graph traversal during retrieval. The actual graph retrieval
+    happens in the search phase (not preprocessing) where it can access
+    the Neo4j driver.
+
+    Key insight: GraphRAG is primarily a retrieval-time strategy, not a
+    query transformation strategy. This function prepares the query with
+    entity hints that the retrieval layer uses for graph traversal.
+
+    Research: arXiv:2404.16130 - GraphRAG: +72-83% win rate vs baseline
+
+    Args:
+        query: The user's original query.
+        model: Model for entity extraction (optional).
+
+    Returns:
+        PreprocessedQuery with graphrag metadata for retrieval layer.
+    """
+    start_time = time.time()
+    model = model or PREPROCESSING_MODEL
+
+    # Import here to avoid circular dependency
+    from src.graph.query import extract_query_entities
+
+    # Extract entities from query (no Neo4j lookup at this stage)
+    query_entities = extract_query_entities(query, driver=None)
+    logger.info(f"[graphrag] Extracted entities: {query_entities}")
+
+    elapsed_ms = (time.time() - start_time) * 1000
+
+    # Store entity hints in generated_queries for retrieval layer
+    generated_queries = [
+        {"type": "original", "query": query},
+    ]
+    # Add entity-focused queries for graph traversal hints
+    for entity in query_entities[:5]:  # Top 5 entities
+        generated_queries.append({"type": "entity", "query": entity})
+
+    return PreprocessedQuery(
+        original_query=query,
+        search_query=query,  # Keep original for vector search
+        strategy_used="graphrag",
+        preprocessing_time_ms=elapsed_ms,
+        model=model,
+        generated_queries=generated_queries,
+        # Store entity list in metadata
+        decomposition_response=f"Entities: {', '.join(query_entities)}" if query_entities else "",
+    )
+
+
+# =============================================================================
 # STRATEGY REGISTRY
 # =============================================================================
 
@@ -161,6 +220,7 @@ STRATEGIES: Dict[str, StrategyFunction] = {
     "none": none_strategy,
     "hyde": hyde_strategy,
     "decomposition": decomposition_strategy,
+    "graphrag": graphrag_strategy,
 }
 
 

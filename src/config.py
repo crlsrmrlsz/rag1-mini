@@ -539,15 +539,8 @@ RAPTOR_CLUSTER_PROBABILITY_THRESHOLD = 0.3  # Soft assignment threshold
 RAPTOR_MAX_SUMMARY_TOKENS = 150  # Output limit (paper avg: 131)
 RAPTOR_MAX_CONTEXT_TOKENS = 8000  # Input context limit for LLM
 
-# Summarization prompt template
-RAPTOR_SUMMARY_PROMPT = """Write a comprehensive summary of the following text passages.
-Include as many key details, names, and specific concepts as possible.
-The summary should capture the main ideas while preserving important specifics.
-
-Passages:
-{context}
-
-Summary:"""
+# Summarization prompt template (matches official RAPTOR implementation)
+RAPTOR_SUMMARY_PROMPT = "Write a summary of the following, including as many key details as possible: {context}:"
 
 
 # ============================================================================

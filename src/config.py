@@ -665,5 +665,5 @@ GRAPHRAG_TOP_COMMUNITIES = 3        # Number of communities to retrieve
 GRAPHRAG_TRAVERSE_DEPTH = 2         # Hops for entity traversal
 GRAPHRAG_RRF_K = 60                 # RRF constant for score fusion
 
-# Output directory for graph data
-DIR_GRAPH_DATA = DATA_DIR / "processed" / "07_graph"
+# Output directory for graph data (under chunks since graph derives from chunks)
+DIR_GRAPH_DATA = DIR_FINAL_CHUNKS / "graph"

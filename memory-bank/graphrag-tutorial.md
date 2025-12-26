@@ -137,7 +137,7 @@ GraphRAG operates in two distinct phases:
 ║   │   Uses structured output (Pydantic → JSON Schema)                   │ ║
 ║   │   Model: anthropic/claude-3-haiku (cost-effective)                  │ ║
 ║   │                                                                     │ ║
-║   │   Output: data/processed/07_graph/extraction_results.json           │ ║
+║   │   Output: data/processed/05_final_chunks/graph/extraction_results.json           │ ║
 ║   └───────────────────────────────────┬─────────────────────────────────┘ ║
 ║                                       │                                   ║
 ║                                       ▼                                   ║
@@ -169,7 +169,7 @@ GraphRAG operates in two distinct phases:
 ║   │   2. Format as context string                                       │ ║
 ║   │   3. LLM generates thematic summary                                 │ ║
 ║   │                                                                     │ ║
-║   │   Output: data/processed/07_graph/communities.json                  │ ║
+║   │   Output: data/processed/05_final_chunks/graph/communities.json                  │ ║
 ║   └─────────────────────────────────────────────────────────────────────┘ ║
 ║                                                                           ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
@@ -542,7 +542,7 @@ class Community(BaseModel):
 ### Data Storage Locations
 
 ```
-data/processed/07_graph/
+data/processed/05_final_chunks/graph/
 ├── extraction_results.json    # Stage 4.6 output
 │   {
 │     "entities": [...],       # All extracted entities
@@ -673,7 +673,7 @@ For relationships, only include those that are clearly stated or strongly implie
 │  ─────────────────────────────────────                                 │
 │  save_extraction_results(results)                                      │
 │                                                                         │
-│  Output: data/processed/07_graph/extraction_results.json               │
+│  Output: data/processed/05_final_chunks/graph/extraction_results.json               │
 │                                                                         │
 │  {                                                                      │
 │    "entities": [                                                        │
@@ -1183,7 +1183,7 @@ Unique entity types: 12
 Unique relationship types: 8
 Failed chunks: 2
 Time elapsed: 180.5s
-Output: data/processed/07_graph/extraction_results.json
+Output: data/processed/05_final_chunks/graph/extraction_results.json
 ```
 
 ### Stage 6b: Neo4j Upload + Leiden
@@ -1232,7 +1232,7 @@ Updated 450 nodes with community IDs
 Summarizing community 0 (15 members, 28 relationships)
 Summarizing community 1 (12 members, 18 relationships)
 ...
-Saved 12 communities to data/processed/07_graph/communities.json
+Saved 12 communities to data/processed/05_final_chunks/graph/communities.json
 Leiden complete in 45.3s
   Communities found: 12
   Total members: 180
@@ -1414,7 +1414,7 @@ Complete trace from PDF to query response:
 │                                 │                                          │
 │                                 ▼ Add source_chunk_id to all items        │
 │                                                                             │
-│  data/processed/07_graph/extraction_results.json                            │
+│  data/processed/05_final_chunks/graph/extraction_results.json                            │
 │  {                                                                          │
 │    "entities": [450 entities with source tracking],                        │
 │    "relationships": [320 relationships with source tracking],               │
@@ -1486,7 +1486,7 @@ Complete trace from PDF to query response:
 │  │  the reward system and influences motivational states..."          │   │
 │  └──────────────────────────────┬──────────────────────────────────────┘   │
 │                                 │                                          │
-│  data/processed/07_graph/communities.json                                   │
+│  data/processed/05_final_chunks/graph/communities.json                                   │
 │  {                                                                          │
 │    "communities": [12 communities with summaries],                         │
 │    "total_count": 12,                                                       │

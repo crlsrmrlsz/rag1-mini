@@ -832,7 +832,7 @@ def global_query(query: str, level: int = 0) -> str:
 **Task 8B.3: Stage Runner**
 - [ ] Create `src/stages/run_stage_4_6_graph_extract.py`
 - [ ] Process each chunk, extract entities/relationships
-- [ ] Save to `data/processed/07_graph/{book}.json`
+- [ ] Save to `data/processed/05_final_chunks/graph/{book}.json`
 - [ ] Handle incremental updates
 
 ### Phase 8C: Graph Construction

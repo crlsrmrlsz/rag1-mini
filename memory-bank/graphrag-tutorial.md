@@ -9,16 +9,17 @@ A comprehensive tutorial covering the theory, implementation, configuration, dat
 2. [Core Concepts & Architecture](#2-core-concepts--architecture)
 3. [Configuration Deep-Dive](#3-configuration-deep-dive)
 4. [Data Structures & Schemas](#4-data-structures--schemas)
-5. [Entity Extraction Pipeline](#5-entity-extraction-pipeline)
-6. [Knowledge Graph Construction (Neo4j)](#6-knowledge-graph-construction-neo4j)
-7. [Leiden Community Detection Algorithm](#7-leiden-community-detection-algorithm)
-8. [Hybrid Retrieval at Query Time](#8-hybrid-retrieval-at-query-time)
-9. [Execution Guide](#9-execution-guide)
-10. [Neo4j Browser & Cypher Queries](#10-neo4j-browser--cypher-queries)
-11. [Data Flow Trace](#11-data-flow-trace)
-12. [RAPTOR vs GraphRAG Comparison](#12-raptor-vs-graphrag-comparison)
-13. [GraphRAG Research Updates (2025)](#13-graphrag-research-updates-2025)
-14. [Sources](#14-sources)
+5. [Auto-Tuning Entity Type Discovery](#5-auto-tuning-entity-type-discovery)
+6. [Entity Extraction Pipeline](#6-entity-extraction-pipeline)
+7. [Knowledge Graph Construction (Neo4j)](#7-knowledge-graph-construction-neo4j)
+8. [Leiden Community Detection Algorithm](#8-leiden-community-detection-algorithm)
+9. [Hybrid Retrieval at Query Time](#9-hybrid-retrieval-at-query-time)
+10. [Execution Guide](#10-execution-guide)
+11. [Neo4j Browser & Cypher Queries](#11-neo4j-browser--cypher-queries)
+12. [Data Flow Trace](#12-data-flow-trace)
+13. [RAPTOR vs GraphRAG Comparison](#13-raptor-vs-graphrag-comparison)
+14. [GraphRAG Research Updates (2025)](#14-graphrag-research-updates-2025)
+15. [Sources](#15-sources)
 
 ---
 
@@ -568,7 +569,213 @@ data/processed/05_final_chunks/graph/
 
 ---
 
-## 5. Entity Extraction Pipeline
+## 5. Auto-Tuning Entity Type Discovery
+
+### The Problem with Manual Entity Types
+
+Standard GraphRAG requires manually defining entity types (BRAIN_REGION, PHILOSOPHER, etc.). This has issues:
+- Entity types may not match actual corpus content
+- Different domains need different types
+- Query-time entity extraction may miss concepts not in predefined list
+
+### Auto-Tuning Solution
+
+Auto-tuning discovers entity types from the actual corpus:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    AUTO-TUNING PIPELINE                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  STEP 1: OPEN-ENDED EXTRACTION                                              │
+│  ═══════════════════════════════                                             │
+│                                                                             │
+│  For each book (atomic unit):                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Prompt: "Extract entities and relationships from this text.          │   │
+│  │          Assign MOST APPROPRIATE TYPE for each entity.                │   │
+│  │          You may create NEW types if needed."                        │   │
+│  │                                                                       │   │
+│  │ LLM freely assigns: CONCEPT, COGNITIVE_PROCESS, NEURAL_STRUCTURE,   │   │
+│  │                     RESEARCHER, DISCIPLINE, BEHAVIOR, etc.           │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Output: graph/extractions/{book}.json (per-book, atomic)                  │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  STEP 2: TYPE AGGREGATION                                                   │
+│  ═════════════════════════                                                   │
+│                                                                             │
+│  Merge all per-book extractions and count types:                           │
+│                                                                             │
+│  Entity Types Discovered:                                                   │
+│    CONCEPT: 38 occurrences                                                 │
+│    COGNITIVE_PROCESS: 30 occurrences                                       │
+│    NEURAL_STRUCTURE: 10 occurrences                                        │
+│    RESEARCHER: 10 occurrences                                              │
+│    ...                                                                      │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  STEP 3: LLM CONSOLIDATION                                                  │
+│  ═════════════════════════                                                   │
+│                                                                             │
+│  LLM consolidates similar types into clean taxonomy:                       │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Prompt: "Analyze these discovered types. Consolidate similar types,  │   │
+│  │          remove types with count=1, propose clean taxonomy of         │   │
+│  │          15-25 entity types and 10-20 relationship types."           │   │
+│  │                                                                       │   │
+│  │ Result:                                                               │   │
+│  │   BRAIN_REGION + NEURAL_STRUCTURE → NEURAL_STRUCTURE                 │   │
+│  │   FIELD_OF_STUDY (count=1) → removed                                 │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Output: graph/discovered_types.json                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Per-Book Resumable Processing
+
+Auto-tuning processes each book atomically with resume support:
+
+```python
+# src/graph/auto_tuning.py
+
+def run_auto_tuning_resumable(
+    strategy: str = "section",
+    overwrite_context: Optional[OverwriteContext] = None,
+    ...
+) -> Dict[str, Any]:
+    """Run auto-tuning with per-book resume support."""
+
+    book_files = load_book_files(strategy)  # 19 books
+    extractions_dir = DIR_GRAPH_DATA / "extractions"
+
+    for book_path in book_files:
+        book_name = book_path.stem
+        output_path = extractions_dir / f"{book_name}.json"
+
+        # Check overwrite decision (prompt/skip/all)
+        if not overwrite_context.should_overwrite(output_path, logger):
+            continue  # Skip already processed
+
+        # Extract from this book (may take 5-20 minutes)
+        results = extract_book(book_path, model=model)
+
+        # Save atomically - if interrupted here, book not marked complete
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2)
+
+    # Merge all per-book results
+    merged = merge_book_extractions(extractions_dir)
+
+    # Consolidate types with LLM
+    if not skip_consolidation:
+        consolidated = consolidate_types(merged["entity_type_counts"], ...)
+```
+
+### Output Files
+
+```
+data/processed/05_final_chunks/graph/
+├── extractions/                          # Per-book results (atomic)
+│   ├── Behave, The_Biology of Humans.json
+│   ├── Biopsychology.json
+│   ├── Brain and behavior.json
+│   └── ... (16 more)
+├── extraction_results.json               # Merged from all books
+└── discovered_types.json                 # Consolidated taxonomy
+
+data/logs/
+└── autotune_20251226_143000.log          # Execution log
+```
+
+### discovered_types.json Structure
+
+```json
+{
+  "consolidated_entity_types": [
+    "CONCEPT",
+    "COGNITIVE_PROCESS",
+    "NEURAL_STRUCTURE",
+    "RESEARCHER",
+    "DISCIPLINE",
+    "BEHAVIOR",
+    "TECHNOLOGY",
+    "DISORDER"
+  ],
+  "consolidated_relationship_types": [
+    "STUDIES",
+    "OPENED_DOORS_TO",
+    "STUDIED_BY",
+    "CONTAINS",
+    "REPRESENTS",
+    "ALLOWS_RECOGNITION_OF",
+    "INCLUDES",
+    "ENABLES",
+    "INVOLVES",
+    "PART_OF",
+    "ABSENT_IN",
+    "INFLUENCES",
+    "PROPOSES",
+    "PROVIDES_INPUT_TO",
+    "DECREASES_DURING"
+  ],
+  "consolidation_rationale": "The entity types have been consolidated by merging similar types...",
+  "raw_entity_type_counts": {
+    "CONCEPT": 38,
+    "COGNITIVE_PROCESS": 30,
+    ...
+  }
+}
+```
+
+### CLI Usage
+
+```bash
+# Full auto-tuning (all 19 books, ~2.5 hours)
+python -m src.stages.run_stage_4_5_autotune
+
+# Resume after interruption
+python -m src.stages.run_stage_4_5_autotune --overwrite skip
+
+# Force reprocess all books
+python -m src.stages.run_stage_4_5_autotune --overwrite all
+
+# Preview books to process
+python -m src.stages.run_stage_4_5_autotune --list-books
+
+# Show discovered types
+python -m src.stages.run_stage_4_5_autotune --show-types
+```
+
+### Integration with Query-Time Extraction
+
+The discovered types are used at query time for LLM-based entity extraction:
+
+```python
+# src/graph/query.py
+
+def _get_entity_types() -> List[str]:
+    """Get entity types, preferring discovered types if available."""
+    discovered_path = DIR_GRAPH_DATA / "discovered_types.json"
+    if discovered_path.exists():
+        with open(discovered_path, "r") as f:
+            data = json.load(f)
+        return data["consolidated_entity_types"]
+    else:
+        return GRAPHRAG_ENTITY_TYPES  # Fallback to predefined
+```
+
+This ensures query-time extraction uses the same vocabulary as indexed entities.
+
+---
+
+## 6. Entity Extraction Pipeline
 
 ### The Extraction Prompt
 
@@ -691,7 +898,7 @@ For relationships, only include those that are clearly stated or strongly implie
 
 ---
 
-## 6. Knowledge Graph Construction (Neo4j)
+## 7. Knowledge Graph Construction (Neo4j)
 
 ### Docker Configuration
 
@@ -800,7 +1007,7 @@ Result: Single node for "dopamine" with best description
 
 ---
 
-## 7. Leiden Community Detection Algorithm
+## 8. Leiden Community Detection Algorithm
 
 ### What is Leiden?
 
@@ -978,7 +1185,7 @@ between brain chemistry and higher cognitive functions.
 
 ---
 
-## 8. Hybrid Retrieval at Query Time
+## 9. Hybrid Retrieval at Query Time
 
 ### Entity Extraction from Query
 
@@ -1122,7 +1329,7 @@ After Hybrid Merge:
 
 ---
 
-## 9. Execution Guide
+## 10. Execution Guide
 
 ### Prerequisites
 
@@ -1142,6 +1349,47 @@ python -m src.stages.run_stage_1_extraction   # PDF -> Markdown
 python -m src.stages.run_stage_2_processing   # Clean Markdown
 python -m src.stages.run_stage_3_segmentation # Sentence segmentation
 python -m src.stages.run_stage_4_chunking     # Create chunks
+```
+
+### Stage 4.5: Auto-Tuning (Optional but Recommended)
+
+```bash
+# Auto-discover entity types from corpus (all 19 books, ~2.5 hours)
+python -m src.stages.run_stage_4_5_autotune
+
+# Resume after interruption (skip completed books)
+python -m src.stages.run_stage_4_5_autotune --overwrite skip
+
+# Preview books to process
+python -m src.stages.run_stage_4_5_autotune --list-books
+
+# Show discovered types
+python -m src.stages.run_stage_4_5_autotune --show-types
+```
+
+**Expected output:**
+```
+============================================================
+Stage 4.5: Auto-Tune Entity Types (Resumable)
+============================================================
+Log file: data/logs/autotune_20251226_143000.log
+Overwrite mode: prompt
+Model: anthropic/claude-3-haiku
+Found 19 books to process
+Extracting from Behave, The_Biology of Humans: 450 chunks
+  [Behave] 20/450 chunks, 85 entities
+  [Behave] 40/450 chunks, 162 entities
+  ...
+Saved: Behave, The_Biology of Humans.json
+...
+============================================================
+Auto-Tuning Complete
+============================================================
+Books processed: 19
+Books skipped: 0
+Total chunks: 6249
+Total entities: 1250
+Unique entity types: 8
 ```
 
 ### Stage 4.6: Entity Extraction
@@ -1266,7 +1514,7 @@ python -m src.stages.run_stage_7_evaluation --comprehensive
 
 ---
 
-## 10. Neo4j Browser & Cypher Queries
+## 11. Neo4j Browser & Cypher Queries
 
 ### Accessing Neo4j Browser
 
@@ -1348,7 +1596,7 @@ MATCH (n) DETACH DELETE n;
 
 ---
 
-## 11. Data Flow Trace
+## 12. Data Flow Trace
 
 Complete trace from PDF to query response:
 
@@ -1561,7 +1809,7 @@ Complete trace from PDF to query response:
 
 ---
 
-## 12. RAPTOR vs GraphRAG Comparison
+## 13. RAPTOR vs GraphRAG Comparison
 
 Both RAPTOR and GraphRAG are implemented in RAG1-Mini. They complement each other for different query types:
 
@@ -1673,7 +1921,7 @@ Both RAPTOR and GraphRAG are implemented in RAG1-Mini. They complement each othe
 
 ---
 
-## 13. GraphRAG Research Updates (2025)
+## 14. GraphRAG Research Updates (2025)
 
 ### Recent Developments from Microsoft Research
 
@@ -1808,7 +2056,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 
 ---
 
-## 14. Sources
+## 15. Sources
 
 ### Primary Research
 - [GraphRAG Paper (arXiv:2404.16130)](https://arxiv.org/abs/2404.16130) - Microsoft Research, April 2024
@@ -1826,10 +2074,12 @@ Based on the latest research (paper updated February 2025), here are key develop
 
 ### Implementation Files (this project)
 - `src/graph/schemas.py` - Pydantic data models
+- `src/graph/auto_tuning.py` - Auto-discover entity types from corpus
 - `src/graph/extractor.py` - LLM entity extraction
 - `src/graph/neo4j_client.py` - Neo4j operations
 - `src/graph/community.py` - Leiden + summarization
 - `src/graph/query.py` - Hybrid retrieval
+- `src/stages/run_stage_4_5_autotune.py` - Auto-tuning stage (resumable)
 - `src/stages/run_stage_4_6_graph_extract.py` - Extraction stage
 - `src/stages/run_stage_6b_neo4j.py` - Neo4j upload stage
 - `src/config.py` (lines 554-669) - GraphRAG configuration

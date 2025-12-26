@@ -88,6 +88,7 @@ python -m src.stages.run_stage_6_weaviate     # Upload to Weaviate
 python -m src.stages.run_stage_4_5_raptor     # Build summary tree
 
 # Advanced: GraphRAG knowledge graph
+python -m src.stages.run_stage_4_5_autotune       # Auto-discover entity types (resumable)
 python -m src.stages.run_stage_4_6_graph_extract  # Extract entities
 python -m src.stages.run_stage_6b_neo4j           # Upload to Neo4j
 
@@ -158,6 +159,7 @@ rag1-mini/
 │   │       └── answer_generator.py
 │   │
 │   ├── graph/                       # GraphRAG: Knowledge graph
+│   │   ├── auto_tuning.py           # Auto-discover entity types from corpus
 │   │   ├── extractor.py             # Entity extraction
 │   │   ├── neo4j_client.py          # Neo4j operations
 │   │   ├── community.py             # Leiden communities
@@ -225,6 +227,7 @@ This project implements advanced RAG patterns from recent research:
 | **Contextual Chunking** | LLM-generated context prepended to chunks (Anthropic-style, -35% failures) | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
 | **RAPTOR** | Hierarchical summarization tree for multi-level retrieval (+20% comprehension) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
 | **GraphRAG** | Knowledge graph + Leiden communities for hybrid graph+vector retrieval | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) |
+| **GraphRAG Auto-Tuning** | Discover entity types from corpus content (per-book resumable extraction) | [MS Research Blog](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) |
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
 | **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |

@@ -1,6 +1,6 @@
 # RAG1-Mini Project Status
 
-**Last Updated:** December 25, 2025
+**Last Updated:** December 26, 2025
 
 ## Overview
 
@@ -101,8 +101,43 @@ The pipeline includes RAGAS-based evaluation metrics:
 | 6 | Contextual Chunking (Anthropic-style, Dec 22) | COMPLETE |
 | 7 | RAPTOR (hierarchical summarization, Dec 25) | COMPLETE |
 | 8 | GraphRAG (Neo4j integration, Dec 25) | COMPLETE |
+| 8.1 | GraphRAG Auto-Tuning (per-book resume, Dec 26) | COMPLETE |
 
 See `memory-bank/rag-improvement-plan.md` for detailed implementation plans.
+
+## GraphRAG Auto-Tuning (Phase 8.1)
+
+Auto-tuning discovers entity types from the actual corpus content instead of using predefined types.
+
+**Process:**
+1. Open-ended extraction on all chunks (LLM assigns types freely)
+2. Aggregate discovered types with counts across corpus
+3. LLM consolidates into clean taxonomy (8-25 entity types, 10-20 relationships)
+4. Save to `discovered_types.json` for use in extraction and queries
+
+**Key Features:**
+- **Per-book atomic processing**: Each book saved as separate JSON file
+- **Resumable**: If interrupted, use `--overwrite skip` to continue from first missing book
+- **File logging**: Execution logged to `data/logs/autotune_TIMESTAMP.log`
+- **OverwriteContext integration**: Same `--overwrite {prompt|skip|all}` pattern as other stages
+
+**Output Files:**
+```
+data/processed/05_final_chunks/graph/
+├── extractions/                  # Per-book results (atomic)
+│   ├── Behave, The_Biology....json
+│   ├── Biopsychology.json
+│   └── ... (17 more)
+├── extraction_results.json       # Merged from all books
+└── discovered_types.json         # Consolidated taxonomy
+
+data/logs/
+└── autotune_TIMESTAMP.log        # Execution log
+```
+
+**Discovered Types (from current corpus):**
+- Entity Types: CONCEPT, COGNITIVE_PROCESS, NEURAL_STRUCTURE, RESEARCHER, DISCIPLINE, BEHAVIOR, TECHNOLOGY, DISORDER
+- Relationship Types: STUDIES, OPENED_DOORS_TO, STUDIED_BY, CONTAINS, REPRESENTS, ALLOWS_RECOGNITION_OF, INCLUDES, ENABLES, INVOLVES, PART_OF, ABSENT_IN, INFLUENCES, PROPOSES, PROVIDES_INPUT_TO, DECREASES_DURING
 
 ## Strategy Pattern Architecture
 
@@ -215,8 +250,15 @@ python -m src.stages.run_stage_6_weaviate
 python -m src.stages.run_stage_4_5_raptor
 
 # GraphRAG (Neo4j knowledge graph)
+python -m src.stages.run_stage_4_5_autotune       # Auto-discover entity types (resumable)
 python -m src.stages.run_stage_4_6_graph_extract  # Extract entities/relationships
 python -m src.stages.run_stage_6b_neo4j           # Upload to Neo4j + Leiden communities
+
+# Auto-tuning resume options:
+python -m src.stages.run_stage_4_5_autotune --overwrite skip  # Resume from failure
+python -m src.stages.run_stage_4_5_autotune --overwrite all   # Force reprocess
+python -m src.stages.run_stage_4_5_autotune --list-books      # Preview books
+python -m src.stages.run_stage_4_5_autotune --show-types      # Show discovered types
 
 # UI
 streamlit run src/ui/app.py

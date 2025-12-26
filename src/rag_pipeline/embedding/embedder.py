@@ -1,6 +1,7 @@
 """OpenRouter embedding client for RAG1-Mini.
 
 Provides API integration for generating text embeddings via OpenRouter.
+Includes automatic batching to prevent API timeouts with large inputs.
 """
 
 import time
@@ -11,8 +12,10 @@ from src.config import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     EMBEDDING_MODEL_ID,
+    MAX_BATCH_TOKENS,
 )
 from src.shared.files import setup_logging
+from src.shared.tokens import count_tokens
 
 logger = setup_logging(__name__)
 
@@ -83,14 +86,82 @@ def call_openrouter_embeddings_api(
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
     """
-    Wrapper over call_openrouter_embeddings_api.
+    Embed texts with automatic batching to prevent API timeouts.
+
+    Large embedding requests (500+ texts) can timeout or fail silently.
+    This function automatically batches requests to stay under MAX_BATCH_TOKENS.
 
     Args:
         texts: List of text strings to embed.
 
     Returns:
-        List of vectors (float lists).
+        List of vectors (float lists), one per input text.
+
+    Raises:
+        Exception: Re-raises API errors after max retries.
     """
     if not texts:
         return []
-    return call_openrouter_embeddings_api(texts)
+
+    # Build token-aware batches
+    batches = _batch_texts_by_tokens(texts, MAX_BATCH_TOKENS)
+
+    # Single batch: direct call (common case)
+    if len(batches) == 1:
+        return call_openrouter_embeddings_api(batches[0])
+
+    # Multiple batches: collect results with inter-request delay
+    logger.info(f"Batching {len(texts)} texts into {len(batches)} API calls")
+    all_embeddings = []
+    for i, batch in enumerate(batches):
+        if i > 0:
+            time.sleep(0.1)  # 100ms delay between requests (rate limit gentleness)
+        batch_embeddings = call_openrouter_embeddings_api(batch)
+        all_embeddings.extend(batch_embeddings)
+
+    return all_embeddings
+
+
+def _batch_texts_by_tokens(
+    texts: List[str],
+    max_tokens: int,
+) -> List[List[str]]:
+    """
+    Group texts into batches that stay under max_tokens.
+
+    Args:
+        texts: List of texts to batch.
+        max_tokens: Maximum tokens per batch.
+
+    Returns:
+        List of text batches.
+    """
+    batches = []
+    current_batch = []
+    current_tokens = 0
+
+    for text in texts:
+        tokens = count_tokens(text)
+
+        # Single text exceeds limit: put in own batch
+        if tokens > max_tokens:
+            if current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_tokens = 0
+            batches.append([text])
+            continue
+
+        # Would exceed limit: start new batch
+        if current_tokens + tokens > max_tokens:
+            batches.append(current_batch)
+            current_batch = []
+            current_tokens = 0
+
+        current_batch.append(text)
+        current_tokens += tokens
+
+    if current_batch:
+        batches.append(current_batch)
+
+    return batches

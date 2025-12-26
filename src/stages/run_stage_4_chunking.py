@@ -29,6 +29,7 @@ from src.shared import (
     parse_overwrite_arg,
 )
 from src.rag_pipeline.chunking.strategies import get_strategy, list_strategies
+from src.rag_pipeline.chunking.raptor.schemas import TreeMetadata
 
 logger = setup_logging("Stage4_Chunking")
 
@@ -97,7 +98,13 @@ def main():
     strategy_files = list(strategy_dir.glob("*.json")) if strategy_dir.exists() else []
 
     logger.info(f"Stage 4 complete ({args.strategy}). {len(strategy_files)} files in output.")
-    logger.info(f"Total chunks: {sum(stats.values())}")
+
+    # Handle different return types: TreeMetadata (raptor) vs int (other strategies)
+    if stats and isinstance(next(iter(stats.values())), TreeMetadata):
+        total_chunks = sum(m.total_nodes for m in stats.values())
+    else:
+        total_chunks = sum(stats.values())
+    logger.info(f"Total chunks: {total_chunks}")
     logger.info(f"Output: {strategy_dir}")
 
 

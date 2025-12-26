@@ -28,57 +28,141 @@ Uses existing infrastructure:
 
 from typing import List, Dict, Any, Optional, Tuple, Set
 import re
+import json
 
 from neo4j import Driver
 
 from src.config import (
     GRAPHRAG_TOP_COMMUNITIES,
     GRAPHRAG_TRAVERSE_DEPTH,
+    GRAPHRAG_EXTRACTION_MODEL,
+    GRAPHRAG_ENTITY_TYPES,
+    GRAPHRAG_QUERY_EXTRACTION_PROMPT,
+    DIR_GRAPH_DATA,
 )
 from src.shared.files import setup_logging
+from src.shared.openrouter_client import call_structured_completion
 from .neo4j_client import find_entity_neighbors, find_entities_by_names
 from .community import load_communities
-from .schemas import Community
+from .schemas import Community, QueryEntities
 
 logger = setup_logging(__name__)
+
+
+# ============================================================================
+# LLM-based Query Entity Extraction
+# ============================================================================
+
+def _get_entity_types() -> List[str]:
+    """Get entity types, preferring discovered types if available.
+
+    Returns:
+        List of entity type strings.
+    """
+    discovered_path = DIR_GRAPH_DATA / "discovered_types.json"
+    if discovered_path.exists():
+        with open(discovered_path, "r") as f:
+            data = json.load(f)
+        logger.debug(f"Using {len(data['consolidated_entity_types'])} discovered entity types")
+        return data["consolidated_entity_types"]
+    else:
+        logger.debug("Using default entity types from config")
+        return GRAPHRAG_ENTITY_TYPES
+
+
+def extract_query_entities_llm(
+    query: str,
+    model: str = GRAPHRAG_EXTRACTION_MODEL,
+) -> List[str]:
+    """Extract entities from query using LLM.
+
+    Uses structured output to identify entity mentions in the query,
+    including lowercase conceptual terms that regex would miss.
+
+    Args:
+        query: User query string.
+        model: OpenRouter model ID (default: claude-3-haiku).
+
+    Returns:
+        List of entity names extracted from query.
+
+    Example:
+        >>> extract_query_entities_llm("What creates lasting happiness?")
+        ["happiness", "pleasure", "hedonic adaptation"]
+    """
+    entity_types = _get_entity_types()
+
+    prompt = GRAPHRAG_QUERY_EXTRACTION_PROMPT.format(
+        entity_types=", ".join(entity_types),
+        query=query,
+    )
+
+    try:
+        result = call_structured_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=model,
+            response_model=QueryEntities,
+            temperature=0.0,
+            max_tokens=500,
+        )
+        entities = [e.name for e in result.entities]
+        logger.info(f"LLM extracted entities: {entities}")
+        return entities
+    except Exception as e:
+        logger.warning(f"LLM query extraction failed: {e}")
+        return []
+
+
+# ============================================================================
+# Main Entity Extraction Function
+# ============================================================================
 
 
 def extract_query_entities(
     query: str,
     driver: Optional[Driver] = None,
+    use_llm: bool = True,
 ) -> List[str]:
-    """Extract potential entity mentions from query.
+    """Extract entity mentions from query using LLM + Neo4j validation.
 
-    Uses pattern matching + optional Neo4j lookup:
-    1. Capitalized words/phrases (proper nouns)
-    2. Neo4j database lookup for known entities
-
-    Note: Does not use hardcoded domain terms to maintain domain-agnostic design.
+    Primary method: LLM-based extraction (handles conceptual terms)
+    Fallback: Regex for capitalized words (if LLM fails)
+    Validation: Neo4j lookup to verify entities exist in graph
 
     Args:
         query: User query string.
         driver: Optional Neo4j driver for entity lookup.
+        use_llm: Whether to use LLM extraction (default True).
 
     Returns:
-        List of potential entity names.
+        List of entity names found in query.
 
     Example:
+        >>> extract_query_entities("What creates lasting happiness?")
+        ["happiness", "pleasure", "hedonic adaptation"]
         >>> extract_query_entities("How does Sapolsky explain stress?")
-        ["Sapolsky"]
+        ["Sapolsky", "stress"]
     """
     entities = []
 
-    # Pattern 1: Capitalized words (excluding sentence starts)
-    # Match sequences of capitalized words (proper nouns, concepts)
-    cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
-    capitalized = re.findall(cap_pattern, query)
-    entities.extend(capitalized)
+    # Primary: LLM-based extraction
+    if use_llm:
+        entities = extract_query_entities_llm(query)
 
-    # Pattern 2: If driver provided, check Neo4j for matches
-    # This finds entities from the actual corpus graph
+    # Fallback: Regex for capitalized words
+    if not entities:
+        cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+        capitalized = re.findall(cap_pattern, query)
+        entities.extend(capitalized)
+        if entities:
+            logger.info(f"Regex fallback entities: {entities}")
+
+    # Validate against Neo4j if driver provided
     if driver and entities:
         db_entities = find_entities_by_names(driver, entities)
-        entities.extend([e["name"] for e in db_entities])
+        validated = [e["name"] for e in db_entities]
+        # Add validated entities (may have different casing)
+        entities.extend(validated)
 
     # Deduplicate while preserving order
     seen = set()

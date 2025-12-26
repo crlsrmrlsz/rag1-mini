@@ -167,6 +167,54 @@ class ExtractionResult(BaseModel):
     )
 
 
+class QueryEntity(BaseModel):
+    """Entity mention extracted from a user query.
+
+    Used for query-time entity extraction to enable graph traversal
+    from conceptual terms (not just proper nouns).
+
+    Attributes:
+        name: Entity name as mentioned or implied in the query.
+        entity_type: Entity type (optional, for logging/debugging).
+
+    Example:
+        >>> entity = QueryEntity(name="happiness", entity_type="PHILOSOPHICAL_CONCEPT")
+    """
+
+    name: str = Field(
+        ...,
+        description="Entity name as mentioned or implied in the query",
+        min_length=1,
+    )
+    entity_type: str = Field(
+        default="CONCEPT",
+        description="Entity type from the allowed types list",
+    )
+
+
+class QueryEntities(BaseModel):
+    """Result of entity extraction from a user query.
+
+    This schema is used with call_structured_completion() for LLM-based
+    entity extraction at query time. Unlike ExtractionResult (used during
+    indexing), this only captures entity names without relationships.
+
+    Attributes:
+        entities: List of entities mentioned or implied in the query.
+
+    Example:
+        >>> result = QueryEntities(entities=[
+        ...     QueryEntity(name="happiness"),
+        ...     QueryEntity(name="hedonic adaptation"),
+        ... ])
+    """
+
+    entities: List[QueryEntity] = Field(
+        default_factory=list,
+        description="Entities mentioned or implied in the query",
+    )
+
+
 class CommunityMember(BaseModel):
     """Entity within a Leiden community.
 

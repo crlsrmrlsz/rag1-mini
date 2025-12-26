@@ -660,6 +660,22 @@ Extract all entities and relationships following the JSON schema provided.
 Be thorough but precise - only extract entities that are explicitly mentioned.
 For relationships, only include those that are clearly stated or strongly implied."""
 
+# Query-time entity extraction prompt (simpler than chunk extraction)
+# Used to identify entity mentions in user queries for graph traversal
+GRAPHRAG_QUERY_EXTRACTION_PROMPT = """Identify entities mentioned or implied in this query.
+Look for: concepts, brain regions, neurotransmitters, philosophers, psychological processes, behaviors, books, and researchers.
+
+Entity types: {entity_types}
+
+Query: {query}
+
+Extract all relevant entities, including:
+- Explicitly named entities (e.g., "Sapolsky", "dopamine")
+- Implied concepts (e.g., "why we procrastinate" implies "procrastination")
+- Domain concepts (e.g., "self-control", "consciousness", "happiness")
+
+Be concise - extract only the key entities (typically 1-5 per query)."""
+
 # Graph retrieval parameters
 GRAPHRAG_TOP_COMMUNITIES = 3        # Number of communities to retrieve
 GRAPHRAG_TRAVERSE_DEPTH = 2         # Hops for entity traversal

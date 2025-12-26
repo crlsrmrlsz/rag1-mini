@@ -124,7 +124,8 @@ For relationships, use types like: CAUSES, INHIBITS, MODULATES, PROPOSES, INFLUE
 Text:
 {text}
 
-Extract all entities and relationships with appropriate types."""
+IMPORTANT: Respond ONLY with valid JSON matching this schema:
+{{"entities": [{{"name": "...", "entity_type": "...", "description": "..."}}], "relationships": [{{"source_entity": "...", "target_entity": "...", "relationship_type": "...", "description": "...", "weight": 1.0}}]}}"""
 
 
 # ============================================================================
@@ -145,7 +146,8 @@ Your task:
 3. Propose a clean taxonomy of 15-25 entity types and 10-20 relationship types
 4. Keep types that are domain-specific and useful
 
-Return your consolidated types."""
+IMPORTANT: Respond ONLY with valid JSON matching this schema:
+{{"entity_types": ["TYPE1", "TYPE2", ...], "relationship_types": ["REL1", "REL2", ...], "rationale": "Brief explanation..."}}"""
 
 
 # ============================================================================

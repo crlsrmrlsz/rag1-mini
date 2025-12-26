@@ -50,8 +50,12 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# db
 weaviate_data/
 neo4j_data/
 neo4j_logs/
 neo4j_plugins/
+
+# mcp
 .serena/

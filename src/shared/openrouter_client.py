@@ -221,8 +221,8 @@ def call_structured_completion(
     temperature: float = 0.0,
     max_tokens: int = 1024,
     timeout: int = 60,
-    max_retries: int = 3,
-    backoff_base: float = 1.5,
+    max_retries: int = 5,
+    backoff_base: float = 2.5,
 ) -> T:
     """Call OpenRouter with JSON Schema enforcement and Pydantic validation.
 
@@ -336,7 +336,15 @@ def call_structured_completion(
             # Retryable errors: rate limit or server errors
             if response.status_code >= 500 or response.status_code == 429:
                 if attempt < max_retries:
-                    delay = backoff_base ** (attempt + 1)
+                    # Use retry-after header if provided, otherwise exponential backoff
+                    retry_after = response.headers.get("retry-after")
+                    if retry_after:
+                        try:
+                            delay = float(retry_after)
+                        except ValueError:
+                            delay = backoff_base ** (attempt + 1)
+                    else:
+                        delay = backoff_base ** (attempt + 1)
                     error_type = "Rate limit" if response.status_code == 429 else "Server error"
                     logger.warning(
                         f"{error_type} ({response.status_code}), "

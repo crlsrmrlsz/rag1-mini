@@ -31,6 +31,7 @@ from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
 from collections import Counter
 import json
+import time
 
 from pydantic import BaseModel, Field
 
@@ -105,7 +106,7 @@ class ConsolidatedTypes(BaseModel):
 # Open-Ended Extraction Prompt
 # ============================================================================
 
-OPEN_EXTRACTION_PROMPT = """Extract all entities and relationships from this text.
+OPEN_EXTRACTION_PROMPT = """Extract entities and relationships from this text.
 
 For each entity, assign the MOST APPROPRIATE TYPE that describes it.
 Common types include (but are not limited to):
@@ -120,6 +121,9 @@ You may create NEW types if none of the above fit well.
 Use UPPERCASE_SNAKE_CASE for type names.
 
 For relationships, use types like: CAUSES, INHIBITS, MODULATES, PROPOSES, INFLUENCES, etc.
+
+LIMITS: Extract up to 15 most important entities and 10 relationships maximum.
+Focus on the most significant concepts, not every noun.
 
 Text:
 {text}
@@ -233,6 +237,9 @@ def run_open_extraction(
                     f"Processed {i + 1}/{len(chunks)} chunks, "
                     f"{len(all_entities)} entities, {len(entity_type_counter)} unique types"
                 )
+
+            # Rate limit protection: 1.5s delay = 40 RPM (under Tier 1 limit of 50 RPM)
+            time.sleep(1.5)
 
         except Exception as e:
             logger.warning(f"Failed chunk {chunk.get('chunk_id', i)}: {e}")

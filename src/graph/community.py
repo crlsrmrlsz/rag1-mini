@@ -328,25 +328,50 @@ def summarize_community(
     return summary.strip()
 
 
+def get_community_ids_from_neo4j(driver: Driver) -> set:
+    """Get unique community IDs already stored in Neo4j.
+
+    Used for resume functionality when skipping Leiden.
+
+    Args:
+        driver: Neo4j driver instance.
+
+    Returns:
+        Set of community IDs.
+    """
+    query = """
+    MATCH (e:Entity)
+    WHERE e.community_id IS NOT NULL
+    RETURN DISTINCT e.community_id as community_id
+    """
+    with driver.session() as session:
+        result = session.run(query)
+        return {record["community_id"] for record in result}
+
+
 def detect_and_summarize_communities(
     driver: Driver,
     gds: GraphDataScience,
     min_size: int = GRAPHRAG_MIN_COMMUNITY_SIZE,
     model: str = GRAPHRAG_SUMMARY_MODEL,
+    resume: bool = False,
+    skip_leiden: bool = False,
 ) -> List[Community]:
     """Run full community detection and summarization pipeline.
 
     Main entry point for community processing:
-    1. Project graph to GDS
-    2. Run Leiden algorithm
-    3. Write community IDs to Neo4j
-    4. Generate summaries for each community
+    1. Project graph to GDS (unless skip_leiden)
+    2. Run Leiden algorithm (unless skip_leiden)
+    3. Write community IDs to Neo4j (unless skip_leiden)
+    4. Generate summaries for each community (with resume support)
 
     Args:
         driver: Neo4j driver instance.
         gds: GraphDataScience client.
         min_size: Minimum community size to summarize.
         model: LLM model for summarization.
+        resume: If True, load existing summaries and skip already-done communities.
+        skip_leiden: If True, skip Leiden and use existing community_ids from Neo4j.
 
     Returns:
         List of Community objects with summaries.
@@ -356,21 +381,47 @@ def detect_and_summarize_communities(
         >>> for c in communities:
         ...     print(c.community_id, c.member_count, c.summary[:50])
     """
-    # Step 1: Project graph
-    graph = project_graph(gds)
+    # Load existing summaries if resuming
+    existing_summaries = {}
+    if resume:
+        try:
+            existing = load_communities()
+            existing_summaries = {c.community_id: c for c in existing}
+            logger.info(f"Loaded {len(existing_summaries)} existing summaries for resume")
+        except FileNotFoundError:
+            logger.info("No existing summaries found, starting fresh")
 
-    # Step 2: Run Leiden
-    leiden_result = run_leiden(gds, graph)
+    # Get community IDs
+    if skip_leiden:
+        # Use existing community IDs from Neo4j
+        unique_ids = get_community_ids_from_neo4j(driver)
+        logger.info(f"Loaded {len(unique_ids)} community IDs from Neo4j (skipping Leiden)")
+        graph = None
+    else:
+        # Step 1: Project graph
+        graph = project_graph(gds)
 
-    # Step 3: Write community IDs to Neo4j
-    write_communities_to_neo4j(driver, leiden_result["node_communities"])
+        # Step 2: Run Leiden
+        leiden_result = run_leiden(gds, graph)
 
-    # Step 4: Get unique community IDs
-    unique_ids = set(nc["community_id"] for nc in leiden_result["node_communities"])
+        # Step 3: Write community IDs to Neo4j
+        write_communities_to_neo4j(driver, leiden_result["node_communities"])
+
+        # Step 4: Get unique community IDs
+        unique_ids = set(nc["community_id"] for nc in leiden_result["node_communities"])
 
     # Step 5: Process each community
-    communities = []
-    for community_id in unique_ids:
+    communities = list(existing_summaries.values()) if resume else []
+    summarized_ids = set(existing_summaries.keys())
+    new_summaries = 0
+
+    for community_id in sorted(unique_ids):  # Sort for consistent ordering
+        community_key = f"community_{community_id}"
+
+        # Skip if already summarized (resume mode)
+        if community_key in summarized_ids:
+            continue
+
         # Get members
         members = get_community_members(driver, community_id)
 
@@ -390,7 +441,7 @@ def detect_and_summarize_communities(
 
         # Create Community object
         community = Community(
-            community_id=f"community_{community_id}",
+            community_id=community_key,
             level=0,  # Single level for now
             members=members,
             member_count=len(members),
@@ -398,11 +449,19 @@ def detect_and_summarize_communities(
             summary=summary,
         )
         communities.append(community)
+        new_summaries += 1
 
-    # Cleanup: drop graph projection
-    gds.graph.drop(graph.name())
+        # Save incrementally after each summary
+        save_communities(communities)
 
-    logger.info(f"Generated {len(communities)} community summaries")
+    # Cleanup: drop graph projection (if we created one)
+    if graph is not None:
+        gds.graph.drop(graph.name())
+
+    logger.info(
+        f"Generated {new_summaries} new community summaries "
+        f"({len(communities)} total)"
+    )
     return communities
 
 

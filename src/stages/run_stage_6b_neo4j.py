@@ -32,6 +32,9 @@ python -m src.stages.run_stage_6b_neo4j --leiden-only
 
 # Clear graph before upload
 python -m src.stages.run_stage_6b_neo4j --clear
+
+# Resume after crash (skip Leiden, only generate missing summaries)
+python -m src.stages.run_stage_6b_neo4j --resume
 ```
 """
 
@@ -110,6 +113,11 @@ def main():
         default=GRAPHRAG_SUMMARY_MODEL,
         help=f"LLM model for community summarization (default: {GRAPHRAG_SUMMARY_MODEL})",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume after crash: skip upload/Leiden, only generate missing summaries",
+    )
 
     args = parser.parse_args()
 
@@ -129,8 +137,8 @@ def main():
         raise
 
     try:
-        # Phase 1: Upload to Neo4j (unless leiden-only)
-        if not args.leiden_only:
+        # Phase 1: Upload to Neo4j (unless leiden-only or resume)
+        if not args.leiden_only and not args.resume:
             logger.info("-" * 60)
             logger.info("PHASE 1: UPLOAD TO NEO4J")
             logger.info("-" * 60)
@@ -174,7 +182,11 @@ def main():
                 # Run Leiden and generate summaries
                 leiden_start = time.time()
                 communities = detect_and_summarize_communities(
-                    driver, gds, model=args.model
+                    driver,
+                    gds,
+                    model=args.model,
+                    resume=args.resume,
+                    skip_leiden=args.resume,  # Skip Leiden if resuming (community_ids exist)
                 )
                 leiden_time = time.time() - leiden_start
 

@@ -131,6 +131,21 @@ def call_chat_completion(
 
             if response.status_code == 200:
                 result = response.json()
+
+                # Handle error responses that return 200 but no choices
+                # (OpenRouter sometimes does this for rate limits or overload)
+                if "choices" not in result:
+                    error_msg = result.get("error", {}).get("message", str(result))
+                    if attempt < max_retries:
+                        delay = backoff_base ** (attempt + 1)
+                        logger.warning(
+                            f"API returned 200 with error: {error_msg}, "
+                            f"retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                        )
+                        time.sleep(delay)
+                        continue
+                    raise APIError(f"API error after {max_retries} retries: {error_msg}")
+
                 content = result["choices"][0]["message"]["content"]
 
                 # Log successful LLM call

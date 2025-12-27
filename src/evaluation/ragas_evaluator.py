@@ -4,12 +4,15 @@ Provides:
 - OpenRouter chat integration for answer generation
 - RAGAS evaluation with LangChain wrapper
 - Retrieval and generation functions for the evaluation pipeline
+- Strategy-aware retrieval (decomposition RRF, graphrag hybrid)
 """
 
 import re
 import string
 from collections import Counter
 from typing import List, Dict, Any, Optional, Callable
+
+from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import PreprocessedQuery
 
 from ragas import evaluate, EvaluationDataset
 from ragas.metrics import (
@@ -150,22 +153,26 @@ def retrieve_contexts(
     collection_name: Optional[str] = None,
     use_reranking: bool = True,
     alpha: float = 0.5,
+    preprocessed: Optional[PreprocessedQuery] = None,
 ) -> List[str]:
     """
     Retrieve relevant contexts from Weaviate for a question.
 
-    This function implements two-stage retrieval:
-    1. Hybrid search retrieves an initial candidate set
-    2. Cross-encoder reranking refines the results
+    This function implements strategy-aware retrieval:
+    1. For decomposition: Executes each sub-query and merges with RRF
+    2. For graphrag: Combines vector search with Neo4j graph traversal
+    3. For other strategies: Standard hybrid search with optional reranking
 
     Args:
-        question: The user's question.
+        question: The user's question (or preprocessed search_query).
         top_k: Number of chunks to return after reranking.
         collection_name: Override collection name.
         use_reranking: If True, apply cross-encoder reranking.
                        Retrieves 50 candidates and reranks to top_k.
                        If False, directly returns top_k from hybrid search.
         alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
+        preprocessed: PreprocessedQuery from strategy, enables strategy-aware
+                     retrieval for decomposition (RRF) and graphrag (Neo4j).
 
     Returns:
         List of context strings from retrieved chunks.
@@ -173,17 +180,157 @@ def retrieve_contexts(
     Technical Notes:
         - Hybrid search combines vector similarity with BM25 keyword matching
         - alpha=0.0 is pure BM25, alpha=1.0 is pure vector, 0.5 is balanced
-        - Cross-encoder processes [query, document] pairs for deeper matching
-        - Reranking improves precision by 20-35% (research evidence)
+        - Decomposition uses RRF to merge results from 3-4 sub-queries
+        - GraphRAG boosts chunks found via Neo4j entity traversal
+        - Cross-encoder reranking improves precision by 20-35%
     """
     collection_name = collection_name or get_collection_name()
+
+    # Determine initial retrieval size
+    initial_k = 50 if use_reranking else top_k
+
+    # =========================================================================
+    # DECOMPOSITION: Multi-query with RRF merge
+    # =========================================================================
+    if preprocessed and preprocessed.strategy_used == "decomposition":
+        generated_queries = preprocessed.generated_queries or []
+        if len(generated_queries) > 1:
+            logger.info(f"  [decomposition] Executing {len(generated_queries)} queries with RRF merge")
+
+            # Import RRF infrastructure from UI search service
+            from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion
+
+            client = get_client()
+            try:
+                result_lists = []
+                query_types = []
+
+                # Execute each sub-query
+                per_query_k = max(top_k * 2, 20)
+                for q in generated_queries:
+                    query_text = q.get("query", "")
+                    query_type = q.get("type", "unknown")
+
+                    if not query_text:
+                        continue
+
+                    results = query_hybrid(
+                        client=client,
+                        query_text=query_text,
+                        top_k=per_query_k,
+                        alpha=alpha,
+                        collection_name=collection_name,
+                    )
+
+                    result_lists.append(results)
+                    query_types.append(query_type)
+
+                # Merge with RRF
+                rrf_result = reciprocal_rank_fusion(
+                    result_lists=result_lists,
+                    query_types=query_types,
+                    top_k=initial_k,
+                )
+                results = rrf_result.results
+
+                # Apply reranking if enabled
+                if use_reranking and results:
+                    # Rerank using original question for best context matching
+                    results = rerank(preprocessed.original_query, results, top_k=top_k)
+
+                return [r.text for r in results]
+
+            finally:
+                client.close()
+
+    # =========================================================================
+    # GRAPHRAG: Hybrid graph + vector retrieval
+    # =========================================================================
+    if preprocessed and preprocessed.strategy_used == "graphrag":
+        logger.info("  [graphrag] Executing hybrid graph + vector retrieval")
+
+        client = get_client()
+        try:
+            # First, get vector results
+            vector_results = query_hybrid(
+                client=client,
+                query_text=question,
+                top_k=initial_k,
+                alpha=alpha,
+                collection_name=collection_name,
+            )
+
+            # Convert SearchResult to dicts for hybrid_graph_retrieval
+            vector_dicts = [
+                {
+                    "chunk_id": r.chunk_id,
+                    "book_id": r.book_id,
+                    "section": r.section,
+                    "context": r.context,
+                    "text": r.text,
+                    "token_count": r.token_count,
+                    "similarity": r.score,
+                }
+                for r in vector_results
+            ]
+
+            # Merge with Neo4j graph traversal
+            try:
+                from src.graph.neo4j_client import get_driver
+                from src.graph.query import hybrid_graph_retrieval
+
+                driver = get_driver()
+                try:
+                    merged_results, graph_meta = hybrid_graph_retrieval(
+                        query=preprocessed.original_query,
+                        driver=driver,
+                        vector_results=vector_dicts,
+                        top_k=initial_k,
+                    )
+
+                    boosted_count = graph_meta.get("boosted_count", 0)
+                    logger.info(f"  [graphrag] {boosted_count} graph-boosted results")
+
+                    # Apply reranking if enabled (on merged results)
+                    if use_reranking and merged_results:
+                        # Convert back to SearchResult-like objects for reranker
+                        from src.rag_pipeline.indexing.weaviate_query import SearchResult
+                        rerank_input = [
+                            SearchResult(
+                                chunk_id=r.get("chunk_id", ""),
+                                book_id=r.get("book_id", ""),
+                                section=r.get("section", ""),
+                                context=r.get("context", ""),
+                                text=r.get("text", ""),
+                                token_count=r.get("token_count", 0),
+                                score=r.get("similarity", 0.0),
+                            )
+                            for r in merged_results
+                        ]
+                        reranked = rerank(preprocessed.original_query, rerank_input, top_k=top_k)
+                        return [r.text for r in reranked]
+
+                    return [r.get("text", "") for r in merged_results[:top_k]]
+
+                finally:
+                    driver.close()
+
+            except Exception as e:
+                # Fallback to vector-only if Neo4j fails
+                logger.warning(f"  [graphrag] Neo4j retrieval failed: {e}, using vector-only")
+                if use_reranking and vector_results:
+                    vector_results = rerank(preprocessed.original_query, vector_results, top_k=top_k)
+                return [r.text for r in vector_results[:top_k]]
+
+        finally:
+            client.close()
+
+    # =========================================================================
+    # DEFAULT: Standard hybrid search (for none, hyde, and fallback)
+    # =========================================================================
     client = get_client()
 
     try:
-        # Determine initial retrieval size
-        # If reranking, get more candidates for the reranker to work with
-        initial_k = 50 if use_reranking else top_k
-
         results = query_hybrid(
             client=client,
             query_text=question,
@@ -308,6 +455,7 @@ def run_evaluation(
 
         # Apply preprocessing if enabled
         search_query = question
+        preprocessed = None
         if preprocessing_strategy != "none":
             from src.rag_pipeline.retrieval.preprocessing import preprocess_query
             try:
@@ -321,14 +469,19 @@ def run_evaluation(
             except Exception as e:
                 logger.warning(f"  Preprocessing failed: {e}. Using original query.")
                 search_query = question
+                preprocessed = None
 
-        # Retrieve contexts (with optional reranking for improved precision)
+        # Retrieve contexts with strategy-aware routing
+        # - decomposition: Multi-query RRF merge
+        # - graphrag: Neo4j hybrid retrieval
+        # - others: Standard hybrid search
         contexts = retrieve_contexts(
             question=search_query,  # Use preprocessed query for retrieval
             top_k=top_k,
             collection_name=collection_name,
             use_reranking=use_reranking,
             alpha=alpha,
+            preprocessed=preprocessed,  # Enables strategy-aware retrieval
         )
         logger.info(f"  Retrieved {len(contexts)} contexts")
 

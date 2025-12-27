@@ -233,6 +233,38 @@ This project implements advanced RAG patterns from recent research:
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |
 | **RAGAS Evaluation** | LLM-as-judge via LangChain wrapper (faithfulness, relevancy, context precision, F1 via AnswerCorrectness) | [RAGAS framework](https://docs.ragas.io/) |
 
+## Evaluation Architecture
+
+The evaluation system uses two independent axes for comprehensive A/B testing:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ CHUNKING STRATEGIES (Stage 4 - Creates Weaviate Collections)       │
+│ ─────────────────────────────────────────────────────────────────── │
+│ section    → RAG_section_embed3large_v1      (baseline)             │
+│ contextual → RAG_contextual_embed3large_v1   (LLM context prepended)│
+│ raptor     → RAG_raptor_embed3large_v1       (hierarchical tree)    │
+└─────────────────────────────────────────────────────────────────────┘
+         ↓ (determines Weaviate collection searched)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PREPROCESSING STRATEGIES (Eval Time - Query Transformation)        │
+│ ─────────────────────────────────────────────────────────────────── │
+│ none          → Original query unchanged (baseline)                 │
+│ hyde          → Hypothetical passage replaces query                 │
+│ decomposition → Sub-queries + RRF merge                             │
+│ graphrag      → Entity extraction + Neo4j graph traversal           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Each strategy is evaluated as a **black box** (questions in, metrics out), enabling fair comparison. The comprehensive mode tests all combinations:
+
+```bash
+python -m src.stages.run_stage_7_evaluation --comprehensive
+```
+
+See [memory-bank/evaluation-workflow.md](memory-bank/evaluation-workflow.md) for detailed diagrams.
+
 ## Requirements
 
 - Python 3.8+

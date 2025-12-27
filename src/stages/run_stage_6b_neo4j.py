@@ -56,6 +56,7 @@ from src.graph.neo4j_client import (
 from src.graph.community import (
     detect_and_summarize_communities,
     save_communities,
+    get_community_ids_from_neo4j,
 )
 
 logger = setup_logging(__name__)
@@ -137,6 +138,30 @@ def main():
         raise
 
     try:
+        # Validate prerequisites for resume mode
+        if args.resume:
+            logger.info("-" * 60)
+            logger.info("RESUME MODE: Validating prerequisites")
+            logger.info("-" * 60)
+
+            # Check entities exist
+            stats = get_graph_stats(driver)
+            if stats["node_count"] == 0:
+                raise ValueError(
+                    "Cannot resume: no entities in Neo4j. "
+                    "Run full pipeline first: python -m src.stages.run_stage_6b_neo4j"
+                )
+
+            # Check community_ids exist (Leiden must have completed)
+            community_ids = get_community_ids_from_neo4j(driver)
+            if not community_ids:
+                raise ValueError(
+                    "Cannot resume: no community_ids found in Neo4j. "
+                    "Leiden may not have completed. Run full pipeline first."
+                )
+
+            logger.info(f"Validation passed: {stats['node_count']} entities, {len(community_ids)} communities")
+
         # Phase 1: Upload to Neo4j (unless leiden-only or resume)
         if not args.leiden_only and not args.resume:
             logger.info("-" * 60)

@@ -38,6 +38,8 @@ from pydantic import BaseModel, Field
 from src.config import (
     GRAPHRAG_EXTRACTION_MODEL,
     GRAPHRAG_MAX_EXTRACTION_TOKENS,
+    GRAPHRAG_MAX_ENTITIES,
+    GRAPHRAG_MAX_RELATIONSHIPS,
     DIR_GRAPH_DATA,
     DIR_FINAL_CHUNKS,
 )
@@ -123,8 +125,8 @@ Use UPPERCASE_SNAKE_CASE for type names.
 
 For relationships, use types like: CAUSES, INHIBITS, MODULATES, PROPOSES, INFLUENCES, etc.
 
-LIMITS: Extract up to 15 most important entities and 10 relationships maximum.
-Focus on the most significant concepts, not every noun.
+LIMITS: Extract up to {max_entities} most important entities and {max_relationships} relationships.
+Keep descriptions brief (under 15 words each). Focus on significant concepts, not every noun.
 
 Text:
 {text}
@@ -175,7 +177,11 @@ def extract_open_ended(
     Returns:
         OpenExtractionResult with entities and relationships.
     """
-    prompt = OPEN_EXTRACTION_PROMPT.format(text=chunk["text"])
+    prompt = OPEN_EXTRACTION_PROMPT.format(
+        text=chunk["text"],
+        max_entities=GRAPHRAG_MAX_ENTITIES,
+        max_relationships=GRAPHRAG_MAX_RELATIONSHIPS,
+    )
     messages = [{"role": "user", "content": prompt}]
 
     result = call_structured_completion(

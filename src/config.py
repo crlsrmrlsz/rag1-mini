@@ -564,7 +564,9 @@ GRAPHRAG_EXTRACTION_MODEL = CONTEXTUAL_MODEL  # "anthropic/claude-3-haiku"
 GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL
 
 # Entity extraction parameters
-GRAPHRAG_MAX_EXTRACTION_TOKENS = 4000  # Max tokens for extraction response (increased to prevent truncation)
+GRAPHRAG_MAX_EXTRACTION_TOKENS = 4000  # Max tokens for extraction response
+GRAPHRAG_MAX_ENTITIES = 10             # Max entities per chunk (reduced from 15 to prevent truncation)
+GRAPHRAG_MAX_RELATIONSHIPS = 7         # Max relationships per chunk (reduced from 10 to prevent truncation)
 
 # Domain-specific entity types for neuroscience/philosophy corpus
 # These guide the LLM to extract relevant entities

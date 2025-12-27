@@ -6,6 +6,9 @@ Provides:
 - Retrieval and generation functions for the evaluation pipeline
 """
 
+import re
+import string
+from collections import Counter
 from typing import List, Dict, Any, Optional, Callable
 
 from ragas import evaluate, EvaluationDataset
@@ -38,6 +41,63 @@ logger = setup_logging(__name__)
 
 # Default model for answer generation (can be overridden)
 DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
+
+
+# ============================================================================
+# SQUAD-STYLE F1 (Token Overlap)
+# ============================================================================
+
+
+def normalize_answer(s: str) -> str:
+    """Normalize answer for SQuAD-style F1 comparison.
+
+    Applies standard QA normalization:
+    1. Lowercase
+    2. Remove articles (a, an, the)
+    3. Remove punctuation
+    4. Collapse whitespace
+
+    Args:
+        s: Raw answer string.
+
+    Returns:
+        Normalized string for token comparison.
+    """
+    s = s.lower()
+    s = re.sub(r"\b(a|an|the)\b", " ", s)
+    s = "".join(c for c in s if c not in string.punctuation)
+    return " ".join(s.split())
+
+
+def compute_squad_f1(prediction: str, reference: str) -> float:
+    """Compute SQuAD-style token-level F1 score.
+
+    Treats prediction and reference as bags of tokens and computes
+    precision, recall, and F1 based on token overlap. This is the
+    standard metric used in QASPER, NarrativeQA, and SQuAD benchmarks.
+
+    Args:
+        prediction: Generated answer.
+        reference: Ground truth answer.
+
+    Returns:
+        F1 score between 0.0 and 1.0.
+    """
+    pred_tokens = normalize_answer(prediction).split()
+    ref_tokens = normalize_answer(reference).split()
+
+    if not pred_tokens or not ref_tokens:
+        return 0.0
+
+    common = Counter(pred_tokens) & Counter(ref_tokens)
+    num_same = sum(common.values())
+
+    if num_same == 0:
+        return 0.0
+
+    precision = num_same / len(pred_tokens)
+    recall = num_same / len(ref_tokens)
+    return 2 * precision * recall / (precision + recall)
 
 
 # ============================================================================
@@ -359,6 +419,17 @@ def run_evaluation(
         col_name = metric_column_map.get(metric_name, metric_name)
         if col_name in results_df.columns:
             scores[metric_name] = float(results_df[col_name].mean())
+
+    # Compute SQuAD-style F1 (non-LLM, instant, benchmark-comparable)
+    has_references = all(s.get("reference") for s in samples)
+    if has_references:
+        squad_f1_scores = [
+            compute_squad_f1(s["response"], s["reference"])
+            for s in samples
+        ]
+        scores["squad_f1"] = sum(squad_f1_scores) / len(squad_f1_scores)
+        results_df["squad_f1"] = squad_f1_scores
+        logger.info(f"SQuAD F1: {scores['squad_f1']:.3f}")
 
     return {
         "scores": scores,

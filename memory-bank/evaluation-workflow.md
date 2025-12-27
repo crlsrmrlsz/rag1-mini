@@ -275,6 +275,138 @@ The evaluation uses RAGAS metrics:
 | answer_correctness | Weighted F1 + semantic similarity | Yes |
 | squad_f1 | Token-level F1 (benchmark comparison) | Yes |
 
+## Results Output Structure
+
+### Three Output Destinations (Standard Mode)
+
+Standard evaluations (`python -m src.stages.run_stage_7_evaluation`) produce three outputs:
+
+1. **JSON Report**: `data/evaluation/ragas_results/eval_TIMESTAMP.json`
+   - Aggregate scores + per-question breakdown
+   - Machine-readable for analysis scripts
+   - Contains: timestamp, num_questions, aggregate_scores, per_question_results
+
+2. **Markdown History**: `memory-bank/evaluation-history.md`
+   - Auto-appended run summaries with run number (auto-incremented)
+   - Human-readable with category breakdowns
+   - Includes "Key Learning" placeholder for manual notes
+   - Contains: configuration table, scores table, failure count
+
+3. **Tracking JSON**: `data/evaluation/evaluation_runs.json`
+   - Full configuration + metrics for programmatic analysis
+   - Category breakdown with failure tracking
+   - Created on first run, appended on subsequent runs
+
+### Comprehensive Mode Output
+
+Comprehensive mode (`--comprehensive`) produces a single enhanced JSON file with statistical analysis:
+
+**File**: `data/evaluation/results/comprehensive_TIMESTAMP.json`
+
+Contains:
+- `experiment_metadata`: timestamp, duration, success/failure counts
+- `grid_parameters`: collections, alphas, strategies tested
+- `leaderboard`: All results sorted by composite score
+- `statistical_analysis`: Mean, std, min, max by strategy/alpha/collection
+- `best_configurations`: Best overall and per-metric configurations
+- `failed_runs`: Details on any failures
+
+### Console Output Formats
+
+#### Standard Mode Console
+```
+================================
+RAGAS EVALUATION RESULTS
+================================
+Questions evaluated: 23
+Aggregate Scores:
+  faithfulness: 0.9270
+  relevancy: 0.7869
+  context_precision: 0.8534
+Per-Question Results:
+  [neuro_behave_01] What structural...
+    faithfulness: 0.0000
+    answer_relevancy: 0.7994
+```
+
+#### Comprehensive Mode Console
+```
+====================================
+COMPREHENSIVE EVALUATION LEADERBOARD
+====================================
+Tested 60 combinations on 10 questions
+Duration: 47 minutes 30 seconds
+Successful: 58 | Failed: 2
+
+Rank  Collection  Alpha  Strategy  Faith  Relev  CtxPrec  Avg
+1     RAG_raptor  0.7    decomp    0.945  0.823  0.891    0.886
+...
+
+BREAKDOWN BY PREPROCESSING STRATEGY
+DECOMPOSITION (n=15):
+  Mean:  0.851  +/-  0.033
+  Range: [0.810, 0.910]
+...
+
+ARTICLE SUMMARY
+BEST CONFIGURATIONS
+  Overall: RAG_raptor + alpha=0.7 + decomposition (avg: 0.886)
+
+STRATEGY IMPROVEMENT VS BASELINE (none=0.780)
+  NONE            0.780 +/- 0.052  (baseline)
+  HYDE            0.832 +/- 0.041  [+6.7% vs baseline]
+  DECOMPOSITION   0.851 +/- 0.033  [+9.1% vs baseline]
+```
+
+## Data Flow Diagram
+
+```
+Test Questions (JSON)
+      │
+      ▼
+┌─────────────────────────────────────────────────────┐
+│              run_stage_7_evaluation.py              │
+│                                                     │
+│  ┌─────────────┐         ┌────────────────────┐    │
+│  │  STANDARD   │         │   COMPREHENSIVE    │    │
+│  │   MODE      │         │      MODE          │    │
+│  │             │         │                    │    │
+│  │ Single      │         │ For each combo:    │    │
+│  │ collection  │         │ collections x      │    │
+│  │ + alpha     │         │ alphas x           │    │
+│  │ + strategy  │         │ strategies         │    │
+│  └─────────────┘         └────────────────────┘    │
+└─────────────────────────────────────────────────────┘
+      │                              │
+      ▼                              ▼
+┌─────────────────┐       ┌─────────────────────────┐
+│ run_evaluation()│       │ Collect all results     │
+│ (ragas_eval.py) │       │ into leaderboard        │
+└─────────────────┘       └─────────────────────────┘
+      │                              │
+      ▼                              ▼
+┌─────────────────────────┐   ┌─────────────────────┐
+│ 3 OUTPUT FILES:         │   │ 1 OUTPUT FILE:      │
+│ - eval_*.json           │   │ comprehensive_*.json│
+│ - evaluation-history.md │   │ with:               │
+│ - evaluation_runs.json  │   │ - statistical       │
+└─────────────────────────┘   │   analysis          │
+                              │ - best configs      │
+                              │ - article summary   │
+                              └─────────────────────┘
+```
+
+## Code Organization
+
+The evaluation system consists of:
+
+| File | Purpose |
+|------|---------|
+| `src/stages/run_stage_7_evaluation.py` | CLI interface, comprehensive mode, report generation |
+| `src/evaluation/ragas_evaluator.py` | RAGAS evaluation, strategy-aware retrieval |
+| `src/evaluation/__init__.py` | Exports `run_evaluation` function |
+| `src/rag_pipeline/retrieval/reranking_utils.py` | Shared reranking helper (DRY) |
+
 ## References
 
 - [RAPTOR Paper](https://arxiv.org/abs/2401.18059) - Hierarchical summarization

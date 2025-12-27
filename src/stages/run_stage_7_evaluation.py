@@ -474,18 +474,21 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     """Run comprehensive evaluation across all combinations.
 
     Tests: collections x alpha values x preprocessing strategies
-    - No reranking (always disabled)
+    - No reranking (always disabled for speed)
     - Uses curated 10-question subset
-    - Generates leaderboard report with metric breakdown
+    - Generates enhanced leaderboard report with statistical analysis
+    - Outputs article-ready summary with key findings
     - No individual run logging to evaluation-history.md
 
     Args:
         args: Command-line arguments (uses generation_model, evaluation_model, output).
     """
+    import time
     from src.ui.services.search import list_collections
     from src.rag_pipeline.retrieval.preprocessing.strategies import list_strategies
 
     logger.info("Starting comprehensive evaluation mode...")
+    start_time = time.time()
 
     # Load curated question subset
     questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
@@ -528,7 +531,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                         generation_model=args.generation_model,
                         evaluation_model=args.evaluation_model,
                         collection_name=collection,
-                        use_reranking=False,  # Always disabled
+                        use_reranking=False,  # Always disabled for speed
                         alpha=alpha,
                         preprocessing_strategy=strategy,
                         preprocessing_model=None,
@@ -561,32 +564,126 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                         "error": str(e),
                     })
 
+    # Calculate total duration
+    duration_seconds = time.time() - start_time
+
     # Generate comprehensive report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = Path(args.output) if args.output else RESULTS_DIR / f"comprehensive_{timestamp}.json"
 
-    generate_comprehensive_report(all_results, questions, output_path)
+    # Build grid parameters for report
+    grid_params = {
+        "collections": collections,
+        "alphas": alphas,
+        "strategies": strategies,
+    }
+
+    generate_comprehensive_report(
+        all_results, questions, output_path, duration_seconds, grid_params
+    )
 
     logger.info("Comprehensive evaluation complete!")
+
+
+def compute_statistical_breakdown(
+    results: List[Dict[str, Any]],
+    group_key: str,
+) -> Dict[str, Dict[str, float]]:
+    """Compute statistical analysis (mean, std, min, max) for each group.
+
+    Args:
+        results: List of result dicts (only successful runs).
+        group_key: Key to group by ("strategy", "alpha", "collection").
+
+    Returns:
+        Dict mapping group values to stats (mean, std, min, max, n).
+    """
+    import statistics
+    from collections import defaultdict
+
+    groups: Dict[str, List[float]] = defaultdict(list)
+    for r in results:
+        if "error" not in r:
+            groups[str(r[group_key])].append(r["composite_score"])
+
+    analysis = {}
+    for group, scores in groups.items():
+        analysis[group] = {
+            "mean": round(statistics.mean(scores), 4),
+            "std": round(statistics.stdev(scores), 4) if len(scores) > 1 else 0.0,
+            "min": round(min(scores), 4),
+            "max": round(max(scores), 4),
+            "n": len(scores),
+        }
+    return analysis
+
+
+def find_best_configurations(
+    sorted_results: List[Dict[str, Any]],
+    successful_runs: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """Find best configurations overall and per metric.
+
+    Args:
+        sorted_results: Results sorted by composite score.
+        successful_runs: Only successful runs.
+
+    Returns:
+        Dict with "overall" and per-metric best configurations.
+    """
+    best = {
+        "overall": {
+            "collection": sorted_results[0]["collection"],
+            "alpha": sorted_results[0]["alpha"],
+            "strategy": sorted_results[0]["strategy"],
+            "composite_score": round(sorted_results[0]["composite_score"], 4),
+        } if sorted_results else None,
+    }
+
+    # Find best per metric
+    for metric in ["faithfulness", "relevancy", "context_precision"]:
+        sorted_by_metric = sorted(
+            successful_runs,
+            key=lambda x: x["scores"].get(metric) or 0,
+            reverse=True,
+        )
+        if sorted_by_metric:
+            top = sorted_by_metric[0]
+            best[f"by_{metric}"] = {
+                "collection": top["collection"],
+                "alpha": top["alpha"],
+                "strategy": top["strategy"],
+                "score": round(top["scores"].get(metric) or 0, 4),
+            }
+
+    return best
 
 
 def generate_comprehensive_report(
     all_results: List[Dict[str, Any]],
     questions: List[Dict[str, Any]],
     output_path: Path,
+    duration_seconds: float = 0.0,
+    grid_params: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Generate leaderboard and metric breakdown for comprehensive evaluation.
+    """Generate enhanced leaderboard and statistical analysis for articles.
+
+    Produces:
+    - JSON report with experiment metadata, statistical analysis, best configs
+    - Console leaderboard with rankings
+    - Article-ready summary with key findings
 
     Args:
         all_results: List of result dicts with collection, alpha, strategy, scores.
         questions: Original test questions.
         output_path: Path for output JSON file.
+        duration_seconds: Total experiment duration in seconds.
+        grid_params: Grid search parameters (collections, alphas, strategies).
     """
     # Create results directory if needed
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Calculate composite score for ranking (average of all metrics)
-    # Use `or 0` to handle None values (not just missing keys)
     for result in all_results:
         scores = result["scores"]
         faithfulness = scores.get("faithfulness") or 0
@@ -601,20 +698,55 @@ def generate_comprehensive_report(
         reverse=True
     )
 
-    # Count successful vs failed runs
+    # Separate successful and failed runs
     successful_runs = [r for r in all_results if "error" not in r]
     failed_runs = [r for r in all_results if "error" in r]
 
-    # Build report
+    # Compute statistical analysis
+    strategy_analysis = compute_statistical_breakdown(successful_runs, "strategy")
+    alpha_analysis = compute_statistical_breakdown(successful_runs, "alpha")
+    collection_analysis = compute_statistical_breakdown(successful_runs, "collection")
+
+    # Find best configurations
+    best_configs = find_best_configurations(sorted_results, successful_runs)
+
+    # Format duration
+    duration_minutes = duration_seconds / 60
+    duration_str = f"{int(duration_minutes)} minutes {int(duration_seconds % 60)} seconds"
+
+    # Build enhanced report
     report = {
-        "timestamp": datetime.now().isoformat(),
-        "mode": "comprehensive",
-        "num_questions": len(questions),
-        "num_combinations": len(all_results),
-        "successful_runs": len(successful_runs),
-        "failed_runs": len(failed_runs),
-        "metrics": ["faithfulness", "relevancy", "context_precision"],
+        "experiment_metadata": {
+            "timestamp": datetime.now().isoformat(),
+            "duration_seconds": round(duration_seconds, 1),
+            "duration_formatted": duration_str,
+            "total_combinations": len(all_results),
+            "successful_runs": len(successful_runs),
+            "failed_runs": len(failed_runs),
+        },
+        "grid_parameters": {
+            "collections": grid_params.get("collections", []) if grid_params else [],
+            "alphas": grid_params.get("alphas", []) if grid_params else [],
+            "strategies": grid_params.get("strategies", []) if grid_params else [],
+            "num_questions": len(questions),
+            "reranking_enabled": False,
+        },
         "leaderboard": sorted_results,
+        "statistical_analysis": {
+            "by_strategy": strategy_analysis,
+            "by_alpha": alpha_analysis,
+            "by_collection": collection_analysis,
+        },
+        "best_configurations": best_configs,
+        "failed_runs": [
+            {
+                "collection": r["collection"],
+                "alpha": r["alpha"],
+                "strategy": r["strategy"],
+                "error": r.get("error", "Unknown"),
+            }
+            for r in failed_runs
+        ],
     }
 
     # Save JSON report
@@ -623,25 +755,25 @@ def generate_comprehensive_report(
 
     logger.info(f"Comprehensive report saved to: {output_path}")
 
-    # Print leaderboard to console
+    # =========================================================================
+    # CONSOLE OUTPUT: Leaderboard
+    # =========================================================================
     print("\n" + "=" * 100)
     print("COMPREHENSIVE EVALUATION LEADERBOARD")
     print("=" * 100)
     print(f"\nTested {len(all_results)} combinations on {len(questions)} questions")
+    print(f"Duration: {duration_str}")
     print(f"Successful: {len(successful_runs)} | Failed: {len(failed_runs)}")
     print("\n" + "-" * 100)
     print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'Avg':<8}")
     print("-" * 100)
 
-    # Show all results (sorted)
     for i, result in enumerate(sorted_results, 1):
         scores = result["scores"]
-        faith = scores.get("faithfulness", 0)
-        relev = scores.get("relevancy", 0)
-        ctx_prec = scores.get("context_precision", 0)
+        faith = scores.get("faithfulness") or 0
+        relev = scores.get("relevancy") or 0
+        ctx_prec = scores.get("context_precision") or 0
         avg = result["composite_score"]
-
-        # Truncate long collection names
         collection_short = result["collection"][:35]
         error_marker = " *" if "error" in result else ""
 
@@ -651,30 +783,57 @@ def generate_comprehensive_report(
             f"{ctx_prec:<8.3f} {avg:<8.3f}{error_marker}"
         )
 
-    # Helper function for metric breakdowns (DRY)
-    def _print_breakdown(title: str, group_key: str, format_label=str):
+    # =========================================================================
+    # CONSOLE OUTPUT: Statistical Breakdowns
+    # =========================================================================
+    def _print_breakdown(title: str, analysis: Dict[str, Dict[str, float]], format_label=str):
         print("\n" + "=" * 100)
         print(title)
         print("=" * 100)
-        groups = sorted(set(r[group_key] for r in successful_runs))
-        for group in groups:
-            group_results = [r for r in successful_runs if r[group_key] == group]
-            if not group_results:
-                continue
-            n = len(group_results)
-            avg_faith = sum((r["scores"].get("faithfulness") or 0) for r in group_results) / n
-            avg_relev = sum((r["scores"].get("relevancy") or 0) for r in group_results) / n
-            avg_ctx = sum((r["scores"].get("context_precision") or 0) for r in group_results) / n
+        for group in sorted(analysis.keys(), key=lambda x: analysis[x]["mean"], reverse=True):
+            stats = analysis[group]
             label = format_label(group)
-            print(f"\n{label} (n={n}):")
-            print(f"  Faithfulness:      {avg_faith:.3f}")
-            print(f"  Relevancy:         {avg_relev:.3f}")
-            print(f"  Context Precision: {avg_ctx:.3f}")
+            print(f"\n{label} (n={stats['n']}):")
+            print(f"  Mean:  {stats['mean']:.3f}  +/-  {stats['std']:.3f}")
+            print(f"  Range: [{stats['min']:.3f}, {stats['max']:.3f}]")
 
-    # Print breakdowns by each dimension
-    _print_breakdown("BREAKDOWN BY PREPROCESSING STRATEGY", "strategy", str.upper)
-    _print_breakdown("BREAKDOWN BY ALPHA (hybrid search: 0.0=keyword, 1.0=vector)", "alpha", lambda a: f"ALPHA={a}")
-    _print_breakdown("BREAKDOWN BY COLLECTION", "collection")
+    _print_breakdown("BREAKDOWN BY PREPROCESSING STRATEGY", strategy_analysis, str.upper)
+    _print_breakdown("BREAKDOWN BY ALPHA (0.0=keyword, 1.0=vector)", alpha_analysis, lambda a: f"ALPHA={a}")
+    _print_breakdown("BREAKDOWN BY COLLECTION", collection_analysis)
+
+    # =========================================================================
+    # CONSOLE OUTPUT: Article Summary
+    # =========================================================================
+    print("\n" + "=" * 100)
+    print("ARTICLE SUMMARY")
+    print("=" * 100)
+
+    print(f"\nEXPERIMENT METADATA")
+    print(f"  Duration: {duration_str}")
+    print(f"  Combinations tested: {len(all_results)} ({len(successful_runs)} successful, {len(failed_runs)} failed)")
+    print(f"  Questions per run: {len(questions)}")
+
+    print(f"\nBEST CONFIGURATIONS")
+    if best_configs.get("overall"):
+        b = best_configs["overall"]
+        print(f"  Overall:        {b['collection'][:30]} + alpha={b['alpha']} + {b['strategy']} (avg: {b['composite_score']:.3f})")
+    for metric in ["faithfulness", "relevancy", "context_precision"]:
+        key = f"by_{metric}"
+        if best_configs.get(key):
+            b = best_configs[key]
+            print(f"  {metric.title():<15} {b['collection'][:30]} + alpha={b['alpha']} + {b['strategy']} ({b['score']:.3f})")
+
+    # Calculate improvement percentages vs baseline (none strategy)
+    if "none" in strategy_analysis:
+        baseline = strategy_analysis["none"]["mean"]
+        print(f"\nSTRATEGY IMPROVEMENT VS BASELINE (none={baseline:.3f})")
+        for strategy in sorted(strategy_analysis.keys()):
+            stats = strategy_analysis[strategy]
+            if strategy == "none":
+                print(f"  {strategy.upper():<15} {stats['mean']:.3f} +/- {stats['std']:.3f}  (baseline)")
+            else:
+                improvement = ((stats["mean"] - baseline) / baseline) * 100 if baseline > 0 else 0
+                print(f"  {strategy.upper():<15} {stats['mean']:.3f} +/- {stats['std']:.3f}  [{improvement:+.1f}% vs baseline]")
 
     # Show failed runs if any
     if failed_runs:

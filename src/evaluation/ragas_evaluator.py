@@ -35,7 +35,7 @@ from src.config import (
     DEFAULT_TOP_K,
 )
 from src.rag_pipeline.indexing import get_client, query_hybrid
-from src.rag_pipeline.retrieval.reranking import rerank
+from src.rag_pipeline.retrieval.reranking_utils import apply_reranking_if_enabled
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_simple_prompt
 
@@ -233,10 +233,10 @@ def retrieve_contexts(
                 )
                 results = rrf_result.results
 
-                # Apply reranking if enabled
-                if use_reranking and results:
-                    # Rerank using original question for best context matching
-                    results = rerank(preprocessed.original_query, results, top_k=top_k)
+                # Apply reranking if enabled (using helper for consistency)
+                results = apply_reranking_if_enabled(
+                    results, preprocessed.original_query, top_k, use_reranking
+                )
 
                 return [r.text for r in results]
 
@@ -293,7 +293,7 @@ def retrieve_contexts(
 
                     # Apply reranking if enabled (on merged results)
                     if use_reranking and merged_results:
-                        # Convert back to SearchResult-like objects for reranker
+                        # Convert dicts back to SearchResult for reranker
                         from src.rag_pipeline.indexing.weaviate_query import SearchResult
                         rerank_input = [
                             SearchResult(
@@ -307,7 +307,9 @@ def retrieve_contexts(
                             )
                             for r in merged_results
                         ]
-                        reranked = rerank(preprocessed.original_query, rerank_input, top_k=top_k)
+                        reranked = apply_reranking_if_enabled(
+                            rerank_input, preprocessed.original_query, top_k, use_reranking
+                        )
                         return [r.text for r in reranked]
 
                     return [r.get("text", "") for r in merged_results[:top_k]]
@@ -318,8 +320,9 @@ def retrieve_contexts(
             except Exception as e:
                 # Fallback to vector-only if Neo4j fails
                 logger.warning(f"  [graphrag] Neo4j retrieval failed: {e}, using vector-only")
-                if use_reranking and vector_results:
-                    vector_results = rerank(preprocessed.original_query, vector_results, top_k=top_k)
+                vector_results = apply_reranking_if_enabled(
+                    vector_results, preprocessed.original_query, top_k, use_reranking
+                )
                 return [r.text for r in vector_results[:top_k]]
 
         finally:
@@ -339,9 +342,8 @@ def retrieve_contexts(
             collection_name=collection_name,
         )
 
-        # Apply cross-encoder reranking if enabled
-        if use_reranking and results:
-            results = rerank(question, results, top_k=top_k)
+        # Apply cross-encoder reranking if enabled (using helper for consistency)
+        results = apply_reranking_if_enabled(results, question, top_k, use_reranking)
 
         return [r.text for r in results]
     finally:

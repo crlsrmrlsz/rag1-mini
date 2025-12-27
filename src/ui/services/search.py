@@ -30,6 +30,7 @@ from src.config import (
     DEFAULT_TOP_K,
 )
 from src.rag_pipeline.indexing import get_client, query_similar, query_hybrid, SearchResult
+from src.rag_pipeline.retrieval.reranking_utils import apply_reranking_with_metadata
 
 # Default number of candidates to retrieve before reranking
 # Higher = more accurate but slower (50 is a good balance)
@@ -189,12 +190,10 @@ def search_chunks(
             collection_name=collection_name,
         )
 
-        # Apply cross-encoder reranking to merged results
-        if use_reranking and results:
-            from src.rag_pipeline.retrieval.reranking import rerank
-            rerank_result = rerank(query, results, top_k=top_k)
-            results = rerank_result.results
-            rerank_data = rerank_result
+        # Apply cross-encoder reranking to merged results (using helper for consistency)
+        results, rerank_data = apply_reranking_with_metadata(
+            results, query, top_k, use_reranking
+        )
 
     else:
         # Single-query path (original behavior)
@@ -221,12 +220,10 @@ def search_chunks(
                     collection_name=collection_name,
                 )
 
-            # Apply cross-encoder reranking if enabled
-            if use_reranking and results:
-                from src.rag_pipeline.retrieval.reranking import rerank
-                rerank_result = rerank(query, results, top_k=top_k)
-                results = rerank_result.results
-                rerank_data = rerank_result
+            # Apply cross-encoder reranking if enabled (using helper for consistency)
+            results, rerank_data = apply_reranking_with_metadata(
+                results, query, top_k, use_reranking
+            )
 
         finally:
             client.close()

@@ -320,54 +320,19 @@ def _render_pipeline_log():
 
 
 # ============================================================================
-# SIDEBAR - Settings organized by Pipeline Stage
+# SIDEBAR - Settings organized by Pipeline Steps
 # ============================================================================
 
 st.sidebar.title("Settings")
 
-# Collection selector with strategy metadata
-try:
-    collection_infos = get_available_collections()
-    st.session_state.connection_error = None
-except Exception as e:
-    collection_infos = []
-    st.session_state.connection_error = str(e)
-
-if collection_infos:
-    # Build display options: "Display Name - Description"
-    collection_display = {
-        info.collection_name: f"{info.display_name} - {info.description}"
-        for info in collection_infos
-    }
-
-    selected_collection = st.sidebar.selectbox(
-        "Chunking Strategy Collection",
-        options=list(collection_display.keys()),
-        format_func=lambda x: collection_display[x],
-        help="Select which chunking strategy's embeddings to search. Each collection uses a different chunking approach.",
-    )
-
-    # Show strategy details in expander
-    selected_info = next((c for c in collection_infos if c.collection_name == selected_collection), None)
-    if selected_info:
-        with st.sidebar.expander("Collection Details", expanded=False):
-            st.markdown(f"**Strategy:** `{selected_info.strategy}`")
-            st.markdown(f"**Collection:** `{selected_info.collection_name}`")
-            st.caption(selected_info.description)
-else:
-    st.sidebar.warning("No collections found. Is Weaviate running?")
-    selected_collection = None
-
-st.sidebar.divider()
-
 # -----------------------------------------------------------------------------
-# STAGE 1: Query Preprocessing
+# Query Preprocessing
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("### Stage 1: Query Preprocessing")
+st.sidebar.markdown("### Query Preprocessing")
 
 enable_preprocessing = st.sidebar.checkbox(
     "Enable Preprocessing",
-    value=ENABLE_QUERY_PREPROCESSING,
+    value=False,
     help="Classify queries and apply preprocessing strategy.",
 )
 
@@ -400,9 +365,49 @@ else:
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# STAGE 2: Retrieval
+# Collection
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("### Stage 2: Retrieval")
+st.sidebar.markdown("### Collection")
+
+# Collection selector with strategy metadata
+try:
+    collection_infos = get_available_collections()
+    st.session_state.connection_error = None
+except Exception as e:
+    collection_infos = []
+    st.session_state.connection_error = str(e)
+
+if collection_infos:
+    # Build display options: "Display Name - Description"
+    collection_display = {
+        info.collection_name: f"{info.display_name} - {info.description}"
+        for info in collection_infos
+    }
+
+    selected_collection = st.sidebar.selectbox(
+        "Chunking Strategy",
+        options=list(collection_display.keys()),
+        format_func=lambda x: collection_display[x],
+        help="Select which chunking strategy's embeddings to search. Each collection uses a different chunking approach.",
+    )
+
+    # Show strategy details in expander
+    selected_info = next((c for c in collection_infos if c.collection_name == selected_collection), None)
+    if selected_info:
+        with st.sidebar.expander("Collection Details", expanded=False):
+            st.markdown(f"**Strategy:** `{selected_info.strategy}`")
+            st.markdown(f"**Collection:** `{selected_info.collection_name}`")
+            st.caption(selected_info.description)
+else:
+    st.sidebar.warning("No collections found. Is Weaviate running?")
+    selected_collection = None
+
+st.sidebar.divider()
+
+# -----------------------------------------------------------------------------
+# Retrieval
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### Retrieval")
 
 # Search type selector
 search_type = st.sidebar.radio(
@@ -438,9 +443,9 @@ top_k = st.sidebar.slider(
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# STAGE 3: Reranking
+# Reranking
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("### Stage 3: Reranking")
+st.sidebar.markdown("### Reranking")
 
 use_reranking = st.sidebar.checkbox(
     "Enable Cross-Encoder Reranking",
@@ -454,9 +459,9 @@ if use_reranking:
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# STAGE 4: Answer Generation
+# Answer Generation
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("### Stage 4: Answer Generation")
+st.sidebar.markdown("### Answer Generation")
 
 enable_generation = st.sidebar.checkbox(
     "Enable Answer Generation",
@@ -481,20 +486,22 @@ st.sidebar.divider()
 # Show current configuration summary
 with st.sidebar.expander("Current Configuration", expanded=False):
     config_summary = f"""
-**Stage 1: Preprocessing**
+**Preprocessing**
 - Enabled: {'Yes' if enable_preprocessing else 'No'}
 - Model: {selected_prep_model if enable_preprocessing else 'N/A'}
 
-**Stage 2: Retrieval**
+**Collection**
+- Strategy: {selected_collection if selected_collection else 'None'}
+
+**Retrieval**
 - Type: {search_type}
 - Alpha: {alpha if search_type == 'hybrid' else 'N/A'}
 - Top-K: {top_k}
-- Collection: {selected_collection if selected_collection else 'None'}
 
-**Stage 3: Reranking**
+**Reranking**
 - Enabled: {'Yes' if use_reranking else 'No'}
 
-**Stage 4: Generation**
+**Generation**
 - Enabled: {'Yes' if enable_generation else 'No'}
 - Model: {selected_model if enable_generation else 'N/A'}
     """

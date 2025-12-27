@@ -225,7 +225,7 @@ This project implements advanced RAG patterns from recent research:
 | **HyDE** | Generates hypothetical answers for semantic matching | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
 | **Query Decomposition** | Breaks complex questions into sub-queries with RRF merging (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
 | **Contextual Chunking** | LLM-generated context prepended to chunks (Anthropic-style, -35% failures) | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
-| **RAPTOR** | Hierarchical summarization tree for multi-level retrieval (+20% comprehension) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
+| **RAPTOR** | Hierarchical summarization tree; uses collapsed tree retrieval (paper shows it outperforms tree traversal) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
 | **GraphRAG** | Knowledge graph + Leiden communities for hybrid graph+vector retrieval | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) |
 | **GraphRAG Auto-Tuning** | Discover entity types from corpus content (per-book resumable extraction) | [MS Research Blog](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) |
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |

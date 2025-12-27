@@ -29,6 +29,21 @@ The algorithm:
 2. Convert to RaptorNodes (level 0)
 3. Recursive: cluster -> summarize -> embed -> cluster -> ...
 4. Output: All nodes (leaves + summaries) + metadata
+
+## Query Strategies (Paper Section 2.3)
+
+The RAPTOR paper describes two retrieval approaches:
+
+1. **Tree Traversal**: Starts at root, traverses layer-by-layer selecting top-k
+   nodes at each level. Fixed ratio of nodes from each level regardless of query.
+
+2. **Collapsed Tree** (used here): Flattens all nodes into single layer, retrieves
+   by similarity until token budget. More flexible - adapts granularity per query.
+
+The paper shows collapsed tree consistently outperforms tree traversal due to
+query-adaptive flexibility. Trade-off: requires similarity search on all nodes.
+
+Reference: arXiv:2401.18059, Section 2.3
 """
 
 import time

@@ -21,11 +21,41 @@ python -m src.stages.run_stage_1_extraction     # PDF to Markdown
 python -m src.stages.run_stage_2_processing     # Markdown cleaning
 python -m src.stages.run_stage_3_segmentation   # NLP sentence segmentation
 python -m src.stages.run_stage_4_chunking       # Section-aware chunking (800 tokens, 2-sentence overlap)
-python -m src.stages.run_stage_4_6_graph_extract # GraphRAG: Extract entities/relationships
 python -m src.stages.run_stage_5_embedding      # Generate embeddings (requires OpenRouter API key)
 python -m src.stages.run_stage_6_weaviate       # Upload to Weaviate (requires running Weaviate)
-python -m src.stages.run_stage_6b_neo4j         # GraphRAG: Upload to Neo4j + Leiden communities
 python -m src.stages.run_stage_7_evaluation     # RAGAS evaluation
+```
+
+### GraphRAG Pipeline (Knowledge Graph + Communities)
+
+GraphRAG creates a knowledge graph from your corpus and uses Leiden community detection for global queries.
+**Important:** There are two extraction paths - choose ONE:
+
+```bash
+# === OPTION A: Auto-Tuning (Recommended) ===
+# Discovers entity types FROM your corpus content
+python -m src.stages.run_stage_4_5_autotune --strategy section
+
+# === OPTION B: Predefined Types ===
+# Uses hardcoded entity types from src/config.py
+python -m src.stages.run_stage_4_6_graph_extract --strategy section
+
+# === Then upload to Neo4j + run Leiden (same for both options) ===
+docker compose up -d neo4j   # Start Neo4j if not running
+python -m src.stages.run_stage_6b_neo4j
+
+# === Query with graphrag strategy ===
+# UI: Select "graphrag" in preprocessing dropdown
+# CLI: python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
+```
+
+**Data Flow:**
+```
+Stage 4 (chunks) → Stage 4.5 autotune OR 4.6 → Stage 6b (Neo4j + Leiden) → Query
+                         │                            │
+                         ▼                            ▼
+              extraction_results.json         communities.json
+              (entities + relationships)      (Leiden clusters + summaries)
 ```
 
 ## Code Standards

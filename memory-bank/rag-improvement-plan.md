@@ -537,6 +537,29 @@ python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-
 
 **Note**: HyDE (arXiv:2212.10496) replaced step-back prompting (Dec 23, 2024). See `memory-bank/step-back-prompting-research.md` for historical analysis.
 
+### GraphRAG Execution Clarification (Dec 27, 2024)
+
+**Common confusion:** Stage 4.5 autotune and Stage 4.6 are **alternative paths** - both produce `extraction_results.json`:
+
+| Stage | Purpose | When to Use |
+|-------|---------|-------------|
+| `run_stage_4_5_autotune` | Discovers entity types FROM corpus | New domains, recommended |
+| `run_stage_4_6_graph_extract` | Uses predefined types from config.py | Known domains, faster |
+
+**Correct execution order:**
+```bash
+# Choose ONE extraction method:
+python -m src.stages.run_stage_4_5_autotune  # OR run_stage_4_6_graph_extract
+
+# Then upload + Leiden:
+docker compose up -d neo4j
+python -m src.stages.run_stage_6b_neo4j
+```
+
+**Note:** Stage 4.5 RAPTOR (`run_stage_4_5_raptor.py`) is completely separate from GraphRAG - it creates hierarchical document summaries, not entity extraction.
+
+See `memory-bank/graphrag-quickstart.md` for a 1-page quick reference.
+
 ---
 
 ## Testing Protocol

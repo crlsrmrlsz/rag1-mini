@@ -234,6 +234,59 @@ GraphRAG operates in two distinct phases:
 ╚═══════════════════════════════════════════════════════════════════════════╝
 ```
 
+### Two Extraction Paths: Choose One
+
+**IMPORTANT:** There are two ways to run entity extraction. Both produce the same output file (`extraction_results.json`), but differ in how entity types are determined:
+
+| Stage | Command | How Entity Types Are Determined |
+|-------|---------|--------------------------------|
+| **Stage 4.5 autotune** | `python -m src.stages.run_stage_4_5_autotune` | Discovered from your corpus content |
+| **Stage 4.6 graph_extract** | `python -m src.stages.run_stage_4_6_graph_extract` | Hardcoded in `src/config.py` |
+
+**When to use each:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DECISION TREE                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Is this a new domain (not neuroscience/philosophy)?                       │
+│       │                                                                     │
+│       ├── YES → Use 4.5 autotune (discovers types from YOUR content)       │
+│       │         - More accurate for domain-specific documents               │
+│       │         - Takes longer (extra LLM calls for type consolidation)     │
+│       │         - Creates discovered_types.json for future reference        │
+│       │                                                                     │
+│       └── NO → Either works, but 4.5 autotune still recommended            │
+│                 - 4.6 uses predefined types that may not match your corpus  │
+│                 - 4.5 adapts to your actual content                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Execution flow:**
+
+```
+Stage 4 (chunks) ─────────────────────────────────────────────────► Stage 6b
+                       │                                                │
+                       ▼                                                ▼
+             ┌─────────────────────┐                           Neo4j Upload
+             │ Choose ONE:         │                                +
+             │                     │                           Leiden Detection
+             │ • 4.5 autotune      │──► extraction_results.json     +
+             │   (recommended)     │                           Community Summaries
+             │                     │
+             │ • 4.6 graph_extract │
+             └─────────────────────┘
+```
+
+**Output files from extraction:**
+
+| File | Created By | Purpose |
+|------|------------|---------|
+| `data/processed/07_graph/extraction_results.json` | Both 4.5 and 4.6 | Entities + relationships for Neo4j |
+| `data/processed/07_graph/discovered_types.json` | Only 4.5 autotune | Auto-discovered entity/relationship types |
+
 ---
 
 ## 3. Configuration Deep-Dive

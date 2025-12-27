@@ -73,16 +73,15 @@ def project_graph(gds: GraphDataScience, graph_name: str = "graphrag") -> Any:
 
     # Project the graph
     # Using native projection for Entity nodes and RELATED_TO relationships
+    # Note: GDS only supports numeric properties, so we don't project entity_type (string)
     graph, result = gds.graph.project(
         graph_name,
         "Entity",  # Node label
         {
             "RELATED_TO": {
                 "orientation": "UNDIRECTED",  # Leiden works on undirected
-                "properties": ["weight"],
             }
         },
-        nodeProperties=["entity_type"],
     )
 
     logger.info(

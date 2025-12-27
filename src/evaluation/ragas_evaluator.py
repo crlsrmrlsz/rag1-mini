@@ -15,6 +15,7 @@ from ragas.metrics import (
     LLMContextPrecisionWithoutReference,
     LLMContextRecall,
     FactualCorrectness,
+    AnswerCorrectness,
 )
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
@@ -231,6 +232,7 @@ def run_evaluation(
             "context_precision",
             "context_recall",
             "factual_correctness",
+            "answer_correctness",  # Includes F1 component for benchmark comparability
         ]
 
     logger.info(f"Starting evaluation with {len(test_questions)} questions")
@@ -300,6 +302,7 @@ def run_evaluation(
         "context_precision": LLMContextPrecisionWithoutReference(),
         "context_recall": LLMContextRecall(),
         "factual_correctness": FactualCorrectness(),
+        "answer_correctness": AnswerCorrectness(),
     }
 
     # Validate metrics
@@ -310,7 +313,7 @@ def run_evaluation(
             continue
 
         # Check if metric requires reference
-        if m in ["context_recall", "factual_correctness"]:
+        if m in ["context_recall", "factual_correctness", "answer_correctness"]:
             has_references = all(q.get("reference") for q in test_questions)
             if not has_references:
                 logger.warning(f"Metric {m} requires reference answers, skipping")
@@ -347,6 +350,7 @@ def run_evaluation(
         "context_precision": "context_precision",
         "context_recall": "context_recall",
         "factual_correctness": "factual_correctness",
+        "answer_correctness": "answer_correctness",
     }
 
     # Extract aggregate scores from DataFrame

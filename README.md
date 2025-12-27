@@ -231,7 +231,7 @@ This project implements advanced RAG patterns from recent research:
 | **Cross-Encoder Reranking** | Re-scores results with BERT (+20-35% precision) | sentence-transformers |
 | **Structured LLM Outputs** | Pydantic + JSON Schema enforcement | OpenAI structured outputs |
 | **Section-Aware Chunking** | Respects document boundaries with overlap | RAG best practices |
-| **RAGAS Evaluation** | LLM-as-judge via LangChain wrapper (faithfulness, relevancy, context precision) | [RAGAS framework](https://docs.ragas.io/) |
+| **RAGAS Evaluation** | LLM-as-judge via LangChain wrapper (faithfulness, relevancy, context precision, F1 via AnswerCorrectness) | [RAGAS framework](https://docs.ragas.io/) |
 
 ## Requirements
 

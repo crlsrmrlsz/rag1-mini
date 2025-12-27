@@ -133,7 +133,7 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
             messages=messages,
             model=model,
             temperature=0.7,  # Paper uses 0.7 for diverse hypothetical documents
-            max_tokens=300,   # Allow natural length; encoder filters noise (paper approach)
+            # No max_tokens constraint - paper lets LLM generate naturally, encoder filters noise
         )
 
         return response.strip()

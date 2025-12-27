@@ -185,7 +185,7 @@ This prompt follows the paper's approach for **domain-specific retrieval**:
 
 4. **Temperature 0.7**: Matches paper for diverse hypothetical generation.
 
-5. **Max tokens 300**: Increased from 150 to allow natural passage length.
+5. **No max_tokens constraint**: Paper doesn't specify limits; uses API default (1024) for natural generation.
 
 ### Why Not Exact Paper Match?
 

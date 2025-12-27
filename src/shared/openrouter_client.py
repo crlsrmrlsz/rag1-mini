@@ -288,7 +288,6 @@ def call_structured_completion(
     }
 
     use_fallback = False
-    concise_retry_used = False
 
     for attempt in range(max_retries + 1):
         try:
@@ -321,12 +320,6 @@ def call_structured_completion(
                 try:
                     return response_model.model_validate_json(content)
                 except PydanticValidationError as e:
-                    error_str = str(e)
-                    is_truncation = (
-                        "EOF while parsing" in error_str
-                        or "expected `,` or `}`" in error_str
-                    )
-
                     if not use_fallback:
                         # Schema mode may have failed, try json_object fallback
                         logger.warning(
@@ -335,20 +328,7 @@ def call_structured_completion(
                         payload["response_format"] = {"type": "json_object"}
                         use_fallback = True
                         continue
-
-                    # Fallback mode failed - check if truncation error
-                    if is_truncation and not concise_retry_used:
-                        logger.warning("JSON truncated, retrying with concise instruction")
-                        # Append conciseness instruction to last message
-                        payload["messages"][-1]["content"] += (
-                            "\n\nCRITICAL: Output is being truncated. "
-                            "Use VERY SHORT descriptions (max 10 words each). "
-                            "Extract only the 5 most important entities."
-                        )
-                        concise_retry_used = True
-                        continue
-
-                    # All recovery attempts failed
+                    # Already in fallback mode, re-raise
                     raise
 
             # Check for schema mode unsupported error (400 with specific message)

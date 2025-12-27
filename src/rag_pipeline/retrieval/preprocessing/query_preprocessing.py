@@ -73,12 +73,9 @@ class PreprocessedQuery:
 # HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
 
-HYDE_PROMPT = """Write a passage from a knowledge base covering cognitive science and philosophical wisdom traditions.
+HYDE_PROMPT = """Please write a passage from a cognitive science and philosophy knowledge base to answer the question.
 
-Given a question, write a SHORT passage (2-3 sentences) that directly answers it.
-Include relevant mechanisms, concepts, or insights that would appear in such a knowledge base.
-
-Question: "{query}"
+Question: {query}
 
 Passage:"""
 
@@ -135,8 +132,8 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
         response = call_chat_completion(
             messages=messages,
             model=model,
-            temperature=0.7,  # Higher creativity for diverse answers
-            max_tokens=150,   # Longer for 2-3 sentence passages
+            temperature=0.7,  # Paper uses 0.7 for diverse hypothetical documents
+            max_tokens=300,   # Allow natural length; encoder filters noise (paper approach)
         )
 
         return response.strip()

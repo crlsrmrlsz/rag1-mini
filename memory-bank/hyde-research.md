@@ -155,35 +155,48 @@ Let queries determine natural topic balance. Forced splits constrain generation.
 
 ---
 
-## 8. Final Prompt Recommendation
+## 8. Implementation: Paper-Aligned Prompt (Updated Dec 2024)
 
-### New HyDE Prompt (~50 tokens)
-```
-Write a passage from a knowledge base covering cognitive science and philosophical wisdom traditions.
+### Current HyDE Prompt
+```python
+HYDE_PROMPT = """Please write a passage from a cognitive science and philosophy knowledge base to answer the question.
 
-Given a question, write a SHORT passage (2-3 sentences) that directly answers it.
-Include relevant mechanisms, concepts, or insights that would appear in such a knowledge base.
+Question: {query}
 
-Question: "{query}"
-
-Passage:
+Passage:"""
 ```
 
-### New Decomposition Prompt (~80 tokens)
-```
-Break down this question for a knowledge base covering cognitive science and philosophical wisdom traditions.
+### Design Rationale
 
-Create 3-4 sub-questions that together would answer the original question.
-Each sub-question should target a specific aspect that could be answered by a passage in the knowledge base.
+This prompt follows the paper's approach for **domain-specific retrieval**:
 
-Question: "{query}"
+| Paper Template | Our Adaptation |
+|----------------|----------------|
+| SciFact: "Please write a **scientific paper passage**..." | "Please write a passage from a **cognitive science and philosophy knowledge base**..." |
+| FiQA: "Please write a **financial article passage**..." | Same pattern: domain cue in task description |
 
-Respond with JSON:
-{
-  "sub_questions": ["...", "...", "..."],
-  "reasoning": "Brief explanation"
-}
-```
+**Key decisions aligned with paper:**
+
+1. **No length constraint**: Removed "SHORT" and "2-3 sentences" - the encoder's dense bottleneck filters noise from longer passages. Constraining length upfront defeats this mechanism.
+
+2. **Minimal instructions**: Removed "Include relevant mechanisms, concepts, or insights" - paper uses minimal prompts to avoid template bias.
+
+3. **Domain in task description**: Paper uses this pattern for specialized corpora (SciFact, FiQA) rather than preamble context.
+
+4. **Temperature 0.7**: Matches paper for diverse hypothetical generation.
+
+5. **Max tokens 300**: Increased from 150 to allow natural passage length.
+
+### Why Not Exact Paper Match?
+
+The paper's generic template (`"Please write a passage to answer the question"`) is domain-agnostic. For specialized corpora like ours, the paper recommends domain cues in the task description (see SciFact, FiQA, TREC-COVID templates). This guides the LLM to use vocabulary matching our actual documents.
+
+### Dense Bottleneck Principle
+
+The encoder (trained on real documents) compresses passages into fixed-size vectors:
+- Captures semantic essence (topics, concepts, relationships)
+- Discards noise (specific wrong facts, hallucinations)
+- This is why length constraints are unnecessary - trust the encoder
 
 ---
 

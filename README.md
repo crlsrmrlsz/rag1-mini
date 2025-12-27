@@ -223,7 +223,7 @@ This project implements advanced RAG patterns from recent research:
 |-----------|-------------|--------------|
 | **Hybrid Search** | BM25 keyword + vector semantic search | Weaviate docs |
 | **HyDE** | Generates hypothetical answers for semantic matching; prompt aligned with paper's domain-specific template pattern (see [hyde-research.md](memory-bank/hyde-research.md)) | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
-| **Query Decomposition** | Breaks complex questions into sub-queries with RRF merging (+36.7% MRR@10) | [Haystack Blog](https://haystack.deepset.ai/blog/query-decomposition) |
+| **Query Decomposition** | Breaks complex questions into sub-queries with RRF merging; prompt synthesized from Haystack/LangChain/EfficientRAG patterns (see [decomposition-research.md](memory-bank/decomposition-research.md)) | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) |
 | **Contextual Chunking** | LLM-generated context prepended to chunks (Anthropic-style, -35% failures) | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
 | **RAPTOR** | Hierarchical summarization tree; uses collapsed tree retrieval (paper shows it outperforms tree traversal) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
 | **GraphRAG** | Knowledge graph + Leiden communities for hybrid graph+vector retrieval | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) |

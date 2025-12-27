@@ -84,12 +84,12 @@ Passage:"""
 # DECOMPOSITION PROMPTS
 # =============================================================================
 
-DECOMPOSITION_PROMPT = """Break down this question for a knowledge base covering cognitive science and philosophical wisdom traditions.
+DECOMPOSITION_PROMPT = """Break down this question for a knowledge base on cognitive science and philosophy.
 
-Create 3-4 sub-questions that together would answer the original question.
-Each sub-question should target a specific aspect that could be answered by a passage in the knowledge base.
+If the question is simple enough to answer directly, keep it as a single question.
+Otherwise, create 3-5 sub-questions that can be answered independently and together cover all aspects of the original.
 
-Question: "{query}"
+Question: {query}
 
 Respond with JSON:
 {{
@@ -186,7 +186,7 @@ def decompose_query(query: str, model: Optional[str] = None) -> Tuple[List[str],
             messages=messages,
             model=model,
             response_model=DecompositionResult,
-            temperature=0.3,  # Slight creativity for varied sub-questions
+            temperature=0.7,  # Paper uses 0.8 for diverse decompositions (arXiv:2507.00355)
             max_tokens=400,
         )
 

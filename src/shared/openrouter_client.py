@@ -288,6 +288,7 @@ def call_structured_completion(
     }
 
     use_fallback = False
+    concise_retry_used = False
 
     for attempt in range(max_retries + 1):
         try:
@@ -297,6 +298,18 @@ def call_structured_completion(
 
             if response.status_code == 200:
                 result = response.json()
+
+                # Handle malformed response (missing 'choices' key)
+                if "choices" not in result or not result["choices"]:
+                    if attempt < max_retries:
+                        logger.warning(
+                            f"Malformed API response (missing 'choices'), "
+                            f"retry {attempt + 1}/{max_retries}"
+                        )
+                        time.sleep(backoff_base)
+                        continue
+                    raise APIError(f"Malformed API response after retries: {result}")
+
                 content = result["choices"][0]["message"]["content"]
 
                 # Log successful LLM call
@@ -308,6 +321,12 @@ def call_structured_completion(
                 try:
                     return response_model.model_validate_json(content)
                 except PydanticValidationError as e:
+                    error_str = str(e)
+                    is_truncation = (
+                        "EOF while parsing" in error_str
+                        or "expected `,` or `}`" in error_str
+                    )
+
                     if not use_fallback:
                         # Schema mode may have failed, try json_object fallback
                         logger.warning(
@@ -316,7 +335,20 @@ def call_structured_completion(
                         payload["response_format"] = {"type": "json_object"}
                         use_fallback = True
                         continue
-                    # Already in fallback mode, re-raise
+
+                    # Fallback mode failed - check if truncation error
+                    if is_truncation and not concise_retry_used:
+                        logger.warning("JSON truncated, retrying with concise instruction")
+                        # Append conciseness instruction to last message
+                        payload["messages"][-1]["content"] += (
+                            "\n\nCRITICAL: Output is being truncated. "
+                            "Use VERY SHORT descriptions (max 10 words each). "
+                            "Extract only the 5 most important entities."
+                        )
+                        concise_retry_used = True
+                        continue
+
+                    # All recovery attempts failed
                     raise
 
             # Check for schema mode unsupported error (400 with specific message)

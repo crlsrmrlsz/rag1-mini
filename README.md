@@ -15,6 +15,16 @@ An advanced Retrieval-Augmented Generation pipeline implementing 6 modern techni
 
 Plus: Hybrid search (BM25 + vector), cross-encoder reranking, structured LLM outputs, and RAGAS evaluation framework.
 
+## Documentation
+
+For implementation details, design decisions, and code walkthroughs:
+
+- **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
+- **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
+- **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
+
+Each technique includes paper references, key code snippets, and tradeoff analysis.
+
 ## What I Learned
 
 Building this pipeline taught me that RAG is deceptively complex. A few key insights:

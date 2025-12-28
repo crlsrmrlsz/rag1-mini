@@ -2,6 +2,13 @@
 
 Deep-dive implementation documentation for understanding how each technique works, why design decisions were made, and how components integrate.
 
+## Getting Started
+
+- **[Getting Started Guide](getting-started.md)** — Installation, prerequisites, full command reference
+- **[Architecture](architecture.md)** — Pipeline diagram, project structure, key modules
+
+---
+
 ## Content Preparation
 
 How raw documents become searchable chunks.

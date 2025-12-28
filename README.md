@@ -19,6 +19,7 @@ Plus: Hybrid search (BM25 + vector), cross-encoder reranking, structured LLM out
 
 For implementation details, design decisions, and code walkthroughs:
 
+- **[Content Preparation](docs/content-preparation/)** — PDF extraction, cleaning
 - **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
 - **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
 - **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results

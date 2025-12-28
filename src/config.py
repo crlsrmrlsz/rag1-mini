@@ -303,6 +303,45 @@ AVAILABLE_PREPROCESSING_STRATEGIES = [
 # Default strategy for UI and preprocess_query() when not specified
 DEFAULT_PREPROCESSING_STRATEGY = "hyde"
 
+# Preprocessing compatibility by collection type
+# GraphRAG requires chunk IDs to match between extraction and search.
+# Only section and contextual collections have compatible IDs because:
+# - section: Original chunk IDs used for entity extraction
+# - contextual: Preserves section chunk IDs (adds context prefix only)
+# - semantic: Different chunk boundaries = different IDs = no match
+# - raptor: Summary nodes have different IDs; only leaf chunks match
+GRAPHRAG_COMPATIBLE_COLLECTIONS = ["section", "contextual"]
+
+PREPROCESSING_COMPATIBILITY = {
+    "section": ["none", "hyde", "decomposition", "graphrag"],
+    "contextual": ["none", "hyde", "decomposition", "graphrag"],
+    "semantic": ["none", "hyde", "decomposition"],  # No graphrag - chunk ID mismatch
+    "raptor": ["none", "hyde", "decomposition"],  # No graphrag - partial match only
+}
+
+
+def get_valid_preprocessing_strategies(collection_strategy: str) -> list:
+    """Return valid preprocessing strategies for a collection type.
+
+    GraphRAG requires matching chunk IDs between extraction and search.
+    Only section and contextual collections have compatible IDs.
+
+    Args:
+        collection_strategy: The chunking strategy name (e.g., "section", "semantic_0.5").
+
+    Returns:
+        List of valid preprocessing strategy IDs.
+    """
+    # Handle semantic variants like "semantic_0.5"
+    base_strategy = (
+        collection_strategy.split("_")[0]
+        if "_" in collection_strategy
+        else collection_strategy
+    )
+    return PREPROCESSING_COMPATIBILITY.get(
+        base_strategy, ["none", "hyde", "decomposition"]
+    )
+
 
 # ============================================================================
 # CHUNKING STRATEGY SETTINGS

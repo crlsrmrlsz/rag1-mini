@@ -471,9 +471,10 @@ def generate_report(
 
 
 def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
-    """Run comprehensive evaluation across all combinations.
+    """Run comprehensive evaluation across all VALID combinations.
 
     Tests: collections x alpha values x preprocessing strategies
+    - Filters out invalid combinations (e.g., graphrag + semantic collection)
     - No reranking (always disabled for speed)
     - Uses curated 10-question subset
     - Generates enhanced leaderboard report with statistical analysis
@@ -484,8 +485,9 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         args: Command-line arguments (uses generation_model, evaluation_model, output).
     """
     import time
-    from src.ui.services.search import list_collections
+    from src.ui.services.search import list_collections, extract_strategy_from_collection
     from src.rag_pipeline.retrieval.preprocessing.strategies import list_strategies
+    from src.config import get_valid_preprocessing_strategies
 
     logger.info("Starting comprehensive evaluation mode...")
     start_time = time.time()
@@ -494,75 +496,84 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
     logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
 
-    # Get all collections, alphas, strategies
+    # Get all collections, alphas, all strategies
     collections = list_collections()
     alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
-    strategies = list_strategies()
+    all_strategies = list_strategies()
 
     if not collections:
         logger.error("No RAG collections found in Weaviate. Run stage 6 first.")
         return
 
-    # Calculate total combinations
-    total_combinations = len(collections) * len(alphas) * len(strategies)
-    logger.info(f"Testing {total_combinations} combinations:")
+    # Build valid combinations list (filter out invalid ones like graphrag + semantic)
+    valid_combinations = []
+    for collection in collections:
+        collection_strategy = extract_strategy_from_collection(collection)
+        valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
+        for alpha in alphas:
+            for strategy in all_strategies:
+                if strategy in valid_preprocessing:
+                    valid_combinations.append((collection, alpha, strategy))
+
+    # Log what we're testing
+    skipped = len(collections) * len(alphas) * len(all_strategies) - len(valid_combinations)
+    logger.info(f"Testing {len(valid_combinations)} valid combinations ({skipped} invalid skipped):")
     logger.info(f"  Collections ({len(collections)}): {collections}")
     logger.info(f"  Alphas ({len(alphas)}): {alphas}")
-    logger.info(f"  Strategies ({len(strategies)}): {strategies}")
+    logger.info(f"  Strategies ({len(all_strategies)}): {all_strategies}")
+    logger.info(f"  Note: graphrag only valid with section/contextual collections")
 
-    # Run all combinations
+    # Run all valid combinations
     all_results = []
     count = 0
 
-    for collection in collections:
-        for alpha in alphas:
-            for strategy in strategies:
-                count += 1
-                logger.info(
-                    f"\n[{count}/{total_combinations}] "
-                    f"{collection} | alpha={alpha} | strategy={strategy}"
-                )
+    for collection, alpha, strategy in valid_combinations:
+        count += 1
+        logger.info(
+            f"\n[{count}/{len(valid_combinations)}] "
+            f"{collection} | alpha={alpha} | strategy={strategy}"
+        )
 
-                try:
-                    results = run_evaluation(
-                        test_questions=questions,
-                        metrics=["faithfulness", "relevancy", "context_precision"],
-                        top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
-                        generation_model=args.generation_model,
-                        evaluation_model=args.evaluation_model,
-                        collection_name=collection,
-                        use_reranking=False,  # Always disabled for speed
-                        alpha=alpha,
-                        preprocessing_strategy=strategy,
-                        preprocessing_model=None,
-                    )
+        try:
+            results = run_evaluation(
+                test_questions=questions,
+                metrics=["faithfulness", "relevancy", "context_precision"],
+                top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
+                generation_model=args.generation_model,
+                evaluation_model=args.evaluation_model,
+                collection_name=collection,
+                use_reranking=False,  # Always disabled for speed
+                alpha=alpha,
+                preprocessing_strategy=strategy,
+                preprocessing_model=None,
+            )
 
-                    # Store configuration + scores
-                    all_results.append({
-                        "collection": collection,
-                        "alpha": alpha,
-                        "strategy": strategy,
-                        "scores": results["scores"],
-                        "num_questions": len(questions),
-                    })
+            # Store configuration + scores
+            all_results.append({
+                "collection": collection,
+                "alpha": alpha,
+                "strategy": strategy,
+                "scores": results["scores"],
+                "num_questions": len(questions),
+            })
 
-                    scores = results["scores"]
-                    logger.info(
-                        f"  -> faith={scores.get('faithfulness', 0):.3f} "
-                        f"relev={scores.get('relevancy', 0):.3f} "
-                        f"ctx_prec={scores.get('context_precision', 0):.3f}"
-                    )
+            scores = results["scores"]
+            logger.info(
+                f"  -> faith={scores.get('faithfulness', 0):.3f} "
+                f"relev={scores.get('relevancy', 0):.3f} "
+                f"ctx_prec={scores.get('context_precision', 0):.3f}"
+            )
 
-                except Exception as e:
-                    logger.error(f"  -> FAILED: {e}")
-                    all_results.append({
-                        "collection": collection,
-                        "alpha": alpha,
-                        "strategy": strategy,
-                        "scores": {"faithfulness": 0, "relevancy": 0, "context_precision": 0},
-                        "num_questions": len(questions),
-                        "error": str(e),
-                    })
+        except Exception as e:
+            logger.error(f"  -> FAILED: {e}")
+            all_results.append({
+                "collection": collection,
+                "alpha": alpha,
+                "strategy": strategy,
+                "scores": {"faithfulness": 0, "relevancy": 0, "context_precision": 0},
+                "num_questions": len(questions),
+                "error": str(e),
+            })
 
     # Calculate total duration
     duration_seconds = time.time() - start_time
@@ -575,7 +586,9 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     grid_params = {
         "collections": collections,
         "alphas": alphas,
-        "strategies": strategies,
+        "strategies": all_strategies,
+        "valid_combinations_count": len(valid_combinations),
+        "skipped_count": skipped,
     }
 
     generate_comprehensive_report(

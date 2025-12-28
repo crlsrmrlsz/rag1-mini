@@ -560,6 +560,33 @@ python -m src.stages.run_stage_6b_neo4j
 
 See `memory-bank/graphrag-quickstart.md` for a 1-page quick reference.
 
+### GraphRAG Chunk ID Compatibility (Dec 28, 2024)
+
+**Critical discovery:** GraphRAG only works with certain collections due to chunk ID coupling:
+
+| Collection | GraphRAG Compatible? | Reason |
+|------------|---------------------|--------|
+| section | ✅ Yes | Chunk IDs match extraction source |
+| contextual | ✅ Yes | Preserves section chunk IDs |
+| semantic | ❌ No | Different chunk boundaries = different IDs |
+| raptor | ⚠️ Partial | Only leaf chunks match |
+
+**Implementation:**
+- `src/config.py` has `PREPROCESSING_COMPATIBILITY` dict mapping valid strategies per collection
+- UI filters preprocessing dropdown based on selected collection (wizard-style)
+- Comprehensive evaluation (`--comprehensive`) skips invalid combinations
+
+**Valid Combinations for Evaluation:**
+
+| Collection | none | hyde | decomposition | graphrag | Total |
+|------------|------|------|---------------|----------|-------|
+| section | ✅ | ✅ | ✅ | ✅ | 4 |
+| contextual | ✅ | ✅ | ✅ | ✅ | 4 |
+| semantic | ✅ | ✅ | ✅ | ❌ | 3 |
+| raptor | ✅ | ✅ | ✅ | ❌ | 3 |
+
+With 5 alpha values: 42 valid combinations (6 invalid skipped).
+
 ---
 
 ## Testing Protocol

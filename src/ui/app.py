@@ -318,46 +318,13 @@ def _render_pipeline_log():
 
 
 # ============================================================================
-# SIDEBAR - Settings organized by Pipeline Steps
+# SIDEBAR - Wizard-style: Collection first, then filtered Preprocessing options
 # ============================================================================
 
 st.sidebar.title("Settings")
 
 # -----------------------------------------------------------------------------
-# Query Preprocessing
-# -----------------------------------------------------------------------------
-st.sidebar.markdown("### Query Preprocessing")
-
-# Strategy selector (none = no preprocessing)
-strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
-strategy_ids = list(strategy_options.keys())
-selected_strategy = st.sidebar.selectbox(
-    "Strategy",
-    options=strategy_ids,
-    index=0,  # Default to "none"
-    format_func=lambda x: strategy_options[x][0],  # Display label
-    help="Query transformation strategy. Select 'None' to use the original query.",
-)
-
-enable_preprocessing = selected_strategy != "none"
-
-# Model selector (only shown when preprocessing is enabled)
-if enable_preprocessing:
-    prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
-    selected_prep_model = st.sidebar.selectbox(
-        "Preprocessing Model",
-        options=list(prep_model_options.keys()),
-        index=0,  # Default to first (cheapest)
-        format_func=lambda x: prep_model_options[x],
-        help="Model used for query preprocessing (HyDE, decomposition).",
-    )
-else:
-    selected_prep_model = PREPROCESSING_MODEL
-
-st.sidebar.divider()
-
-# -----------------------------------------------------------------------------
-# Collection
+# Collection (select first - determines available preprocessing options)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Collection")
 
@@ -390,9 +357,61 @@ if collection_infos:
             st.markdown(f"**Strategy:** `{selected_info.strategy}`")
             st.markdown(f"**Collection:** `{selected_info.collection_name}`")
             st.caption(selected_info.description)
+
+    # Get collection strategy for preprocessing compatibility
+    collection_strategy = selected_info.strategy if selected_info else "section"
 else:
     st.sidebar.warning("No collections found. Is Weaviate running?")
     selected_collection = None
+    collection_strategy = "section"
+
+st.sidebar.divider()
+
+# -----------------------------------------------------------------------------
+# Query Preprocessing (filtered based on selected collection)
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### Query Preprocessing")
+
+# Get valid preprocessing strategies for the selected collection
+from src.config import get_valid_preprocessing_strategies
+
+valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
+
+# Filter strategies to only valid ones for this collection
+filtered_strategies = [
+    s for s in AVAILABLE_PREPROCESSING_STRATEGIES if s[0] in valid_preprocessing
+]
+
+# Build strategy options from filtered list
+strategy_options = {s[0]: (s[1], s[2]) for s in filtered_strategies}
+strategy_ids = list(strategy_options.keys())
+
+selected_strategy = st.sidebar.selectbox(
+    "Strategy",
+    options=strategy_ids,
+    index=0,  # Default to "none"
+    format_func=lambda x: strategy_options[x][0],  # Display label
+    help="Query transformation strategy. Select 'None' to use the original query.",
+)
+
+# Show caption if graphrag is filtered out
+if "graphrag" not in valid_preprocessing:
+    st.sidebar.caption("GraphRAG not available for this collection (chunk ID mismatch)")
+
+enable_preprocessing = selected_strategy != "none"
+
+# Model selector (only shown when preprocessing is enabled)
+if enable_preprocessing:
+    prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
+    selected_prep_model = st.sidebar.selectbox(
+        "Preprocessing Model",
+        options=list(prep_model_options.keys()),
+        index=0,  # Default to first (cheapest)
+        format_func=lambda x: prep_model_options[x],
+        help="Model used for query preprocessing (HyDE, decomposition).",
+    )
+else:
+    selected_prep_model = PREPROCESSING_MODEL
 
 st.sidebar.divider()
 

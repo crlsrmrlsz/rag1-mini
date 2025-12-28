@@ -38,8 +38,6 @@ from src.config import (
     DEFAULT_PREPROCESSING_STRATEGY,
     GENERATION_MODEL,
     PREPROCESSING_MODEL,
-    ENABLE_ANSWER_GENERATION,
-    ENABLE_QUERY_PREPROCESSING,
 )
 from src.ui.services.search import search_chunks, list_collections, get_available_collections, CollectionInfo
 from src.rag_pipeline.retrieval.preprocessing import preprocess_query
@@ -316,7 +314,7 @@ def _render_pipeline_log():
 
             st.markdown(f"**Sources Cited:** {ans.sources_used}")
         else:
-            st.info("Answer generation was disabled for this query.")
+            st.info("No answer was generated (check for errors above).")
 
 
 # ============================================================================
@@ -457,8 +455,6 @@ st.sidebar.divider()
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Answer Generation")
 
-enable_generation = True  # Always enabled
-
 model_options = {model_id: label for model_id, label in DYNAMIC_GENERATION_MODELS}
 selected_model = st.sidebar.selectbox(
     "Generation Model",
@@ -582,8 +578,8 @@ if search_clicked and query:
                 st.session_state.graph_metadata = None
                 preprocessed = None
 
-        # Step 4: Answer Generation (optional)
-        if enable_generation and st.session_state.search_results:
+        # Step 4: Answer Generation
+        if st.session_state.search_results:
             with st.spinner("Stage 4: Generating answer..."):
                 try:
                     answer = generate_answer(
@@ -596,6 +592,7 @@ if search_clicked and query:
                     st.warning(f"Answer generation failed: {e}")
                     st.session_state.generated_answer = None
         else:
+            # No results to generate from
             st.session_state.generated_answer = None
 
         # Auto-save successful queries to log
@@ -656,7 +653,7 @@ if st.session_state.search_results:
 
                 st.divider()
 
-        # Generated Answer Section (if generation was enabled)
+        # Generated Answer Section
         if st.session_state.generated_answer:
             ans = st.session_state.generated_answer
             st.markdown("### Generated Answer")
@@ -690,7 +687,7 @@ if st.session_state.search_results:
                         st.caption(ref_text)
 
         else:
-            st.info("Answer generation is disabled. Enable it in the sidebar to see synthesized answers.")
+            st.warning("Answer generation failed. Check the Pipeline Log tab for details.")
 
     # -------------------------------------------------------------------------
     # TAB 2: Pipeline Log
@@ -707,7 +704,7 @@ if st.session_state.search_results:
         st.markdown(f"### Retrieved Chunks ({len(st.session_state.search_results)})")
 
         # Show score explanation based on retrieval method
-        prep = st.session_state.get("preprocess_result")
+        prep = st.session_state.preprocessed_query
         strategy = getattr(prep, 'strategy_used', 'none') if prep else 'none'
         reranked = st.session_state.get("rerank_data") is not None
 

@@ -1,6 +1,10 @@
 # RAGLab
 
-An advanced Retrieval-Augmented Generation pipeline implementing 6 modern techniques from 2024-2025 research papers. Built to deeply understand RAG concepts—not just use a framework. Tested on 19 books (neuroscience + philosophy) with 45 custom test questions and RAGAS evaluation. ~7,700 lines of Python code.
+A complete Retrieval-Augmented Generation pipeline built from scratch to deeply understand RAG concepts—not just use a framework.
+
+**Full 8-stage pipeline:** PDF extraction (Docling) → Markdown cleaning → NLP sentence segmentation (spaCy) → chunking (800 tokens) → embeddings (OpenRouter) → vector storage (Weaviate) → hybrid search + reranking → answer generation with RAGAS evaluation.
+
+**6 modern techniques** from 2024-2025 research papers, tested on 19 books (neuroscience + philosophy) with 45 custom questions. ~7,700 lines of Python code.
 
 ## Techniques Implemented
 
@@ -14,18 +18,6 @@ An advanced Retrieval-Augmented Generation pipeline implementing 6 modern techni
 | **GraphRAG Auto-Tuning** | [MS Research](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) | Discovers entity types from corpus content (per-book resumable) |
 
 Plus: Hybrid search (BM25 + vector), cross-encoder reranking, structured LLM outputs, and RAGAS evaluation framework.
-
-## Key Insights
-
-Building this pipeline taught me that RAG is deceptively complex:
-
-**PDF parsing is harder than expected.** Scientific books with complex layouts, figures, and footnotes break naive extraction. Docling helped, but significant cleaning was still needed.
-
-**Prompts make or break LLM-based techniques.** HyDE, RAPTOR summarization, and entity extraction all depend heavily on prompt engineering. Small wording changes dramatically affect output quality.
-
-**Evaluation is the hardest part.** Generating good test questions for RAGAS requires domain expertise. The gap between "looks reasonable" and "measurably good" is where real learning happens.
-
-**GraphRAG complexity is justified.** The knowledge graph + Leiden communities approach seemed over-engineered at first, but it handles cross-document reasoning that vector search alone cannot.
 
 ## Quick Start
 
@@ -60,6 +52,18 @@ For implementation details, design decisions, and code walkthroughs:
 - **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
 - **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
 - **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
+
+## Key Insights
+
+Building this pipeline taught me that RAG is deceptively complex:
+
+**PDF parsing is harder than expected.** Scientific books with complex layouts, figures, and footnotes break naive extraction. Docling helped, but significant cleaning was still needed.
+
+**Prompts make or break LLM-based techniques.** HyDE, RAPTOR summarization, and entity extraction all depend heavily on prompt engineering. Small wording changes dramatically affect output quality.
+
+**Evaluation is the hardest part.** Generating good test questions for RAGAS requires domain expertise. The gap between "looks reasonable" and "measurably good" is where real learning happens.
+
+**GraphRAG complexity is justified.** The knowledge graph + Leiden communities approach seemed over-engineered at first, but it handles cross-document reasoning that vector search alone cannot.
 
 ## License
 

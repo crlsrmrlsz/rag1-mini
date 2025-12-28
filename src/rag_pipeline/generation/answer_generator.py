@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
-from src.config import GENERATION_MODEL
+from src.config import GENERATION_MODEL, GENERATION_SYSTEM_PROMPT
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion
 
@@ -56,22 +56,6 @@ class GeneratedAnswer:
     generation_time_ms: float = 0.0
     system_prompt_used: Optional[str] = None
     user_prompt_used: Optional[str] = None
-
-
-# =============================================================================
-# SYSTEM PROMPT
-# =============================================================================
-
-SYSTEM_PROMPT = """You are a knowledgeable assistant that synthesizes information from diverse sources.
-
-Your context may include:
-- Scientific sources (neuroscience, cognitive science, psychology)
-- Philosophical and wisdom literature (Stoics, Eastern philosophy, etc.)
-
-When relevant, distinguish between empirical findings and philosophical insights,
-but structure your answer naturally based on what the question needs.
-
-Cite sources by number [1], [2], etc. so users can explore further."""
 
 
 def _format_context(chunks: List[Dict[str, Any]]) -> str:
@@ -176,7 +160,7 @@ Question: {query}
 Please answer based on the context above, citing sources by number [1], [2], etc."""
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": GENERATION_SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
     ]
 
@@ -200,6 +184,6 @@ Please answer based on the context above, citing sources by number [1], [2], etc
         sources_used=sources_used,
         model=model,
         generation_time_ms=elapsed_ms,
-        system_prompt_used=SYSTEM_PROMPT,
+        system_prompt_used=GENERATION_SYSTEM_PROMPT,
         user_prompt_used=user_message,
     )

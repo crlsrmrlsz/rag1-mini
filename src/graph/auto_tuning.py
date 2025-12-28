@@ -32,6 +32,9 @@ from src.config import (
     CORPUS_BOOK_MAPPING,
     GRAPHRAG_TYPES_PER_CORPUS,
     GRAPHRAG_MIN_CORPUS_PERCENTAGE,
+    GRAPHRAG_OPEN_EXTRACTION_PROMPT,
+    GRAPHRAG_GLOBAL_CONSOLIDATION_PROMPT,
+    GRAPHRAG_STRATIFIED_CONSOLIDATION_PROMPT,
 )
 from src.shared.openrouter_client import call_structured_completion
 from src.shared.files import setup_logging, OverwriteContext
@@ -73,65 +76,6 @@ class ConsolidatedTypes(BaseModel):
 
 
 # ============================================================================
-# Prompts
-# ============================================================================
-
-OPEN_EXTRACTION_PROMPT = """Extract entities and relationships from this text.
-
-For each entity, assign the MOST APPROPRIATE TYPE (use UPPERCASE_SNAKE_CASE).
-Common types: BRAIN_REGION, NEUROTRANSMITTER, CONCEPT, PHILOSOPHER, RESEARCHER, BEHAVIOR, EMOTION, BOOK, STUDY.
-You may create NEW types if none fit well.
-
-LIMITS: Up to {max_entities} entities and {max_relationships} relationships.
-Keep descriptions under 15 words. Focus on significant concepts.
-
-Text:
-{text}
-
-IMPORTANT: Respond ONLY with valid JSON:
-{{"entities": [{{"name": "...", "entity_type": "...", "description": "..."}}], "relationships": [{{"source_entity": "...", "target_entity": "...", "relationship_type": "...", "description": "...", "weight": 1.0}}]}}"""
-
-
-GLOBAL_CONSOLIDATION_PROMPT = """Consolidate these discovered entity/relationship types into a clean taxonomy.
-
-ENTITY TYPES (with counts):
-{entity_types}
-
-RELATIONSHIP TYPES (with counts):
-{relationship_types}
-
-Rules:
-1. Merge similar types (e.g., BRAIN_REGION + NEURAL_STRUCTURE)
-2. Remove types with count=1 unless clearly important
-3. Target: 15-25 entity types, 10-20 relationship types
-
-Respond with JSON: {{"entity_types": [...], "relationship_types": [...], "rationale": "..."}}"""
-
-
-STRATIFIED_CONSOLIDATION_PROMPT = """Consolidate entity types from TWO domains with BALANCED representation.
-
-DOMAIN 1: {corpus1_name}
-{corpus1_types}
-
-DOMAIN 2: {corpus2_name}
-{corpus2_types}
-
-SHARED TYPES:
-{shared_types}
-
-RELATIONSHIP TYPES:
-{relationship_types}
-
-Rules:
-1. Keep domain-specific types even if low global count
-2. Merge obviously similar types across domains
-3. Target: 20-25 entity types, 12-18 relationship types
-4. Ensure BOTH domains are well-represented
-
-Respond with JSON: {{"entity_types": [...], "relationship_types": [...], "rationale": "..."}}"""
-
-
-# ============================================================================
 # Core Extraction Functions
 # ============================================================================
 
@@ -140,7 +84,7 @@ def extract_chunk(
     model: str = GRAPHRAG_EXTRACTION_MODEL,
 ) -> OpenExtractionResult:
     """Extract entities/relationships from a single chunk."""
-    prompt = OPEN_EXTRACTION_PROMPT.format(
+    prompt = GRAPHRAG_OPEN_EXTRACTION_PROMPT.format(
         text=chunk["text"],
         max_entities=GRAPHRAG_MAX_ENTITIES,
         max_relationships=GRAPHRAG_MAX_RELATIONSHIPS,
@@ -246,7 +190,7 @@ def consolidate_global(
         f"  - {t}: {c}" for t, c in sorted(relationship_type_counts.items(), key=lambda x: -x[1])
     )
 
-    prompt = GLOBAL_CONSOLIDATION_PROMPT.format(
+    prompt = GRAPHRAG_GLOBAL_CONSOLIDATION_PROMPT.format(
         entity_types=entity_str,
         relationship_types=rel_str,
     )
@@ -334,7 +278,7 @@ def consolidate_stratified(
         f"  - {t}: {c}" for t, c in sorted(relationship_type_counts.items(), key=lambda x: -x[1])[:25]
     )
 
-    prompt = STRATIFIED_CONSOLIDATION_PROMPT.format(
+    prompt = GRAPHRAG_STRATIFIED_CONSOLIDATION_PROMPT.format(
         corpus1_name=corpus_names[0].upper() if corpus_names else "CORPUS1",
         corpus1_types=format_types(corpus_names[0]) if corpus_names else "",
         corpus2_name=corpus_names[1].upper() if len(corpus_names) > 1 else "CORPUS2",

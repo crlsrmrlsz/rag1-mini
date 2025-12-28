@@ -30,7 +30,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import requests
 from pydantic import ValidationError as PydanticValidationError
 
-from src.config import PREPROCESSING_MODEL
+from src.config import PREPROCESSING_MODEL, HYDE_PROMPT, DECOMPOSITION_PROMPT
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
@@ -72,30 +72,6 @@ class PreprocessedQuery:
 # =============================================================================
 # HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
-
-HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
-
-Question: {query}
-
-Passage:"""
-
-
-# =============================================================================
-# DECOMPOSITION PROMPTS
-# =============================================================================
-
-DECOMPOSITION_PROMPT = """Break down this question for a knowledge base on cognitive science and philosophy.
-
-If the question is simple enough to answer directly, keep it as a single question.
-Otherwise, create 3-5 sub-questions that can be answered independently and together cover all aspects of the original.
-
-Question: {query}
-
-Respond with JSON:
-{{
-  "sub_questions": ["...", "...", "..."],
-  "reasoning": "Brief explanation"
-}}"""
 
 
 def hyde_prompt(query: str, model: Optional[str] = None, k: int = 5) -> List[str]:

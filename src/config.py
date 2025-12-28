@@ -747,3 +747,105 @@ CORPUS_BOOK_MAPPING = {
 # Stratified consolidation parameters
 GRAPHRAG_TYPES_PER_CORPUS = 12      # Top entity types to select from each corpus
 GRAPHRAG_MIN_CORPUS_PERCENTAGE = 1.0  # Minimum % within corpus to be considered (filters noise)
+
+
+# =============================================================================
+# QUERY PREPROCESSING PROMPTS
+# =============================================================================
+# Prompts for query transformation strategies (HyDE, decomposition)
+
+HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
+
+Question: {query}
+
+Passage:"""
+
+DECOMPOSITION_PROMPT = """Break down this question for a knowledge base on cognitive science and philosophy.
+
+If the question is simple enough to answer directly, keep it as a single question.
+Otherwise, create 3-5 sub-questions that can be answered independently and together cover all aspects of the original.
+
+Question: {query}
+
+Respond with JSON:
+{{
+  "sub_questions": ["...", "...", "..."],
+  "reasoning": "Brief explanation"
+}}"""
+
+
+# =============================================================================
+# ANSWER GENERATION PROMPTS
+# =============================================================================
+# System prompt for LLM answer synthesis
+
+GENERATION_SYSTEM_PROMPT = """You are a knowledgeable assistant that synthesizes information from diverse sources.
+
+Your context may include:
+- Scientific sources (neuroscience, cognitive science, psychology)
+- Philosophical and wisdom literature (Stoics, Eastern philosophy, etc.)
+
+When relevant, distinguish between empirical findings and philosophical insights,
+but structure your answer naturally based on what the question needs.
+
+Cite sources by number [1], [2], etc. so users can explore further."""
+
+
+# =============================================================================
+# AUTO-TUNING PROMPTS (GraphRAG Entity Type Discovery)
+# =============================================================================
+# Used by Stage 4.5 for open-ended entity extraction and type consolidation
+
+GRAPHRAG_OPEN_EXTRACTION_PROMPT = """Extract entities and relationships from this text.
+
+For each entity, assign the MOST APPROPRIATE TYPE (use UPPERCASE_SNAKE_CASE).
+Common types: BRAIN_REGION, NEUROTRANSMITTER, CONCEPT, PHILOSOPHER, RESEARCHER, BEHAVIOR, EMOTION, BOOK, STUDY.
+You may create NEW types if none fit well.
+
+LIMITS: Up to {max_entities} entities and {max_relationships} relationships.
+Keep descriptions under 15 words. Focus on significant concepts.
+
+Text:
+{text}
+
+IMPORTANT: Respond ONLY with valid JSON:
+{{"entities": [{{"name": "...", "entity_type": "...", "description": "..."}}], "relationships": [{{"source_entity": "...", "target_entity": "...", "relationship_type": "...", "description": "...", "weight": 1.0}}]}}"""
+
+
+GRAPHRAG_GLOBAL_CONSOLIDATION_PROMPT = """Consolidate these discovered entity/relationship types into a clean taxonomy.
+
+ENTITY TYPES (with counts):
+{entity_types}
+
+RELATIONSHIP TYPES (with counts):
+{relationship_types}
+
+Rules:
+1. Merge similar types (e.g., BRAIN_REGION + NEURAL_STRUCTURE)
+2. Remove types with count=1 unless clearly important
+3. Target: 15-25 entity types, 10-20 relationship types
+
+Respond with JSON: {{"entity_types": [...], "relationship_types": [...], "rationale": "..."}}"""
+
+
+GRAPHRAG_STRATIFIED_CONSOLIDATION_PROMPT = """Consolidate entity types from TWO domains with BALANCED representation.
+
+DOMAIN 1: {corpus1_name}
+{corpus1_types}
+
+DOMAIN 2: {corpus2_name}
+{corpus2_types}
+
+SHARED TYPES:
+{shared_types}
+
+RELATIONSHIP TYPES:
+{relationship_types}
+
+Rules:
+1. Keep domain-specific types even if low global count
+2. Merge obviously similar types across domains
+3. Target: 20-25 entity types, 12-18 relationship types
+4. Ensure BOTH domains are well-represented
+
+Respond with JSON: {{"entity_types": [...], "relationship_types": [...], "rationale": "..."}}"""

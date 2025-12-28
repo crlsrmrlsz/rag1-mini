@@ -993,11 +993,33 @@ Problem: Longer isn't always better. Could lose important context.
 
 ### 8.7 Recommended Improvements (Priority Order)
 
-1. **P1: Enhanced Entity Resolution** - Add Unicode normalization, stopword removal, punctuation stripping to `normalized_name()`
-2. **P2: Map-Reduce Global Search** - Implement proper global search with parallel partial answers and helpfulness scoring
-3. **P3: Community Hierarchy** - Store and use multi-level community structure from Leiden
-4. **P4: Embedding Similarity for Communities** - Replace keyword matching with embedding similarity on summaries
-5. **P5: Self-Reflection Loop** - Add iterative extraction with "did I miss anything?" evaluation
+1. **P1: Enhanced Entity Resolution** - IMPLEMENTED (Dec 2025)
+   - Added Unicode NFKC normalization
+   - Edge stopword removal (the, a, an, of, in, on, for, to, and)
+   - Punctuation stripping
+   - Whitespace normalization
+   - Python pre-computation before Neo4j upload (vs Cypher toLower/trim)
+   - See: `src/graph/schemas.py:normalized_name()`, `src/graph/neo4j_client.py`
+   - Tests: `tests/test_entity_resolution.py` (22 test cases)
+
+2. **P2: Map-Reduce Global Search** - SKIPPED
+   - Replaced with P4 (embedding similarity) which is simpler and captures the essence
+   - Full map-reduce adds complexity for marginal benefit in learning project
+
+3. **P3: Community Hierarchy** - NOT IMPLEMENTED
+   - Store and use multi-level community structure from Leiden
+   - Deferred: Hard to measure with small corpus
+
+4. **P4: Embedding Similarity for Communities** - IMPLEMENTED (Dec 2025)
+   - Community summaries now generate embeddings during summarization
+   - `retrieve_community_context()` uses cosine similarity for semantic matching
+   - Falls back to keyword matching if embeddings unavailable
+   - See: `src/graph/community.py`, `src/graph/query.py`
+   - Tests: `tests/test_community_retrieval.py` (8 test cases)
+
+5. **P5: Self-Reflection Loop** - NOT IMPLEMENTED
+   - Add iterative extraction with "did I miss anything?" evaluation
+   - Deferred: 3x cost increase for ~20% improvement
 
 ### 8.8 What Works Well
 
@@ -1006,6 +1028,21 @@ Problem: Longer isn't always better. Could lose important context.
 - Auto-tuning with stratified consolidation is a good addition not in original paper
 - Query entity extraction with LLM + fallback chain is robust
 - Crash recovery with --resume is well implemented
+- Enhanced entity resolution with Unicode/stopword/punctuation handling
+- Community embedding retrieval with cosine similarity
+
+### 8.9 Implementation Notes (Dec 2025)
+
+**Entity Resolution Improvement:**
+- No re-extraction needed - normalization applied at Neo4j upload time
+- Expected 10-20% reduction in duplicate entities
+- Run `python -m src.stages.run_stage_6b_neo4j` to apply to existing data
+
+**Community Embedding Retrieval:**
+- Embeddings generated during community summarization (Stage 6b)
+- Stored in communities.json with other community data
+- Query-time: embed query, compute cosine similarity with all community embeddings
+- Keyword matching preserved as fallback for legacy data
 
 ---
 

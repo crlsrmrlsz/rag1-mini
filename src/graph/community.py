@@ -25,7 +25,7 @@ Uses Neo4j GDS (Graph Data Science) for Leiden:
 4. Store summaries in Neo4j and/or JSON for retrieval
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import json
 
@@ -44,6 +44,7 @@ from src.config import (
 )
 from src.shared.openrouter_client import call_chat_completion
 from src.shared.files import setup_logging
+from src.rag_pipeline.embedding.embedder import embed_texts
 from .schemas import Community, CommunityMember
 from .neo4j_client import get_gds_client
 
@@ -296,11 +297,12 @@ def summarize_community(
     members: List[CommunityMember],
     relationships: List[Dict[str, Any]],
     model: str = GRAPHRAG_SUMMARY_MODEL,
-) -> str:
-    """Generate LLM summary for a community.
+) -> Tuple[str, Optional[List[float]]]:
+    """Generate LLM summary AND embedding for a community.
 
     Uses community entities and relationships to generate
-    a thematic summary for retrieval.
+    a thematic summary, then creates an embedding vector
+    for semantic retrieval.
 
     Args:
         members: List of community members.
@@ -308,7 +310,8 @@ def summarize_community(
         model: LLM model for summarization.
 
     Returns:
-        Summary string.
+        Tuple of (summary_text, embedding_vector).
+        Embedding may be None if generation fails.
     """
     # Build context
     context = build_community_context(members, relationships)
@@ -324,8 +327,18 @@ def summarize_community(
         temperature=0.3,
         max_tokens=GRAPHRAG_MAX_SUMMARY_TOKENS,
     )
+    summary = summary.strip()
 
-    return summary.strip()
+    # Generate embedding for the summary
+    try:
+        embeddings = embed_texts([summary])
+        embedding = embeddings[0] if embeddings else None
+        logger.debug(f"Generated embedding with {len(embedding) if embedding else 0} dimensions")
+    except Exception as e:
+        logger.warning(f"Failed to generate community embedding: {e}")
+        embedding = None
+
+    return summary, embedding
 
 
 def get_community_ids_from_neo4j(driver: Driver) -> set:
@@ -432,14 +445,14 @@ def detect_and_summarize_communities(
         # Get relationships
         relationships = get_community_relationships(driver, community_id)
 
-        # Generate summary
+        # Generate summary AND embedding
         logger.info(
             f"Summarizing community {community_id} "
             f"({len(members)} members, {len(relationships)} relationships)"
         )
-        summary = summarize_community(members, relationships, model=model)
+        summary, embedding = summarize_community(members, relationships, model=model)
 
-        # Create Community object
+        # Create Community object with embedding
         community = Community(
             community_id=community_key,
             level=0,  # Single level for now
@@ -447,6 +460,7 @@ def detect_and_summarize_communities(
             member_count=len(members),
             relationship_count=len(relationships),
             summary=summary,
+            embedding=embedding,
         )
         communities.append(community)
         new_summaries += 1
@@ -525,6 +539,7 @@ def load_communities(
             member_count=c_data["member_count"],
             relationship_count=c_data["relationship_count"],
             summary=c_data["summary"],
+            embedding=c_data.get("embedding"),
         )
         communities.append(community)
 

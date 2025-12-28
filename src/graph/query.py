@@ -30,6 +30,7 @@ from typing import List, Dict, Any, Optional, Tuple, Set
 import re
 import json
 
+import numpy as np
 from neo4j import Driver
 
 from src.config import (
@@ -42,6 +43,7 @@ from src.config import (
 )
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_structured_completion
+from src.rag_pipeline.embedding.embedder import embed_texts
 from .neo4j_client import find_entity_neighbors, find_entities_by_names
 from .community import load_communities
 from .schemas import Community, QueryEntities
@@ -247,15 +249,34 @@ def get_chunk_ids_from_graph(
     return list(chunk_ids)
 
 
+def cosine_similarity(a: List[float], b: List[float]) -> float:
+    """Compute cosine similarity between two vectors.
+
+    Args:
+        a: First embedding vector.
+        b: Second embedding vector.
+
+    Returns:
+        Cosine similarity score in range [-1, 1].
+    """
+    a_arr = np.array(a)
+    b_arr = np.array(b)
+    norm_product = np.linalg.norm(a_arr) * np.linalg.norm(b_arr)
+    if norm_product == 0:
+        return 0.0
+    return float(np.dot(a_arr, b_arr) / norm_product)
+
+
 def retrieve_community_context(
     query: str,
     communities: Optional[List[Community]] = None,
     top_k: int = GRAPHRAG_TOP_COMMUNITIES,
 ) -> List[Dict[str, Any]]:
-    """Retrieve relevant community summaries for global queries.
+    """Retrieve relevant community summaries using embedding similarity.
 
-    Uses simple keyword matching for now. Could be enhanced with
-    embedding similarity on community summaries.
+    Uses cosine similarity between query embedding and community summary
+    embeddings for semantic matching. Falls back to keyword matching if
+    embeddings are not available.
 
     Args:
         query: User query string.
@@ -263,12 +284,12 @@ def retrieve_community_context(
         top_k: Number of top communities to return.
 
     Returns:
-        List of community dicts with summary and member info.
+        List of community dicts with summary, member info, and score.
 
     Example:
         >>> context = retrieve_community_context("What are the main themes?")
         >>> for c in context:
-        ...     print(c["summary"][:100])
+        ...     print(c["summary"][:100], c["score"])
     """
     if communities is None:
         try:
@@ -280,26 +301,42 @@ def retrieve_community_context(
     if not communities:
         return []
 
-    # Score communities by keyword overlap with query
-    query_words = set(query.lower().split())
+    # Check if embeddings are available
+    has_embeddings = any(c.embedding for c in communities)
 
-    scored = []
-    for community in communities:
-        # Count keyword matches in summary
-        summary_words = set(community.summary.lower().split())
-        overlap = len(query_words & summary_words)
+    if has_embeddings:
+        # Embedding-based retrieval (preferred)
+        logger.debug("Using embedding-based community retrieval")
+        query_embedding = embed_texts([query])[0]
 
-        # Also check member names
-        member_names = " ".join(m.entity_name for m in community.members).lower()
-        member_overlap = sum(1 for w in query_words if w in member_names)
+        scored = []
+        for community in communities:
+            if community.embedding:
+                similarity = cosine_similarity(query_embedding, community.embedding)
+                scored.append((similarity, community))
 
-        score = overlap + member_overlap * 2  # Weight member matches higher
+        scored.sort(key=lambda x: x[0], reverse=True)
+    else:
+        # Fallback: keyword matching (legacy)
+        logger.debug("No community embeddings, using keyword fallback")
+        query_words = set(query.lower().split())
 
-        if score > 0:
-            scored.append((score, community))
+        scored = []
+        for community in communities:
+            # Count keyword matches in summary
+            summary_words = set(community.summary.lower().split())
+            overlap = len(query_words & summary_words)
 
-    # Sort by score descending
-    scored.sort(key=lambda x: x[0], reverse=True)
+            # Also check member names
+            member_names = " ".join(m.entity_name for m in community.members).lower()
+            member_overlap = sum(1 for w in query_words if w in member_names)
+
+            score = overlap + member_overlap * 2  # Weight member matches higher
+
+            if score > 0:
+                scored.append((score, community))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
 
     # Return top-k
     results = []
@@ -308,7 +345,7 @@ def retrieve_community_context(
             "community_id": community.community_id,
             "summary": community.summary,
             "member_count": community.member_count,
-            "score": score,
+            "score": float(score),
         })
 
     logger.info(f"Community retrieval found {len(results)} relevant communities")

@@ -193,10 +193,11 @@ def upload_entities(
     entities: List[Dict[str, Any]],
     batch_size: int = 100,
 ) -> int:
-    """Upload entities to Neo4j.
+    """Upload entities to Neo4j with Python-computed normalization.
 
     Uses MERGE to handle duplicates (same normalized_name = same node).
-    Entities are labeled with their entity_type for schema flexibility.
+    Normalization is computed in Python for better deduplication
+    (Unicode, stopwords, punctuation handling).
 
     Args:
         driver: Neo4j driver instance.
@@ -212,6 +213,16 @@ def upload_entities(
         >>> print(count)
         1
     """
+    from src.graph.schemas import GraphEntity
+
+    # Pre-compute normalized names in Python (better than Cypher toLower/trim)
+    for entity in entities:
+        ge = GraphEntity(
+            name=entity["name"],
+            entity_type=entity.get("entity_type", ""),
+        )
+        entity["normalized_name"] = ge.normalized_name()
+
     total = 0
 
     # Process in batches
@@ -221,7 +232,7 @@ def upload_entities(
         # UNWIND batch for efficient multi-row insert
         query = """
         UNWIND $entities AS entity
-        MERGE (e:Entity {normalized_name: toLower(trim(entity.name))})
+        MERGE (e:Entity {normalized_name: entity.normalized_name})
         ON CREATE SET
             e.name = entity.name,
             e.entity_type = entity.entity_type,
@@ -250,7 +261,7 @@ def upload_relationships(
     relationships: List[Dict[str, Any]],
     batch_size: int = 100,
 ) -> int:
-    """Upload relationships to Neo4j.
+    """Upload relationships to Neo4j with Python-computed normalization.
 
     Matches entities by normalized_name and creates relationships.
     Uses MERGE to avoid duplicate relationships.
@@ -269,17 +280,24 @@ def upload_relationships(
         >>> print(count)
         1
     """
+    from src.graph.schemas import GraphEntity
+
+    # Pre-compute normalized names for source and target entities
+    for rel in relationships:
+        source_ge = GraphEntity(name=rel["source_entity"], entity_type="")
+        target_ge = GraphEntity(name=rel["target_entity"], entity_type="")
+        rel["source_normalized"] = source_ge.normalized_name()
+        rel["target_normalized"] = target_ge.normalized_name()
+
     total = 0
 
     for i in range(0, len(relationships), batch_size):
         batch = relationships[i : i + batch_size]
 
-        # Use APOC to dynamically create relationship types
-        # Fallback to generic RELATED_TO if APOC not available
         query = """
         UNWIND $rels AS rel
-        MATCH (source:Entity {normalized_name: toLower(trim(rel.source_entity))})
-        MATCH (target:Entity {normalized_name: toLower(trim(rel.target_entity))})
+        MATCH (source:Entity {normalized_name: rel.source_normalized})
+        MATCH (target:Entity {normalized_name: rel.target_normalized})
         MERGE (source)-[r:RELATED_TO {type: rel.relationship_type}]->(target)
         ON CREATE SET
             r.description = rel.description,

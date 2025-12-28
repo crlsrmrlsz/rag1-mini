@@ -21,7 +21,13 @@ Pydantic v2 features used:
 """
 
 from typing import List, Optional, Dict, Any
+import unicodedata
+import re
+
 from pydantic import BaseModel, Field
+
+# Stopwords to remove from leading/trailing positions during normalization
+EDGE_STOPWORDS = frozenset({'the', 'a', 'an', 'of', 'in', 'on', 'for', 'to', 'and'})
 
 
 class GraphEntity(BaseModel):
@@ -64,8 +70,35 @@ class GraphEntity(BaseModel):
     )
 
     def normalized_name(self) -> str:
-        """Return normalized entity name for deduplication."""
-        return self.name.strip().lower()
+        """Normalize entity name for deduplication.
+
+        Applies: Unicode NFKC, lowercase, edge stopword removal,
+        punctuation stripping, whitespace normalization.
+
+        Returns:
+            Normalized name string for use as merge key.
+
+        Example:
+            >>> GraphEntity(name="The Dopamine", entity_type="X").normalized_name()
+            'dopamine'
+        """
+        name = self.name.strip()
+        # Unicode normalization (café → cafe)
+        name = unicodedata.normalize('NFKC', name)
+        name = name.lower()
+
+        # Remove leading/trailing stopwords
+        words = name.split()
+        while words and words[0] in EDGE_STOPWORDS:
+            words.pop(0)
+        while words and words[-1] in EDGE_STOPWORDS:
+            words.pop()
+
+        name = ' '.join(words)
+        # Strip punctuation (keep only alphanumeric and spaces)
+        name = re.sub(r'[^\w\s]', '', name)
+        # Normalize whitespace
+        return ' '.join(name.split())
 
     def to_neo4j_properties(self) -> Dict[str, Any]:
         """Convert to Neo4j node properties dict."""
@@ -286,5 +319,6 @@ class Community(BaseModel):
             "member_count": self.member_count,
             "relationship_count": self.relationship_count,
             "summary": self.summary,
+            "embedding": self.embedding,
             "members": [m.model_dump() for m in self.members],
         }

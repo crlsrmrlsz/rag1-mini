@@ -1,7 +1,7 @@
 # GraphRAG Research: Knowledge Graph-Augmented Retrieval for RAG
 
-**Date:** 2025-12-25
-**Status:** Research Complete, Ready for Implementation
+**Date:** 2025-12-28
+**Status:** Implementation Complete
 **Paper:** [From Local to Global: A Graph RAG Approach to Query-Focused Summarization (arXiv:2404.16130)](https://arxiv.org/abs/2404.16130)
 **Authors:** Darren Edge et al., Microsoft Research
 **Published:** April 2024
@@ -688,16 +688,23 @@ def run_leiden_community_detection(self) -> Dict[str, int]:
 
 ```
 src/
-+-- graph/                          # NEW: GraphRAG module
++-- graph/                              # GraphRAG module
 |   +-- __init__.py
-|   +-- extractor.py               # LLM entity/relationship extraction
-|   +-- neo4j_client.py            # Neo4j connection & operations
-|   +-- community.py               # Leiden + summarization
-|   +-- query.py                   # Graph-augmented retrieval
-|   +-- schemas.py                 # Pydantic models for entities
+|   +-- schemas.py                      # Pydantic models (GraphEntity, Community)
+|   +-- extractor.py                    # LLM entity/relationship extraction
+|   +-- auto_tuning.py                  # Domain-adaptive entity type discovery
+|   +-- neo4j_client.py                 # Neo4j connection & MERGE operations
+|   +-- community.py                    # Leiden detection + LLM summarization
+|   +-- query.py                        # Hybrid graph retrieval
 +-- stages/
-|   +-- run_stage_4_6_graph_extract.py  # Entity extraction stage
-|   +-- run_stage_6b_neo4j.py           # Graph upload + communities
+|   +-- run_stage_4_5_autotune.py       # Auto-tuning extraction (recommended)
+|   +-- run_stage_6b_neo4j.py           # Neo4j upload + Leiden + summaries
+```
+
+**Execution (see graphrag-quickstart.md):**
+```bash
+python -m src.stages.run_stage_4_5_autotune --strategy section  # Auto-discovers entity types
+python -m src.stages.run_stage_6b_neo4j                         # Upload + Leiden + summarize
 ```
 
 ### 5.3 Data Flow
@@ -793,133 +800,7 @@ def global_query(query: str, level: int = 0) -> str:
 
 ---
 
-## 6. Implementation Plan
-
-### Phase 8A: Infrastructure Setup
-
-**Task 8A.1: Neo4j Docker Setup**
-- [ ] Add Neo4j service to `docker-compose.yml`
-- [ ] Add GDS plugin configuration
-- [ ] Add config.py settings for Neo4j connection
-- [ ] Test connection from Python
-
-**Task 8A.2: Dependencies**
-- [ ] Add `neo4j>=5.0.0` to requirements
-- [ ] Add `graspologic>=3.0.0` (optional, for offline Leiden)
-- [ ] Verify compatibility with Python 3.10+
-
-**Task 8A.3: Schema & Client**
-- [ ] Create `src/graph/neo4j_client.py`
-- [ ] Implement connection pool
-- [ ] Create schema initialization
-- [ ] Add health check endpoint
-
-### Phase 8B: Entity Extraction
-
-**Task 8B.1: Extraction Schemas**
-- [ ] Create `src/graph/schemas.py` with:
-  - `Entity` dataclass (name, type, description, chunk_ids)
-  - `Relationship` dataclass (source, target, type, description, strength)
-  - `ExtractionResult` dataclass (entities, relationships, claims)
-
-**Task 8B.2: Extraction Module**
-- [ ] Create `src/graph/extractor.py`
-- [ ] Implement domain-specific entity types for RAG1-Mini
-- [ ] Add relationship type taxonomy
-- [ ] Implement self-reflection loop
-- [ ] Add extraction rate limiting (avoid API throttling)
-
-**Task 8B.3: Stage Runner**
-- [ ] Create `src/stages/run_stage_4_6_graph_extract.py`
-- [ ] Process each chunk, extract entities/relationships
-- [ ] Save to `data/processed/05_final_chunks/graph/{book}.json`
-- [ ] Handle incremental updates
-
-### Phase 8C: Graph Construction
-
-**Task 8C.1: Graph Upload**
-- [ ] Create `src/stages/run_stage_6b_neo4j.py`
-- [ ] Upload entities as nodes
-- [ ] Upload relationships as edges
-- [ ] Link entities to chunks
-
-**Task 8C.2: Entity Resolution**
-- [ ] Implement duplicate detection
-- [ ] Merge similar entities (exact match first)
-- [ ] Future: embedding-based similarity
-
-**Task 8C.3: Community Detection**
-- [ ] Run Leiden via GDS
-- [ ] Store hierarchy in node properties
-- [ ] Count communities per level
-
-### Phase 8D: Community Summarization
-
-**Task 8D.1: Summary Generation**
-- [ ] Create `src/graph/community.py`
-- [ ] Implement bottom-up summarization
-- [ ] Store summaries in Neo4j
-- [ ] Add token budget management
-
-**Task 8D.2: Summary Storage**
-- [ ] Create Community nodes in Neo4j
-- [ ] Link communities to member entities
-- [ ] Store level hierarchy
-
-### Phase 8E: Query Integration
-
-**Task 8E.1: Graph Query Module**
-- [ ] Create `src/graph/query.py`
-- [ ] Implement entity extraction from query
-- [ ] Implement neighborhood expansion
-- [ ] Return chunk IDs for retrieval
-
-**Task 8E.2: Hybrid Retrieval**
-- [ ] Modify `weaviate_query.py` or add wrapper
-- [ ] Combine graph and vector results
-- [ ] Implement configurable weighting
-
-**Task 8E.3: Global Query Mode**
-- [ ] Add community summary retrieval
-- [ ] Implement map-reduce for large summaries
-- [ ] Add query routing (local vs global)
-
-### Phase 8F: Evaluation
-
-**Task 8F.1: Evaluation Updates**
-- [ ] Add GraphRAG to evaluation modes
-- [ ] Track graph-specific metrics
-- [ ] Compare to baseline and RAPTOR
-
-**Task 8F.2: Parameter Tuning**
-- [ ] Test graph_weight values (0.2, 0.3, 0.4)
-- [ ] Test hop distances (1, 2, 3)
-- [ ] Test community levels (0, 1, 2)
-
----
-
-## 7. Cost Estimates
-
-### Entity Extraction (one-time, per corpus)
-- Chunks: ~3000 across all books
-- Tokens per extraction: ~1000 input + 500 output
-- Total: ~4.5M tokens
-- Cost (claude-3-haiku): ~$1.13
-
-### Community Summarization (one-time)
-- Estimated communities: ~50-100
-- Tokens per summary: ~2000 input + 500 output
-- Total: ~250k tokens
-- Cost (claude-3-haiku): ~$0.06
-
-### Query Time
-- Entity extraction: ~500 tokens per query
-- No graph database costs (local Neo4j)
-- Total per query: ~$0.0001
-
----
-
-## 8. Comparison: GraphRAG vs RAPTOR
+## 6. Comparison: GraphRAG vs RAPTOR
 
 | Aspect | RAPTOR | GraphRAG |
 |--------|--------|----------|
@@ -935,7 +816,7 @@ def global_query(query: str, level: int = 0) -> str:
 
 ---
 
-## 9. References
+## 7. References
 
 ### Primary Sources
 - [GraphRAG Paper (arXiv:2404.16130)](https://arxiv.org/abs/2404.16130)
@@ -960,40 +841,172 @@ def global_query(query: str, level: int = 0) -> str:
 
 ---
 
-## 10. Open Questions for Implementation
+## 8. Implementation Analysis (Dec 2025)
 
-### Q1: Should we use Microsoft's GraphRAG library or build from scratch?
-**Options:**
-- A) Use microsoft/graphrag package (complex dependencies, more features)
-- B) Use neo4j-graphrag-python package (simpler, Neo4j focused)
-- C) Build minimal custom implementation (maximum control, learning value)
+### 8.1 Research Sources
 
-**Recommendation:** Option C for learning project, following RAG1-Mini philosophy
+This analysis compares RAG1-Mini's GraphRAG implementation against:
+- Original paper: [arXiv:2404.16130](https://arxiv.org/abs/2404.16130)
+- Survey paper: [arXiv:2501.00309](https://arxiv.org/abs/2501.00309)
+- Microsoft implementation: [github.com/microsoft/graphrag](https://github.com/microsoft/graphrag)
+- Microsoft documentation: [microsoft.github.io/graphrag](https://microsoft.github.io/graphrag/)
+- Entity resolution discussion: [GitHub Issue #847](https://github.com/microsoft/graphrag/issues/847)
 
-### Q2: Entity extraction model choice?
-**Options:**
-- A) GPT-4o (highest quality, expensive)
-- B) Claude-3-haiku (good balance, cheaper)
-- C) DeepSeek-V3 (cheapest, untested for extraction)
+### 8.2 Critical Deviations from Original Paper
 
-**Recommendation:** Claude-3-haiku - good JSON output, reasonable cost
+#### Entity Resolution (HIGH PRIORITY)
 
-### Q3: Should community summaries be stored in Neo4j or Weaviate?
-**Options:**
-- A) Neo4j only (keeps graph complete)
-- B) Weaviate only (enables vector search of summaries)
-- C) Both (redundant but flexible)
+**Original GraphRAG:**
+- Uses "exact string matching" but notes "softer matching approaches can be used"
+- Microsoft had entity resolution step but removed it due to inconsistency
+- Paper states GraphRAG is "generally resilient to duplicate entities since duplicates are typically clustered together for summarization"
 
-**Recommendation:** Option B - summaries are searchable text, fit Weaviate better
+**This Project (`src/graph/schemas.py:66-68`):**
+```python
+def normalized_name(self) -> str:
+    return self.name.strip().lower()
+```
 
-### Q4: How to handle books as entities?
-**Options:**
-- A) Books are top-level entities, chapters/sections as relationships
-- B) Books are just metadata on chunk nodes
-- C) Books form natural root communities
+**Problems:**
+- "Marcus Aurelius" and "Aurelius" become different entities
+- "dopamine system", "the dopamine", "DOPAMINE" all separate
+- No Unicode normalization (NFKC)
+- No stopword removal
+- No lemmatization
 
-**Recommendation:** Option A - explicit Book entities enable "books about X" queries
+**Recommended Fix:**
+- Unicode NFKC normalization
+- Remove leading/trailing stopwords (the, a, an, of, etc.)
+- Strip punctuation
+- Normalize whitespace
+
+#### No Map-Reduce for Global Search (HIGH)
+
+**Original GraphRAG (from paper):**
+1. Shuffle community summaries into pre-specified token chunks
+2. Generate partial answers in parallel with 0-100 helpfulness scores
+3. Filter zero-score answers
+4. Sort by helpfulness, combine top answers into final response
+
+**This Project (`src/graph/query.py:284-296`):**
+```python
+# Score communities by keyword overlap with query
+query_words = set(query.lower().split())
+for community in communities:
+    summary_words = set(community.summary.lower().split())
+    overlap = len(query_words & summary_words)
+```
+
+- Simple keyword matching (not map-reduce)
+- No partial answer generation
+- No helpfulness scoring
+- No embedding similarity on summaries
+
+#### Community Hierarchy Not Utilized (MEDIUM)
+
+**Original GraphRAG:**
+- Multi-level hierarchy (C0, C1, C2...) from Leiden
+- Bottom-up summarization: leaf communities first, then aggregate
+- Query-time: Select community level based on query scope
+
+**This Project (`src/graph/community.py:443-446`):**
+```python
+community = Community(
+    community_id=community_key,
+    level=0,  # Single level for now  <-- HARDCODED
+    ...
+)
+```
+
+- Stores `includeIntermediateCommunities=True` but discards hierarchy
+- All communities stored at level=0
+- No level selection at query time
+
+#### No Self-Reflection/Glean Loop (MEDIUM)
+
+**Original GraphRAG:**
+- LLM evaluates: "Are there any entities or relationships you missed?"
+- Uses logit bias to force yes/no response
+- Iterates up to N times (~3 iterations)
+
+**This Project:**
+- Single-pass extraction (`src/graph/extractor.py:49-100`)
+- May miss 20-30% of entities that require re-reading
+
+### 8.3 Missing Features
+
+| Feature | Original | This Project | Impact |
+|---------|----------|--------------|--------|
+| Claims/Covariates extraction | Verifiable facts per entity | Not implemented | Reduced factual grounding |
+| Self-reflection loop | 3 iterations per chunk | Single pass | ~20% fewer entities |
+| Community hierarchy | Multi-level (C0-Cn) | Level 0 only | Less query flexibility |
+| Map-reduce global search | Parallel partial answers | Keyword matching | Worse global query answers |
+| Embedding on summaries | Vector similarity | Word overlap | Semantic matching lost |
+| Dynamic relationship types | Neo4j edge labels | Single RELATED_TO | Schema less explicit |
+
+### 8.4 Correct Implementations
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Leiden algorithm | Correct | Uses Neo4j GDS with gamma=1.0, maxLevels=10 |
+| GDS graph projection | Correct | Undirected projection for community detection |
+| Neo4j MERGE pattern | Correct | Idempotent entity/relationship upserts |
+| Structured LLM output | Correct | Pydantic + JSON Schema enforcement |
+| Query entity extraction | Good | LLM + regex fallback + Neo4j validation |
+| Auto-tuning entity types | Good | Stratified consolidation for multi-corpus |
+| Incremental saving | Correct | Resume support after crash |
+
+### 8.5 Minor Issues
+
+**Issue 1:** Relationship weight not used in Leiden
+```python
+# src/graph/community.py:77-85
+graph, result = gds.graph.project(
+    graph_name,
+    "Entity",
+    {"RELATED_TO": {"orientation": "UNDIRECTED"}},  # No weight projection
+)
+```
+Fix: Add `properties: 'weight'` and `relationshipWeightProperty` to Leiden call.
+
+**Issue 2:** Description merge strategy (longer wins)
+```python
+# src/graph/neo4j_client.py - ON MATCH
+e.description = CASE
+    WHEN size(entity.description) > size(coalesce(e.description, ''))
+    THEN entity.description
+    ELSE e.description
+END
+```
+Problem: Longer isn't always better. Could lose important context.
+
+### 8.6 Configuration Comparison
+
+| Parameter | Original Paper | This Project | Status |
+|-----------|---------------|--------------|--------|
+| Chunk size | 600 tokens | 800 tokens | OK (section-aware) |
+| Chunk overlap | 100 tokens | 2 sentences | OK |
+| Context window | 8,000 tokens | 6,000 chars (~1500 tokens) | Should increase |
+| Leiden resolution | 1.0 | 1.0 | Correct |
+| Max hierarchy levels | 10 | 10 | Correct |
+| Min community size | Not specified | 3 | OK |
+
+### 8.7 Recommended Improvements (Priority Order)
+
+1. **P1: Enhanced Entity Resolution** - Add Unicode normalization, stopword removal, punctuation stripping to `normalized_name()`
+2. **P2: Map-Reduce Global Search** - Implement proper global search with parallel partial answers and helpfulness scoring
+3. **P3: Community Hierarchy** - Store and use multi-level community structure from Leiden
+4. **P4: Embedding Similarity for Communities** - Replace keyword matching with embedding similarity on summaries
+5. **P5: Self-Reflection Loop** - Add iterative extraction with "did I miss anything?" evaluation
+
+### 8.8 What Works Well
+
+- Core Leiden pipeline is correctly implemented
+- Neo4j integration is solid with proper MERGE patterns
+- Auto-tuning with stratified consolidation is a good addition not in original paper
+- Query entity extraction with LLM + fallback chain is robust
+- Crash recovery with --resume is well implemented
 
 ---
 
-*Last Updated: 2025-12-25*
+*Last Updated: 2025-12-28*

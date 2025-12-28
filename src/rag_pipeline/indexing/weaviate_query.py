@@ -192,6 +192,7 @@ def query_hybrid(
     alpha: float = 0.5,
     book_ids: Optional[Union[str, List[str]]] = None,
     collection_name: Optional[str] = None,
+    precomputed_embedding: Optional[List[float]] = None,
 ) -> List[SearchResult]:
     """
     Perform hybrid search combining vector similarity and keyword matching.
@@ -202,7 +203,7 @@ def query_hybrid(
 
     Args:
         client: Connected Weaviate client.
-        query_text: The natural language query to search for.
+        query_text: The natural language query to search for (also used for BM25).
         top_k: Number of results to return (default: 5).
         alpha: Balance between vector (1.0) and keyword (0.0) search.
             - 1.0: Pure vector search (semantic only)
@@ -210,6 +211,8 @@ def query_hybrid(
             - 0.0: Pure keyword search (BM25 only)
         book_ids: Optional book ID(s) to filter results.
         collection_name: Target collection (default: from config).
+        precomputed_embedding: Optional pre-computed embedding vector. If provided,
+            skips embedding computation (useful for HyDE K=5 averaged embeddings).
 
     Returns:
         List of SearchResult objects, ordered by combined relevance.
@@ -228,9 +231,13 @@ def query_hybrid(
     if collection_name is None:
         collection_name = get_collection_name()
 
-    # Embed query for the vector component
-    logger.info(f"Hybrid search (alpha={alpha}): {query_text[:50]}...")
-    query_embedding = embed_texts([query_text])[0]
+    # Use precomputed embedding or embed the query
+    if precomputed_embedding is not None:
+        logger.info(f"Hybrid search (alpha={alpha}, precomputed embedding): {query_text[:50]}...")
+        query_embedding = precomputed_embedding
+    else:
+        logger.info(f"Hybrid search (alpha={alpha}): {query_text[:50]}...")
+        query_embedding = embed_texts([query_text])[0]
 
     collection = client.collections.get(collection_name)
     book_filter = _build_book_filter(book_ids)

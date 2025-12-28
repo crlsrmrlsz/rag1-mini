@@ -155,41 +155,76 @@ Let queries determine natural topic balance. Forced splits constrain generation.
 
 ---
 
-## 8. Implementation: Paper-Aligned Prompt (Updated Dec 2024)
+## 8. Implementation: Paper-Aligned Prompt with K=5 Averaging (Updated Dec 2024)
 
 ### Current HyDE Prompt
 ```python
-HYDE_PROMPT = """Please write a passage from a cognitive science and philosophy knowledge base to answer the question.
+HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
 
 Question: {query}
 
 Passage:"""
 ```
 
-### Design Rationale
+### December 2024 Update: Dual-Domain + K=5 Implementation
+
+Following the paper's recommendation for robust retrieval, we now generate **5 hypothetical passages** and average their embeddings.
+
+**Prompt Design Rationale:**
+1. **"Drawing on insights from..."** - Explicitly requests cross-domain synthesis for our mixed corpus
+2. **Parenthetical tradition hints** - "(Stoicism, Taoism, Confucianism, Schopenhauer, Gracian)" provides specific corpus cues without vocabulary lists
+3. **Covers all 10 philosophy books:**
+   - Stoicism: Seneca, Epictetus (2 books), Marcus Aurelius
+   - Taoism: Lao Tzu (Tao te ching)
+   - Confucianism: Confucius (The Analects)
+   - Schopenhauer: 3 books (Essays and Aphorisms, Counsels and Maxims, Wisdom of Life)
+   - Gracian: The Pocket Oracle and Art of Prudence
+
+**K=5 Multi-Hypothetical Implementation:**
+```python
+def hyde_prompt(query: str, model: str, k: int = 5) -> List[str]:
+    """Generate k hypothetical documents for query."""
+    passages = []
+    for _ in range(k):
+        response = call_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=model,
+            temperature=0.7,  # Paper default for diversity
+        )
+        passages.append(response.strip())
+    return passages
+```
+
+At retrieval time:
+1. Embed all K passages using the same embedding model
+2. Average the embedding vectors (element-wise mean)
+3. Use averaged vector for hybrid search
+4. Original query still used for BM25 keyword matching
+
+**Why K=5 Averaging?**
+- Paper finding: Multiple hypotheticals improve retrieval robustness
+- Different passages capture different phrasings and perspectives
+- Averaging creates a more centered representation in embedding space
+- Reduces impact of any single hallucination
+
+### Previous Design Rationale
 
 This prompt follows the paper's approach for **domain-specific retrieval**:
 
 | Paper Template | Our Adaptation |
 |----------------|----------------|
-| SciFact: "Please write a **scientific paper passage**..." | "Please write a passage from a **cognitive science and philosophy knowledge base**..." |
+| SciFact: "Please write a **scientific paper passage**..." | "Please write a short passage drawing on insights from **brain science and classical philosophy**..." |
 | FiQA: "Please write a **financial article passage**..." | Same pattern: domain cue in task description |
 
 **Key decisions aligned with paper:**
 
-1. **No length constraint**: Removed "SHORT" and "2-3 sentences" - the encoder's dense bottleneck filters noise from longer passages. Constraining length upfront defeats this mechanism.
+1. **Temperature 0.7**: Matches paper for diverse hypothetical generation.
 
-2. **Minimal instructions**: Removed "Include relevant mechanisms, concepts, or insights" - paper uses minimal prompts to avoid template bias.
+2. **Minimal instructions**: Single sentence prompt to avoid template bias.
 
-3. **Domain in task description**: Paper uses this pattern for specialized corpora (SciFact, FiQA) rather than preamble context.
+3. **Domain + tradition hints**: Specific enough to match corpus vocabulary, general enough to avoid overfitting.
 
-4. **Temperature 0.7**: Matches paper for diverse hypothetical generation.
-
-5. **No max_tokens constraint**: Paper doesn't specify limits; uses API default (1024) for natural generation.
-
-### Why Not Exact Paper Match?
-
-The paper's generic template (`"Please write a passage to answer the question"`) is domain-agnostic. For specialized corpora like ours, the paper recommends domain cues in the task description (see SciFact, FiQA, TREC-COVID templates). This guides the LLM to use vocabulary matching our actual documents.
+4. **K=5 averaging**: Paper's recommended approach for robust retrieval.
 
 ### Dense Bottleneck Principle
 
@@ -197,6 +232,7 @@ The encoder (trained on real documents) compresses passages into fixed-size vect
 - Captures semantic essence (topics, concepts, relationships)
 - Discards noise (specific wrong facts, hallucinations)
 - This is why length constraints are unnecessary - trust the encoder
+- K=5 averaging further smooths out individual passage noise
 
 ---
 

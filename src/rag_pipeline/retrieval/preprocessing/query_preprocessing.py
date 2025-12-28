@@ -73,7 +73,7 @@ class PreprocessedQuery:
 # HyDE: HYPOTHETICAL DOCUMENT EMBEDDINGS
 # =============================================================================
 
-HYDE_PROMPT = """Please write a passage from a cognitive science and philosophy knowledge base to answer the question.
+HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
 
 Question: {query}
 
@@ -98,12 +98,13 @@ Respond with JSON:
 }}"""
 
 
-def hyde_prompt(query: str, model: Optional[str] = None) -> str:
-    """Generate hypothetical answer for HyDE retrieval.
+def hyde_prompt(query: str, model: Optional[str] = None, k: int = 5) -> List[str]:
+    """Generate k hypothetical answers for HyDE retrieval.
 
-    HyDE (Hypothetical Document Embeddings) generates a plausible answer
-    to the query, then searches for real passages similar to this answer.
-    This bridges the semantic gap between questions and document passages.
+    HyDE (Hypothetical Document Embeddings) generates plausible answers
+    to the query, then searches for real passages similar to these answers.
+    Multiple hypotheticals (K=5 default) improve retrieval robustness by
+    covering diverse phrasings and perspectives.
 
     Paper: arXiv:2212.10496 - "Precise Zero-Shot Dense Retrieval without
     Relevance Labels"
@@ -111,12 +112,16 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
     Args:
         query: The user's original question.
         model: Override model (defaults to PREPROCESSING_MODEL).
+        k: Number of hypothetical passages to generate (default=5, paper recommendation).
 
     Returns:
-        A hypothetical passage that would answer the query.
+        List of k hypothetical passages. Embeddings should be averaged downstream.
 
     Example:
-        >>> hyde_prompt("Why do we procrastinate?")
+        >>> passages = hyde_prompt("Why do we procrastinate?", k=5)
+        >>> len(passages)
+        5
+        >>> passages[0]
         "Procrastination stems from temporal discounting..."
     """
     model = model or PREPROCESSING_MODEL
@@ -128,19 +133,29 @@ def hyde_prompt(query: str, model: Optional[str] = None) -> str:
         {"role": "user", "content": prompt},
     ]
 
-    try:
-        response = call_chat_completion(
-            messages=messages,
-            model=model,
-            temperature=0.7,  # Paper uses 0.7 for diverse hypothetical documents
-            # No max_tokens constraint - paper lets LLM generate naturally, encoder filters noise
-        )
+    passages = []
+    for i in range(k):
+        try:
+            response = call_chat_completion(
+                messages=messages,
+                model=model,
+                temperature=0.7,  # Paper uses 0.7 for diverse hypothetical documents
+                # No max_tokens constraint - paper lets LLM generate naturally, encoder filters noise
+            )
+            passages.append(response.strip())
+        except requests.RequestException as e:
+            logger.warning(f"HyDE prompt {i+1}/{k} failed: {e}")
+            # On failure, use original query as fallback for this slot
+            if len(passages) == 0:
+                passages.append(query)
 
-        return response.strip()
+    # Ensure at least one passage (fallback to original query)
+    if not passages:
+        logger.warning("All HyDE prompts failed, using original query")
+        passages = [query]
 
-    except requests.RequestException as e:
-        logger.warning(f"HyDE prompt failed: {e}, using original query")
-        return query
+    logger.info(f"[hyde] Generated {len(passages)} hypotheticals")
+    return passages
 
 
 # =============================================================================

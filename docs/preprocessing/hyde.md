@@ -2,7 +2,9 @@
 
 > **Paper:** [Precise Zero-Shot Dense Retrieval without Relevance Labels](https://arxiv.org/abs/2212.10496) | Gao et al. (CMU) | ACL 2023
 
-Generates a hypothetical answer to the query, then searches for real documents similar to this answer. Bridges the semantic gap between question embeddings and document embeddings.
+Generates hypothetical answers to the query, then searches for real documents similar to these answers. Bridges the semantic gap between question embeddings and document embeddings.
+
+**December 2024 Update:** Now implements K=5 multi-hypothetical generation with embedding averaging (paper recommendation for robust retrieval).
 
 ## TL;DR
 
@@ -61,51 +63,74 @@ The fixed-dimension embedding is a "bottleneck" that compresses to essence.
 # src/rag_pipeline/retrieval/preprocessing/strategies.py
 
 def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """HyDE: Generate hypothetical answer, use for retrieval."""
+    """HyDE: Generate K=5 hypotheticals, average embeddings for retrieval."""
     model = model or PREPROCESSING_MODEL
 
-    # Generate hypothetical answer
-    hyde_passage = hyde_prompt(query, model=model)
+    # Generate K=5 hypothetical answers (paper recommendation)
+    hyde_passages = hyde_prompt(query, model=model, k=5)
 
     return PreprocessedQuery(
         original_query=query,
-        search_query=hyde_passage,  # Search with hypothetical!
-        hyde_passage=hyde_passage,
+        search_query=hyde_passages[0],  # First for backward compat
+        hyde_passage=hyde_passages[0],  # Keep first for logging
+        generated_queries=[{"type": "hyde", "query": p} for p in hyde_passages],
         strategy_used="hyde",
     )
 ```
 
-### HyDE Prompt (Paper-Aligned)
+At retrieval time, all K passages in `generated_queries` are embedded and averaged.
+
+### HyDE Prompt (Paper-Aligned + Corpus Hints)
 
 ```python
 # src/rag_pipeline/retrieval/preprocessing/query_preprocessing.py
 
-HYDE_PROMPT = """Please write a passage from a cognitive science and philosophy knowledge base to answer the question.
+HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
 
 Question: {query}
 
 Passage:"""
 ```
 
-**Why so minimal?**
-- Paper finding: Over-specification causes template bias
-- Domain hint ("cognitive science and philosophy") guides vocabulary
-- No examples, no length constraints — let embedding filter noise
+**Design Rationale:**
+- **"Drawing on insights from..."** — Requests cross-domain synthesis for our mixed corpus
+- **Parenthetical tradition hints** — "(Stoicism, Taoism, Confucianism, Schopenhauer, Gracian)" provides specific corpus cues without vocabulary lists
+- **Covers all 10 philosophy books** in the corpus
+- Paper finding: Over-specification causes template bias, but domain-specific hints improve retrieval
 
-### LLM Call
+### K=5 Multi-Hypothetical Generation (Paper Recommendation)
 
 ```python
-def hyde_prompt(query: str, model: str) -> str:
-    """Generate hypothetical document for query."""
-    prompt = HYDE_PROMPT.format(query=query)
+def hyde_prompt(query: str, model: str, k: int = 5) -> List[str]:
+    """Generate k hypothetical documents for query.
 
-    return call_chat_completion(
-        messages=[{"role": "user", "content": prompt}],
-        model=model,
-        temperature=0.7,  # Paper default: creativity for diversity
-        max_tokens=200,   # Short passage sufficient
-    )
+    Multiple hypotheticals improve retrieval robustness by covering
+    diverse phrasings and perspectives. Embeddings are averaged downstream.
+    """
+    prompt = HYDE_PROMPT.format(query=query)
+    passages = []
+
+    for _ in range(k):
+        response = call_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=model,
+            temperature=0.7,  # Paper default for diversity
+        )
+        passages.append(response.strip())
+
+    return passages
 ```
+
+At retrieval time:
+1. Embed all K passages using the same embedding model
+2. Average the embedding vectors (element-wise mean)
+3. Use averaged vector for hybrid search
+4. Original query still used for BM25 keyword matching
+
+**Why K=5?**
+- Paper finding: Multiple hypotheticals improve retrieval robustness
+- Different passages capture different phrasings/perspectives
+- Averaging creates a more centered representation in embedding space
 
 ### Design Decisions
 
@@ -155,11 +180,16 @@ resources are depleted, making it harder to override impulses...
 
 ## Cost Analysis
 
-- **Model**: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output)
-- **Per query**: ~50 input tokens + ~150 output tokens
-- **Cost per query**: ~$0.0001
+With K=5 hypotheticals:
 
-Negligible for evaluation; acceptable for production.
+- **Model**: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output)
+- **Per query**: 5 x (~50 input tokens + ~150 output tokens) = ~1000 tokens
+- **LLM cost per query**: ~$0.0005 (5x single hypothetical)
+- **Embedding cost**: 5 passages embedded instead of 1
+
+**Total per query**: ~$0.001 (still negligible for evaluation)
+
+Trade-off: 5x latency for LLM calls, but more robust retrieval.
 
 ## Results
 

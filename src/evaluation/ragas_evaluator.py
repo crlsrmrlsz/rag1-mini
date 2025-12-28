@@ -329,7 +329,45 @@ def retrieve_contexts(
             client.close()
 
     # =========================================================================
-    # DEFAULT: Standard hybrid search (for none, hyde, and fallback)
+    # HYDE: K=5 hypotheticals with embedding averaging (paper recommendation)
+    # =========================================================================
+    if preprocessed and preprocessed.strategy_used == "hyde":
+        generated_queries = preprocessed.generated_queries or []
+        hyde_passages = [q.get("query", "") for q in generated_queries if q.get("type") == "hyde" and q.get("query")]
+
+        if len(hyde_passages) > 1:
+            logger.info(f"  [hyde] Averaging {len(hyde_passages)} hypothetical embeddings")
+
+            from src.rag_pipeline.embedding.embedder import embed_texts
+
+            # Embed all K hypothetical passages
+            embeddings = embed_texts(hyde_passages)  # List[List[float]]
+
+            # Average embeddings (element-wise mean)
+            avg_embedding = [sum(col) / len(col) for col in zip(*embeddings)]
+
+            client = get_client()
+            try:
+                # Use averaged embedding for search, original query for BM25
+                results = query_hybrid(
+                    client=client,
+                    query_text=preprocessed.original_query,  # Original for BM25
+                    top_k=initial_k,
+                    alpha=alpha,
+                    collection_name=collection_name,
+                    precomputed_embedding=avg_embedding,  # Averaged for vector
+                )
+
+                results = apply_reranking_if_enabled(
+                    results, preprocessed.original_query, top_k, use_reranking
+                )
+
+                return [r.text for r in results]
+            finally:
+                client.close()
+
+    # =========================================================================
+    # DEFAULT: Standard hybrid search (for none and fallback)
     # =========================================================================
     client = get_client()
 

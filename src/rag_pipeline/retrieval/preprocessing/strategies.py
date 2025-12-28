@@ -69,12 +69,12 @@ def none_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
 
 
 def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """HyDE: Generate hypothetical answer, use for retrieval.
+    """HyDE: Generate K=5 hypothetical answers, average embeddings for retrieval.
 
-    Hypothetical Document Embeddings (HyDE) generates a plausible answer
-    to the query, then searches for real passages similar to this answer.
-    This bridges the semantic gap between question embeddings and document
-    embeddings.
+    Hypothetical Document Embeddings (HyDE) generates plausible answers
+    to the query, then searches for real passages similar to these answers.
+    Multiple hypotheticals (K=5) improve retrieval robustness by covering
+    diverse phrasings and perspectives. Embeddings are averaged downstream.
 
     Research: arXiv:2212.10496 - Outperforms unsupervised dense retrievers
 
@@ -83,21 +83,23 @@ def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
         model: Model for HyDE LLM call.
 
     Returns:
-        PreprocessedQuery with hypothetical passage as search_query.
+        PreprocessedQuery with K hypothetical passages in generated_queries.
+        search_query contains first passage for backward compatibility.
     """
     start_time = time.time()
     model = model or PREPROCESSING_MODEL
 
-    # Generate hypothetical answer
-    hyde_passage = _hyde_prompt_fn(query, model=model)
-    logger.info(f"[hyde] Generated hypothetical: {hyde_passage[:80]}...")
+    # Generate K=5 hypothetical answers (paper recommendation)
+    hyde_passages = _hyde_prompt_fn(query, model=model, k=5)
+    logger.info(f"[hyde] Generated {len(hyde_passages)} hypotheticals, first: {hyde_passages[0][:80]}...")
 
     elapsed_ms = (time.time() - start_time) * 1000
 
     return PreprocessedQuery(
         original_query=query,
-        search_query=hyde_passage,  # Search with hypothetical answer!
-        hyde_passage=hyde_passage,
+        search_query=hyde_passages[0],  # First for backward compatibility
+        hyde_passage=hyde_passages[0],  # Keep first for logging
+        generated_queries=[{"type": "hyde", "query": p} for p in hyde_passages],
         strategy_used="hyde",
         preprocessing_time_ms=elapsed_ms,
         model=model,

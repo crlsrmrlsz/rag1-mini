@@ -330,36 +330,30 @@ st.sidebar.title("Settings")
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Query Preprocessing")
 
-enable_preprocessing = st.sidebar.checkbox(
-    "Enable Preprocessing",
-    value=False,
-    help="Classify queries and apply preprocessing strategy.",
+# Strategy selector (none = no preprocessing)
+strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
+strategy_ids = list(strategy_options.keys())
+selected_strategy = st.sidebar.selectbox(
+    "Strategy",
+    options=strategy_ids,
+    index=0,  # Default to "none"
+    format_func=lambda x: strategy_options[x][0],  # Display label
+    help="Query transformation strategy. Select 'None' to use the original query.",
 )
 
-if enable_preprocessing:
-    # Strategy selector
-    strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
-    strategy_ids = list(strategy_options.keys())
-    default_idx = strategy_ids.index(DEFAULT_PREPROCESSING_STRATEGY) if DEFAULT_PREPROCESSING_STRATEGY in strategy_ids else 0
-    selected_strategy = st.sidebar.selectbox(
-        "Strategy",
-        options=strategy_ids,
-        index=default_idx,
-        format_func=lambda x: strategy_options[x][0],  # Display label
-        help="Query transformation strategy. Each strategy applies its transformation directly to all queries.",
-    )
+enable_preprocessing = selected_strategy != "none"
 
-    # Model selector
+# Model selector (only shown when preprocessing is enabled)
+if enable_preprocessing:
     prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
     selected_prep_model = st.sidebar.selectbox(
         "Preprocessing Model",
         options=list(prep_model_options.keys()),
         index=0,  # Default to first (cheapest)
         format_func=lambda x: prep_model_options[x],
-        help="Model used for query preprocessing (HyDE, decomposition). (Fetched from OpenRouter)",
+        help="Model used for query preprocessing (HyDE, decomposition).",
     )
 else:
-    selected_strategy = "none"
     selected_prep_model = PREPROCESSING_MODEL
 
 st.sidebar.divider()
@@ -463,23 +457,16 @@ st.sidebar.divider()
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Answer Generation")
 
-enable_generation = st.sidebar.checkbox(
-    "Enable Answer Generation",
-    value=ENABLE_ANSWER_GENERATION,
-    help="Use an LLM to synthesize an answer from retrieved chunks.",
-)
+enable_generation = True  # Always enabled
 
-if enable_generation:
-    model_options = {model_id: label for model_id, label in DYNAMIC_GENERATION_MODELS}
-    selected_model = st.sidebar.selectbox(
-        "Generation Model",
-        options=list(model_options.keys()),
-        index=min(1, len(model_options) - 1),  # Default to second option (balanced)
-        format_func=lambda x: model_options[x],
-        help="Model used for answer generation. (Fetched from OpenRouter)",
-    )
-else:
-    selected_model = GENERATION_MODEL
+model_options = {model_id: label for model_id, label in DYNAMIC_GENERATION_MODELS}
+selected_model = st.sidebar.selectbox(
+    "Generation Model",
+    options=list(model_options.keys()),
+    index=min(1, len(model_options) - 1),  # Default to second option (balanced)
+    format_func=lambda x: model_options[x],
+    help="Model used for answer generation. (Fetched from OpenRouter)",
+)
 
 st.sidebar.divider()
 
@@ -487,8 +474,8 @@ st.sidebar.divider()
 with st.sidebar.expander("Current Configuration", expanded=False):
     config_summary = f"""
 **Preprocessing**
-- Enabled: {'Yes' if enable_preprocessing else 'No'}
-- Model: {selected_prep_model if enable_preprocessing else 'N/A'}
+- Strategy: {strategy_options[selected_strategy][0]}
+{f'- Model: {selected_prep_model}' if enable_preprocessing else ''}
 
 **Collection**
 - Strategy: {selected_collection if selected_collection else 'None'}
@@ -502,8 +489,7 @@ with st.sidebar.expander("Current Configuration", expanded=False):
 - Enabled: {'Yes' if use_reranking else 'No'}
 
 **Generation**
-- Enabled: {'Yes' if enable_generation else 'No'}
-- Model: {selected_model if enable_generation else 'N/A'}
+- Model: {selected_model}
     """
     st.markdown(config_summary.strip())
 

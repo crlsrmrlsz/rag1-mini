@@ -33,7 +33,19 @@ python -m src.stages.run_stage_4_5_autotune --skip-consolidation
 
 # Show previously discovered types
 python -m src.stages.run_stage_4_5_autotune --show-types
+
+# Re-consolidate with stratified algorithm (no re-extraction)
+python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
+
+# Re-consolidate with global algorithm (original behavior)
+python -m src.stages.run_stage_4_5_autotune --reconsolidate global
 ```
+
+## Consolidation Strategies
+
+- **global**: Original algorithm - sorts by total count, larger corpora dominate
+- **stratified**: Balanced algorithm - selects top types from EACH corpus (neuroscience
+  vs philosophy) proportionally, preventing larger corpora from dominating
 
 ## Output
 
@@ -53,6 +65,7 @@ from src.graph.auto_tuning import (
     run_auto_tuning_resumable,
     load_discovered_types,
     load_book_files,
+    reconsolidate_from_extractions,
 )
 from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg
 from src.config import GRAPHRAG_EXTRACTION_MODEL, DIR_CLEANING_LOGS
@@ -123,6 +136,12 @@ def main():
         action="store_true",
         help="List books to be processed and exit",
     )
+    parser.add_argument(
+        "--reconsolidate",
+        type=str,
+        choices=["stratified", "global"],
+        help="Re-run consolidation on existing extractions (stratified or global)",
+    )
 
     args = parser.parse_args()
 
@@ -152,6 +171,49 @@ def main():
         except FileNotFoundError as e:
             logger.error(str(e))
             sys.exit(1)
+
+    # Re-consolidate existing extractions if requested
+    if args.reconsolidate:
+        log_file = setup_file_logging()
+        logger.info("=" * 60)
+        logger.info(f"Re-Consolidating with {args.reconsolidate.upper()} strategy")
+        logger.info("=" * 60)
+        logger.info(f"Log file: {log_file}")
+        logger.info(f"Model: {args.model}")
+        logger.info("")
+        logger.info("This re-runs consolidation WITHOUT re-extracting entities.")
+        logger.info("Stratified strategy balances types across neuroscience vs philosophy.")
+        logger.info("")
+
+        try:
+            results = reconsolidate_from_extractions(
+                strategy=args.reconsolidate,
+                model=args.model,
+            )
+        except FileNotFoundError as e:
+            logger.error(str(e))
+            sys.exit(1)
+
+        logger.info("=" * 60)
+        logger.info("Re-Consolidation Complete")
+        logger.info("=" * 60)
+        logger.info(f"Strategy: {results['strategy']}")
+        logger.info(f"Total entities: {results['stats']['total_entities']:,}")
+        logger.info(f"Unique raw types: {results['stats']['unique_entity_types']}")
+        logger.info("")
+        logger.info(f"Consolidated to {len(results['consolidated_types']['entity_types'])} entity types:")
+        for t in results["consolidated_types"]["entity_types"]:
+            logger.info(f"  - {t}")
+        logger.info("")
+        logger.info(f"Consolidated to {len(results['consolidated_types']['relationship_types'])} relationship types:")
+        for t in results["consolidated_types"]["relationship_types"]:
+            logger.info(f"  - {t}")
+        logger.info("")
+        logger.info(f"Rationale: {results['consolidated_types']['rationale']}")
+        logger.info("")
+        logger.info(f"Saved to: {results['types_path']}")
+        logger.info(f"Log file: {log_file}")
+        return
 
     # Setup file logging
     log_file = setup_file_logging()

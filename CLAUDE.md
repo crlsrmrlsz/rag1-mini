@@ -40,6 +40,10 @@ python -m src.stages.run_stage_4_5_autotune --strategy section
 # Uses hardcoded entity types from src/config.py
 python -m src.stages.run_stage_4_6_graph_extract --strategy section
 
+# === Re-Consolidate with Stratified Algorithm (for mixed corpora) ===
+# Balances entity types across neuroscience vs philosophy books
+python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
+
 # === Then upload to Neo4j + run Leiden (same for both options) ===
 docker compose up -d neo4j   # Start Neo4j if not running
 python -m src.stages.run_stage_6b_neo4j
@@ -48,6 +52,10 @@ python -m src.stages.run_stage_6b_neo4j
 # UI: Select "graphrag" in preprocessing dropdown
 # CLI: python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 ```
+
+**Consolidation Strategies:**
+- `global` - Original algorithm, sorts by total count (larger corpora dominate)
+- `stratified` - Selects top types from EACH corpus proportionally (balanced representation)
 
 **Data Flow:**
 ```

@@ -31,7 +31,26 @@ python -m src.stages.run_stage_4_5_autotune --strategy section
 python -m src.stages.run_stage_4_6_graph_extract --strategy section
 ```
 
-**Output:** `data/processed/07_graph/extraction_results.json`
+**Output:** `data/processed/05_final_chunks/graph/extraction_results.json`
+
+### Step 1b: Re-Consolidate Entity Types (Optional)
+
+If you have a mixed corpus (e.g., neuroscience + philosophy books), use **stratified consolidation** to balance entity types across domains:
+
+```bash
+# Re-run consolidation with balanced domain representation
+python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
+
+# Or use original global algorithm
+python -m src.stages.run_stage_4_5_autotune --reconsolidate global
+```
+
+**Why use stratified?**
+- Global algorithm ranks by total count → larger corpora dominate
+- Stratified selects top types from EACH corpus proportionally
+- Result: PHILOSOPHER (6.2% of philosophy) is now included, not dropped
+
+**Output:** Updates `data/processed/05_final_chunks/graph/discovered_types.json`
 
 ### Step 2: Upload to Neo4j + Run Leiden
 
@@ -44,7 +63,7 @@ python -m src.stages.run_stage_6b_neo4j
 2. Runs Leiden community detection algorithm
 3. Generates LLM summaries for each community
 
-**Output:** `data/processed/07_graph/communities.json`
+**Output:** `data/processed/05_final_chunks/graph/communities.json`
 
 ### Step 3: Query with GraphRAG
 
@@ -68,9 +87,9 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 └──────────────┘     └─────────────────────────┘     └─────────────────────┘
        │                        │                              │
        ▼                        ▼                              ▼
-05_final_chunks/         07_graph/                      07_graph/
+05_final_chunks/     05_final_chunks/graph/         05_final_chunks/graph/
 section/*.json       extraction_results.json         communities.json
-                                                            +
+                     discovered_types.json                 +
                                                     Neo4j knowledge graph
 ```
 
@@ -81,9 +100,10 @@ section/*.json       extraction_results.json         communities.json
 | File | Location | Description |
 |------|----------|-------------|
 | Chunks | `data/processed/05_final_chunks/section/` | Input for extraction |
-| Entities | `data/processed/07_graph/extraction_results.json` | Entities + relationships |
-| Types | `data/processed/07_graph/discovered_types.json` | Auto-discovered types (only from 4.5) |
-| Communities | `data/processed/07_graph/communities.json` | Leiden clusters + summaries |
+| Per-Book | `data/processed/05_final_chunks/graph/extractions/` | Per-book entity extractions |
+| Entities | `data/processed/05_final_chunks/graph/extraction_results.json` | Merged entities + relationships |
+| Types | `data/processed/05_final_chunks/graph/discovered_types.json` | Consolidated entity types (global or stratified) |
+| Communities | `data/processed/05_final_chunks/graph/communities.json` | Leiden clusters + summaries |
 
 ---
 
@@ -139,6 +159,11 @@ GRAPHRAG_MIN_COMMUNITY_SIZE = 3     # Skip tiny communities
 # Query-time retrieval
 GRAPHRAG_TOP_COMMUNITIES = 3        # Communities to include in context
 GRAPHRAG_TRAVERSE_DEPTH = 2         # Hops from query entities
+
+# Stratified consolidation (for mixed corpora)
+GRAPHRAG_TYPES_PER_CORPUS = 12      # Top types per corpus in stratified mode
+GRAPHRAG_MIN_CORPUS_PERCENTAGE = 1.0  # Min % to consider a type
+CORPUS_BOOK_MAPPING = {...}           # Book -> corpus type mapping
 ```
 
 ---

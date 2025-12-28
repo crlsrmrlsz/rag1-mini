@@ -667,3 +667,44 @@ GRAPHRAG_RRF_K = 60                 # RRF constant for score fusion
 
 # Output directory for graph data (under chunks since graph derives from chunks)
 DIR_GRAPH_DATA = DIR_FINAL_CHUNKS / "graph"
+
+# =============================================================================
+# CORPUS MAPPING FOR STRATIFIED ENTITY TYPE CONSOLIDATION
+# =============================================================================
+# Maps book filenames (stems) to corpus types for balanced entity type discovery.
+# Used by auto_tuning.py to select top entity types proportionally from each corpus,
+# preventing larger corpora from dominating the final entity type taxonomy.
+
+CORPUS_TYPES = ["neuroscience", "philosophy"]
+
+CORPUS_BOOK_MAPPING = {
+    # Neuroscience books (8 books, ~4440 chunks, ~48.6K entities)
+    "neuroscience": [
+        "Cognitive Biology , Evolutionary and Developmental Perspectives on Mind Brain and Behavior (Luca Tommasi, Mary A.Peterson, Lynn Nadel)",
+        "Determined, a science of life without free will (Robert M. Sapolsky)",
+        "Cognitive Neuroscience, The Biology of the Mind (Michael Gazzaniga)",
+        "Biopsychology (John Pinel, Steven Barnes)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)",
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Psychobiology of Behaviour (Konstanthos N,Fountoulakis, Loannis Nimatoudis)",
+    ],
+    # Philosophy books (11 books, ~1809 chunks, ~15.6K entities)
+    "philosophy": [
+        "The Enchiridion (Epictetus)",
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Letters from a Stoic (Seneca)",
+        "The Meditations (Marcus Aurelius)",
+        "Wisdom of Life (Schopenhauer)",
+        "The essays, counsels and maxims (Arthur Schopenhauer)",
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "Tao te ching Lao_tzu (Lao Tzu)",
+        "The Pocket Oracle and Art of Prudence (Baltasar Gracian)",
+        "The Analects Conclusions and Conversations (Confucius)",
+    ],
+}
+
+# Stratified consolidation parameters
+GRAPHRAG_TYPES_PER_CORPUS = 12      # Top entity types to select from each corpus
+GRAPHRAG_MIN_CORPUS_PERCENTAGE = 1.0  # Minimum % within corpus to be considered (filters noise)

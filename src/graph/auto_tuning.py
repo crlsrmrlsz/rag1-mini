@@ -42,6 +42,9 @@ from src.config import (
     GRAPHRAG_MAX_RELATIONSHIPS,
     DIR_GRAPH_DATA,
     DIR_FINAL_CHUNKS,
+    CORPUS_BOOK_MAPPING,
+    GRAPHRAG_TYPES_PER_CORPUS,
+    GRAPHRAG_MIN_CORPUS_PERCENTAGE,
 )
 from src.shared.openrouter_client import call_structured_completion
 from src.shared.files import setup_logging, OverwriteContext
@@ -321,11 +324,201 @@ def consolidate_types(
     return result
 
 
+# ============================================================================
+# Stratified Consolidation Prompt
+# ============================================================================
+
+STRATIFIED_CONSOLIDATION_PROMPT = """You are consolidating entity types from TWO different domains.
+
+DOMAIN 1: {corpus1_name} (top types by importance within this domain)
+{corpus1_types}
+
+DOMAIN 2: {corpus2_name} (top types by importance within this domain)
+{corpus2_types}
+
+SHARED TYPES (appear significantly in both domains):
+{shared_types}
+
+RELATIONSHIP TYPES (by total count):
+{relationship_types}
+
+Your task:
+1. Keep domain-specific types that are important within their domain (even if low global count)
+2. Merge obviously similar types across domains (e.g., RESEARCHER and PHILOSOPHER could stay separate if they serve different domains)
+3. For shared types, keep the most descriptive variant
+4. Target: 20-25 entity types total, 12-18 relationship types
+5. Ensure BOTH domains are well-represented in the final taxonomy
+
+IMPORTANT:
+- Do NOT drop domain-specific types just because they have lower global counts
+- PHILOSOPHER is critical for philosophy texts even if neuroscience has more RESEARCHER
+- BRAIN_REGION is critical for neuroscience even if philosophy has more CONCEPT
+
+IMPORTANT: Respond ONLY with valid JSON matching this schema:
+{{"entity_types": ["TYPE1", "TYPE2", ...], "relationship_types": ["REL1", "REL2", ...], "rationale": "Brief explanation..."}}"""
+
+
+def consolidate_types_stratified(
+    extractions_dir: Path,
+    relationship_type_counts: Dict[str, int],
+    types_per_corpus: int = GRAPHRAG_TYPES_PER_CORPUS,
+    min_corpus_pct: float = GRAPHRAG_MIN_CORPUS_PERCENTAGE,
+    model: str = GRAPHRAG_EXTRACTION_MODEL,
+) -> ConsolidatedTypes:
+    """Consolidate entity types with balanced representation from each corpus.
+
+    This addresses the bias problem where larger corpora dominate entity type
+    selection. Instead of global frequency ranking, this function:
+    1. Aggregates entity types per corpus (neuroscience vs philosophy)
+    2. Calculates per-corpus percentages
+    3. Selects top-K types from EACH corpus
+    4. Merges with LLM-guided similarity consolidation
+
+    Args:
+        extractions_dir: Directory containing per-book extraction JSON files.
+        relationship_type_counts: Global relationship type counts.
+        types_per_corpus: Number of top types to select from each corpus.
+        min_corpus_pct: Minimum percentage within corpus to consider.
+        model: OpenRouter model ID for LLM consolidation.
+
+    Returns:
+        ConsolidatedTypes with balanced taxonomy from both corpora.
+    """
+    # Build reverse mapping: book_name -> corpus_type
+    book_to_corpus = {}
+    for corpus_type, books in CORPUS_BOOK_MAPPING.items():
+        for book in books:
+            book_to_corpus[book] = corpus_type
+
+    # Aggregate entity types per corpus
+    corpus_entity_counts: Dict[str, Counter] = {
+        corpus: Counter() for corpus in CORPUS_BOOK_MAPPING.keys()
+    }
+    corpus_totals: Dict[str, int] = {corpus: 0 for corpus in CORPUS_BOOK_MAPPING.keys()}
+
+    extraction_files = sorted(extractions_dir.glob("*.json"))
+    logger.info(f"Aggregating types from {len(extraction_files)} book extractions...")
+
+    for extraction_file in extraction_files:
+        book_name = extraction_file.stem
+        corpus_type = book_to_corpus.get(book_name)
+
+        if not corpus_type:
+            logger.warning(f"Book not in corpus mapping: {book_name}")
+            continue
+
+        with open(extraction_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        for etype, count in data.get("entity_type_counts", {}).items():
+            corpus_entity_counts[corpus_type][etype] += count
+            corpus_totals[corpus_type] += count
+
+    # Calculate per-corpus percentages and select top types
+    corpus_top_types: Dict[str, List[Tuple[str, float]]] = {}
+
+    for corpus_type, counter in corpus_entity_counts.items():
+        total = corpus_totals[corpus_type]
+        if total == 0:
+            continue
+
+        # Calculate percentages and filter by minimum threshold
+        type_pcts = [
+            (etype, 100 * count / total)
+            for etype, count in counter.most_common()
+            if 100 * count / total >= min_corpus_pct
+        ]
+
+        # Take top K
+        corpus_top_types[corpus_type] = type_pcts[:types_per_corpus]
+
+        logger.info(
+            f"Corpus '{corpus_type}': {total:,} entities, "
+            f"top {len(corpus_top_types[corpus_type])} types selected"
+        )
+
+    # Identify shared types (appear in both corpora' top lists)
+    all_top_types = set()
+    for types_list in corpus_top_types.values():
+        all_top_types.update(t[0] for t in types_list)
+
+    shared_types = set()
+    for etype in all_top_types:
+        in_corpora = sum(
+            1 for types_list in corpus_top_types.values()
+            if any(t[0] == etype for t in types_list)
+        )
+        if in_corpora > 1:
+            shared_types.add(etype)
+
+    # Format for prompt
+    corpus_names = list(corpus_top_types.keys())
+
+    def format_corpus_types(corpus_type: str) -> str:
+        lines = []
+        for etype, pct in corpus_top_types.get(corpus_type, []):
+            if etype not in shared_types:
+                # Get raw count from counter
+                count = corpus_entity_counts[corpus_type][etype]
+                lines.append(f"  - {etype}: {pct:.1f}% ({count:,} entities)")
+        return "\n".join(lines) if lines else "  (no unique types)"
+
+    def format_shared_types() -> str:
+        lines = []
+        for etype in sorted(shared_types):
+            parts = []
+            for corpus_type in corpus_names:
+                counter = corpus_entity_counts[corpus_type]
+                total = corpus_totals[corpus_type]
+                if etype in counter and total > 0:
+                    pct = 100 * counter[etype] / total
+                    parts.append(f"{corpus_type}: {pct:.1f}%")
+            lines.append(f"  - {etype}: {', '.join(parts)}")
+        return "\n".join(lines) if lines else "  (no shared types)"
+
+    # Format relationship types
+    rel_str = "\n".join(
+        f"  - {t}: {c}" for t, c in sorted(
+            relationship_type_counts.items(), key=lambda x: -x[1]
+        )[:25]
+    )
+
+    prompt = STRATIFIED_CONSOLIDATION_PROMPT.format(
+        corpus1_name=corpus_names[0].upper() if corpus_names else "CORPUS1",
+        corpus1_types=format_corpus_types(corpus_names[0]) if corpus_names else "",
+        corpus2_name=corpus_names[1].upper() if len(corpus_names) > 1 else "CORPUS2",
+        corpus2_types=format_corpus_types(corpus_names[1]) if len(corpus_names) > 1 else "",
+        shared_types=format_shared_types(),
+        relationship_types=rel_str,
+    )
+
+    messages = [{"role": "user", "content": prompt}]
+
+    logger.info("Running stratified consolidation with LLM...")
+    logger.info(f"Shared types: {sorted(shared_types)}")
+
+    result = call_structured_completion(
+        messages=messages,
+        model=model,
+        response_model=ConsolidatedTypes,
+        temperature=0.0,
+        max_tokens=2000,
+    )
+
+    logger.info(
+        f"Stratified consolidation complete: {len(result.entity_types)} entity types, "
+        f"{len(result.relationship_types)} relationship types"
+    )
+
+    return result
+
+
 def save_discovered_types(
     consolidated: ConsolidatedTypes,
     raw_entity_counts: Dict[str, int],
     raw_relationship_counts: Dict[str, int],
     output_name: str = "discovered_types.json",
+    consolidation_method: str = "global",
 ) -> Path:
     """Save discovered types to JSON file.
 
@@ -334,6 +527,7 @@ def save_discovered_types(
         raw_entity_counts: Original discovered entity type counts.
         raw_relationship_counts: Original discovered relationship type counts.
         output_name: Output filename.
+        consolidation_method: Method used ("global" or "stratified").
 
     Returns:
         Path to saved file.
@@ -347,6 +541,7 @@ def save_discovered_types(
         "consolidated_entity_types": consolidated.entity_types,
         "consolidated_relationship_types": consolidated.relationship_types,
         "consolidation_rationale": consolidated.rationale,
+        "consolidation_method": consolidation_method,
         "raw_entity_type_counts": raw_entity_counts,
         "raw_relationship_type_counts": raw_relationship_counts,
     }
@@ -356,6 +551,92 @@ def save_discovered_types(
 
     logger.info(f"Saved discovered types to {output_path}")
     return output_path
+
+
+def reconsolidate_from_extractions(
+    strategy: str = "stratified",
+    model: str = GRAPHRAG_EXTRACTION_MODEL,
+) -> Dict[str, Any]:
+    """Re-run consolidation on existing per-book extractions.
+
+    This allows changing the consolidation algorithm without re-running
+    the expensive entity extraction step.
+
+    Args:
+        strategy: Consolidation strategy: "global" or "stratified".
+        model: OpenRouter model ID for LLM consolidation.
+
+    Returns:
+        Dict with consolidated types and paths.
+
+    Raises:
+        FileNotFoundError: If extractions directory doesn't exist.
+    """
+    extractions_dir = DIR_GRAPH_DATA / "extractions"
+
+    if not extractions_dir.exists():
+        raise FileNotFoundError(
+            f"Extractions directory not found: {extractions_dir}. "
+            "Run full auto-tuning first with: python -m src.stages.run_stage_4_5_autotune"
+        )
+
+    # Aggregate all relationship types globally (shared across corpora)
+    global_entity_counts: Counter = Counter()
+    global_relationship_counts: Counter = Counter()
+
+    extraction_files = sorted(extractions_dir.glob("*.json"))
+    logger.info(f"Loading {len(extraction_files)} book extractions...")
+
+    for extraction_file in extraction_files:
+        with open(extraction_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        for etype, count in data.get("entity_type_counts", {}).items():
+            global_entity_counts[etype] += count
+        for rtype, count in data.get("relationship_type_counts", {}).items():
+            global_relationship_counts[rtype] += count
+
+    logger.info(
+        f"Loaded {sum(global_entity_counts.values()):,} entities, "
+        f"{len(global_entity_counts)} unique types"
+    )
+
+    # Run consolidation based on strategy
+    if strategy == "stratified":
+        consolidated = consolidate_types_stratified(
+            extractions_dir=extractions_dir,
+            relationship_type_counts=dict(global_relationship_counts.most_common()),
+            model=model,
+        )
+    else:
+        consolidated = consolidate_types(
+            entity_type_counts=dict(global_entity_counts.most_common()),
+            relationship_type_counts=dict(global_relationship_counts.most_common()),
+            model=model,
+        )
+
+    # Save results
+    types_path = save_discovered_types(
+        consolidated,
+        dict(global_entity_counts.most_common()),
+        dict(global_relationship_counts.most_common()),
+        consolidation_method=strategy,
+    )
+
+    return {
+        "consolidated_types": {
+            "entity_types": consolidated.entity_types,
+            "relationship_types": consolidated.relationship_types,
+            "rationale": consolidated.rationale,
+        },
+        "types_path": str(types_path),
+        "strategy": strategy,
+        "stats": {
+            "total_entities": sum(global_entity_counts.values()),
+            "unique_entity_types": len(global_entity_counts),
+            "unique_relationship_types": len(global_relationship_counts),
+        },
+    }
 
 
 def load_discovered_types(

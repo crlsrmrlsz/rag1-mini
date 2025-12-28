@@ -1,58 +1,51 @@
 """Stage 4.5: Auto-Tune Entity Types for GraphRAG.
 
-## RAG Theory: Auto-Tuning for Domain-Specific Extraction
+## IMPORTANT: This is an ALTERNATIVE to Stage 4.6 graph_extract
 
-Instead of manually defining entity types, this stage discovers them from
-the actual corpus content. Benefits:
+Both stages produce `extraction_results.json` - choose ONE:
 
-1. Entity types match what's actually in the text
-2. Query-time extraction uses same vocabulary as indexed entities
-3. No manual prompt engineering required
+| Stage | When to Use |
+|-------|-------------|
+| **4.5 autotune** | Recommended. Discovers entity types FROM your corpus. |
+| **4.6 extract** | Uses predefined types from config.py. Faster but less adaptive. |
 
-## Process
+Do NOT run both - the second will overwrite the first.
+
+## What This Stage Does
 
 1. Open-ended extraction on all chunks (LLM assigns types freely)
-2. Aggregate discovered types with counts
-3. LLM consolidates into clean taxonomy (15-25 entity types, 10-20 relationships)
-4. Save to discovered_types.json for use in extraction and queries
+2. Aggregates discovered types with counts
+3. Consolidates into clean taxonomy (15-25 entity types)
+4. Saves extraction_results.json AND discovered_types.json
 
 ## Usage
 
 ```bash
-# Full auto-tuning (all books, resumable)
+# Full auto-tuning (recommended for new corpora)
 python -m src.stages.run_stage_4_5_autotune
 
-# Resume after interruption (skip already processed books)
+# Resume after interruption
 python -m src.stages.run_stage_4_5_autotune --overwrite skip
 
-# Force reprocess all books
-python -m src.stages.run_stage_4_5_autotune --overwrite all
-
-# Skip consolidation (just extraction)
-python -m src.stages.run_stage_4_5_autotune --skip-consolidation
-
-# Show previously discovered types
-python -m src.stages.run_stage_4_5_autotune --show-types
-
-# Re-consolidate with stratified algorithm (no re-extraction)
+# Re-consolidate with stratified algorithm (balances mixed corpora)
 python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
 
-# Re-consolidate with global algorithm (original behavior)
-python -m src.stages.run_stage_4_5_autotune --reconsolidate global
+# Show discovered types
+python -m src.stages.run_stage_4_5_autotune --show-types
 ```
 
-## Consolidation Strategies
+## Next Step
 
-- **global**: Original algorithm - sorts by total count, larger corpora dominate
-- **stratified**: Balanced algorithm - selects top types from EACH corpus (neuroscience
-  vs philosophy) proportionally, preventing larger corpora from dominating
+After extraction, upload to Neo4j:
+```bash
+python -m src.stages.run_stage_6b_neo4j
+```
 
 ## Output
 
 - data/processed/05_final_chunks/graph/extractions/{book}.json (per-book)
-- data/processed/05_final_chunks/graph/extraction_results.json (merged)
-- data/processed/05_final_chunks/graph/discovered_types.json (taxonomy)
-- data/logs/autotune_TIMESTAMP.log (execution log)
+- data/processed/05_final_chunks/graph/extraction_results.json (entities + relationships)
+- data/processed/05_final_chunks/graph/discovered_types.json (consolidated taxonomy)
 """
 
 import argparse

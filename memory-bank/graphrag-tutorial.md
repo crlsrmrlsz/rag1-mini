@@ -284,8 +284,8 @@ Stage 4 (chunks) ─────────────────────
 
 | File | Created By | Purpose |
 |------|------------|---------|
-| `data/processed/07_graph/extraction_results.json` | Both 4.5 and 4.6 | Entities + relationships for Neo4j |
-| `data/processed/07_graph/discovered_types.json` | Only 4.5 autotune | Auto-discovered entity/relationship types |
+| `data/processed/05_final_chunks/graph/extraction_results.json` | Both 4.5 and 4.6 | Entities + relationships for Neo4j |
+| `data/processed/05_final_chunks/graph/discovered_types.json` | Only 4.5 autotune | Auto-discovered entity/relationship types |
 
 ---
 

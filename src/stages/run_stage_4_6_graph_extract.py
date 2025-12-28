@@ -1,29 +1,36 @@
 """Stage 4.6: Entity and Relationship Extraction for GraphRAG.
 
-## RAG Theory: Entity Extraction
+## IMPORTANT: This is an ALTERNATIVE to Stage 4.5 autotune
 
-This stage extracts entities and relationships from text chunks using LLM.
-The extracted graph serves as the foundation for:
-- Knowledge graph construction (Neo4j)
-- Leiden community detection
-- Hybrid retrieval (graph + vector)
+Both stages produce `extraction_results.json` - choose ONE:
+
+| Stage | When to Use |
+|-------|-------------|
+| **4.5 autotune** | Recommended. Discovers entity types FROM your corpus. |
+| **4.6 extract** | Uses predefined types from config.py. Faster but less adaptive. |
+
+Do NOT run both - the second will overwrite the first.
 
 ## Data Flow
 
 Input: Section chunks from Stage 4 (data/processed/05_final_chunks/{strategy}/)
-Output: Extraction results (data/processed/07_graph/extraction_results.json)
+Output: data/processed/05_final_chunks/graph/extraction_results.json
 
 ## Usage
 
 ```bash
-# Extract from all section chunks
+# Extract using predefined entity types
 python -m src.stages.run_stage_4_6_graph_extract
 
 # Limit to specific number of chunks (for testing)
 python -m src.stages.run_stage_4_6_graph_extract --max-chunks 10
+```
 
-# Use specific strategy
-python -m src.stages.run_stage_4_6_graph_extract --strategy contextual
+## Next Step
+
+After extraction, upload to Neo4j:
+```bash
+python -m src.stages.run_stage_6b_neo4j
 ```
 """
 

@@ -1,4 +1,4 @@
-"""OpenRouter embedding client for RAG1-Mini.
+"""OpenRouter embedding client for RAGLab.
 
 Provides API integration for generating text embeddings via OpenRouter.
 Includes automatic batching to prevent API timeouts with large inputs.

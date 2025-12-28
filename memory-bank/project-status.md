@@ -1,10 +1,10 @@
-# RAG1-Mini Project Status
+# RAGLab Project Status
 
 **Last Updated:** December 26, 2025
 
 ## Overview
 
-RAG1-Mini is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline to build a searchable knowledge base with AI-powered answers.
+RAGLab is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline to build a searchable knowledge base with AI-powered answers.
 
 **Core Goal:** Master RAG pipeline components while building a practical system for document-based question answering.
 
@@ -232,7 +232,7 @@ Key function: `call_structured_completion(messages, model, response_model)` in `
 ## Run Commands
 
 ```bash
-conda activate rag1-mini
+conda activate raglab
 
 # Pipeline stages (baseline)
 python -m src.stages.run_stage_1_extraction

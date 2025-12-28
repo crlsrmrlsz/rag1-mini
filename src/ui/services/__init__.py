@@ -1,4 +1,4 @@
-"""UI service modules for RAG1-Mini.
+"""UI service modules for RAGLab.
 
 Provides backend services for the Streamlit interface.
 """

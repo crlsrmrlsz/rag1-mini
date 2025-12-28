@@ -1,6 +1,6 @@
 # Evaluation Workflow Analysis
 
-This document provides a comprehensive analysis of the RAG1-Mini evaluation system, including strategy taxonomy, retrieval diagrams, and the black-box evaluation philosophy.
+This document provides a comprehensive analysis of the RAGLab evaluation system, including strategy taxonomy, retrieval diagrams, and the black-box evaluation philosophy.
 
 ## Strategy Taxonomy
 

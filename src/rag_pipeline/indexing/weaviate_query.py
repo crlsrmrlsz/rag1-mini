@@ -1,4 +1,4 @@
-"""Weaviate query functions for RAG1-Mini.
+"""Weaviate query functions for RAGLab.
 
 Provides search capabilities for the RAG knowledge base:
 - Vector similarity search using pre-embedded queries

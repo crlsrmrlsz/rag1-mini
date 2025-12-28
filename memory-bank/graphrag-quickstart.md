@@ -7,11 +7,11 @@ One-page reference for running GraphRAG on your corpus.
 ## Prerequisites
 
 ```bash
-conda activate rag1-mini
+conda activate raglab
 docker compose up -d neo4j    # Start Neo4j (port 7474 for browser, 7687 for bolt)
 ```
 
-**Verify Neo4j is running:** http://localhost:7474 (login: neo4j / rag1mini_graphrag)
+**Verify Neo4j is running:** http://localhost:7474 (login: neo4j / raglab_graphrag)
 
 ---
 
@@ -150,7 +150,7 @@ ORDER BY size DESC
 # Neo4j connection
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "rag1mini_graphrag"
+NEO4J_PASSWORD = "raglab_graphrag"
 
 # Leiden algorithm
 GRAPHRAG_LEIDEN_RESOLUTION = 1.0    # Higher = more smaller communities

@@ -1,4 +1,4 @@
-# GraphRAG: Complete Technical Deep-Dive for RAG1-Mini
+# GraphRAG: Complete Technical Deep-Dive for RAGLab
 
 A comprehensive tutorial covering the theory, implementation, configuration, data structures, algorithms, and execution of GraphRAG in this project.
 
@@ -300,12 +300,12 @@ All GraphRAG settings are in `src/config.py` (lines 554-669):
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "rag1mini_graphrag")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "raglab_graphrag")
 ```
 
 **What these mean:**
 - `bolt://localhost:7687`: Neo4j's binary protocol (faster than HTTP)
-- Credentials must match `docker-compose.yml` line 115: `NEO4J_AUTH: neo4j/rag1mini_graphrag`
+- Credentials must match `docker-compose.yml` line 115: `NEO4J_AUTH: neo4j/raglab_graphrag`
 
 ### Entity Extraction Settings
 
@@ -973,7 +973,7 @@ neo4j:
 
   environment:
     NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"   # Required for Enterprise
-    NEO4J_AUTH: neo4j/rag1mini_graphrag     # Credentials
+    NEO4J_AUTH: neo4j/raglab_graphrag     # Credentials
     NEO4J_PLUGINS: '["graph-data-science"]' # Enable GDS (Leiden)
 
     # Memory settings
@@ -1388,7 +1388,7 @@ After Hybrid Merge:
 
 ```bash
 # 1. Activate environment
-conda activate rag1-mini
+conda activate raglab
 
 # 2. Start Docker services
 docker compose up -d
@@ -1575,7 +1575,7 @@ python -m src.stages.run_stage_7_evaluation --comprehensive
 2. Login:
    - Connect URL: `neo4j://localhost:7687`
    - Username: `neo4j`
-   - Password: `rag1mini_graphrag`
+   - Password: `raglab_graphrag`
 
 ### Essential Cypher Queries
 
@@ -1864,7 +1864,7 @@ Complete trace from PDF to query response:
 
 ## 13. RAPTOR vs GraphRAG Comparison
 
-Both RAPTOR and GraphRAG are implemented in RAG1-Mini. They complement each other for different query types:
+Both RAPTOR and GraphRAG are implemented in RAGLab. They complement each other for different query types:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -1997,7 +1997,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  - Reduces manual customization effort significantly                       │
 │                                                                             │
 │  Status: Available in Microsoft GraphRAG library                           │
-│  RAG1-Mini: Uses manual domain types (BRAIN_REGION, PHILOSOPHER, etc.)     │
+│  RAGLab: Uses manual domain types (BRAIN_REGION, PHILOSOPHER, etc.)     │
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
@@ -2015,7 +2015,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  Use case: Quick prototyping or budget-constrained deployments             │
 │                                                                             │
 │  Status: Research preview                                                  │
-│  RAG1-Mini: Uses full LLM extraction (learning project, quality focus)     │
+│  RAGLab: Uses full LLM extraction (learning project, quality focus)     │
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
@@ -2043,7 +2043,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  Problem: "Marcus Aurelius" vs "Aurelius" treated as different             │
 │  Future: Embedding-based similarity, coreference resolution               │
 │                                                                             │
-│  RAG1-Mini approach:                                                       │
+│  RAGLab approach:                                                       │
 │  - normalized_name for exact match (current)                               │
 │  - Could add: embedding similarity for near-matches                        │
 │                                                                             │
@@ -2053,7 +2053,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  Problem: Expensive for large corpora                                      │
 │  Future: Hybrid NLP + LLM, incremental updates                            │
 │                                                                             │
-│  RAG1-Mini approach:                                                       │
+│  RAGLab approach:                                                       │
 │  - Claude-3-haiku ($0.25/1M tokens) for cost efficiency                   │
 │  - ~150 chunks = ~$0.15 extraction cost                                   │
 │                                                                             │
@@ -2063,7 +2063,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  Paper: Multi-level hierarchy (C0, C1, C2...)                             │
 │  Benefit: Different abstraction levels for different queries              │
 │                                                                             │
-│  RAG1-Mini approach:                                                       │
+│  RAGLab approach:                                                       │
 │  - Uses single level (simpler implementation)                             │
 │  - Could extend: store intermediate Leiden levels                         │
 │                                                                             │
@@ -2086,7 +2086,7 @@ Based on the latest research (paper updated February 2025), here are key develop
 │  Directness: "Does the answer directly address the question?"             │
 │    - Baseline RAG wins here (GraphRAG adds too much context)              │
 │                                                                             │
-│  RAG1-Mini approach:                                                       │
+│  RAGLab approach:                                                       │
 │  - Uses RAGAS metrics (faithfulness, relevancy, context_precision)        │
 │  - Could add: comprehensiveness, diversity via LLM-as-judge              │
 │                                                                             │

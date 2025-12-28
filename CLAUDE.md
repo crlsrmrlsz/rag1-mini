@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RAG1-Mini is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline: extraction, cleaning, segmentation, chunking, embedding, vector storage, query/search, and answer generation.
+RAGLab is a Retrieval-Augmented Generation pipeline designed for learning and experimentation. It processes PDF documents through an 8-stage pipeline: extraction, cleaning, segmentation, chunking, embedding, vector storage, query/search, and answer generation.
 
 ## Environment Setup
 
 ```bash
-conda activate rag1-mini
+conda activate raglab
 ```
 
 ## Commands

@@ -1,4 +1,4 @@
-# RAG1-Mini
+# RAGLab
 
 An advanced Retrieval-Augmented Generation pipeline implementing 6 modern techniques from 2024-2025 research papers. Built to deeply understand RAG concepts—not just use a framework.
 
@@ -60,7 +60,7 @@ Building this pipeline taught me that RAG is deceptively complex. A few key insi
 
 ```bash
 # Setup environment
-conda activate rag1-mini
+conda activate raglab
 
 # Run pipeline stages (baseline)
 python -m src.stages.run_stage_1_extraction   # Extract PDFs
@@ -136,7 +136,7 @@ PDF Documents
 ## Project Structure
 
 ```
-rag1-mini/
+raglab/
 ├── src/
 │   ├── content_preparation/         # Phase 1: Documents -> Text
 │   │   ├── extraction/              # Stage 1: PDF -> Markdown
@@ -198,7 +198,7 @@ Each strategy evaluated as black box (questions in, metrics out). See [evaluatio
 ## Requirements
 
 - Python 3.8+
-- Conda environment: `rag1-mini`
+- Conda environment: `raglab`
 - OpenRouter API key
 - Docker (for Weaviate + Neo4j)
 

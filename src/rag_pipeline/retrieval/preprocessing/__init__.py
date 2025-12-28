@@ -1,4 +1,4 @@
-"""Query preprocessing module for RAG1-Mini.
+"""Query preprocessing module for RAGLab.
 
 Provides query transformation strategies for improved retrieval:
 - HyDE (Hypothetical Document Embeddings) for semantic matching (arXiv:2212.10496)

@@ -18,7 +18,7 @@ GraphRAG is Microsoft's graph-based approach to Retrieval-Augmented Generation t
 - **97% fewer tokens** at query time using community summaries vs source text
 - **+70% comprehensiveness** improvement (Microsoft claims)
 
-**Why This Matters for RAG1-Mini:**
+**Why This Matters for RAGLab:**
 - Current approach fails on "global" questions like "What are the main themes across all books?"
 - Graph structure captures relationships between concepts, authors, and ideas across documents
 - Community summaries enable efficient query-time synthesis without reading all chunks
@@ -105,7 +105,7 @@ GraphRAG operates in two distinct phases:
 
 **Rationale:** Smaller chunks = more focused entity extraction, better relationship precision.
 
-**RAG1-Mini Adaptation:** Use our existing 800-token section chunks as base. Consider creating 400-token overlapping chunks specifically for graph extraction.
+**RAGLab Adaptation:** Use our existing 800-token section chunks as base. Consider creating 400-token overlapping chunks specifically for graph extraction.
 
 ### 3.2 Step 2: Entity & Relationship Extraction
 
@@ -146,7 +146,7 @@ This is the core LLM-powered step that converts text to graph structure.
 }
 ```
 
-**Entity Types for RAG1-Mini (domain-specific):**
+**Entity Types for RAGLab (domain-specific):**
 
 ```python
 ENTITY_TYPES = [
@@ -260,7 +260,7 @@ Respond in JSON format with "entities" and "relationships" arrays.
 
 **Entity Resolution:**
 
-The paper uses simple string matching but notes "softer matching approaches can be used." For RAG1-Mini, consider:
+The paper uses simple string matching but notes "softer matching approaches can be used." For RAGLab, consider:
 - Exact match as baseline
 - Embedding similarity for near-duplicates (e.g., "Marcus Aurelius" vs "Aurelius")
 - LLM-based resolution for complex cases
@@ -325,7 +325,7 @@ CALL gds.leiden.stream('myGraph', {
 YIELD nodeId, communityId, intermediateCommunityIds
 ```
 
-**RAG1-Mini Considerations:**
+**RAGLab Considerations:**
 - Smaller corpus = fewer communities (maybe 2-3 levels)
 - Each book might form a natural high-level community
 - Cross-book concepts (like "dopamine" or "Stoicism") will cluster
@@ -670,11 +670,11 @@ def run_leiden_community_detection(self) -> Dict[str, int]:
 
 ---
 
-## 5. Integration with RAG1-Mini
+## 5. Integration with RAGLab
 
 ### 5.1 Architecture Mapping
 
-| GraphRAG Component | RAG1-Mini Equivalent | Integration Point |
+| GraphRAG Component | RAGLab Equivalent | Integration Point |
 |-------------------|---------------------|------------------|
 | Text chunks | `section_chunker.py` output | Stage 4 |
 | Entity extraction | New: `graph/extractor.py` | Stage 4.6 (new) |
@@ -845,7 +845,7 @@ def global_query(query: str, level: int = 0) -> str:
 
 ### 8.1 Research Sources
 
-This analysis compares RAG1-Mini's GraphRAG implementation against:
+This analysis compares RAGLab's GraphRAG implementation against:
 - Original paper: [arXiv:2404.16130](https://arxiv.org/abs/2404.16130)
 - Survey paper: [arXiv:2501.00309](https://arxiv.org/abs/2501.00309)
 - Microsoft implementation: [github.com/microsoft/graphrag](https://github.com/microsoft/graphrag)

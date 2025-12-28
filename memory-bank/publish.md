@@ -1,8 +1,8 @@
-# Analysis: RAG1-Mini Portfolio Decision
+# Analysis: RAGLab Portfolio Decision
 
 ## Executive Summary
 
-**You are underestimating your project.** After thorough analysis, RAG1-Mini is *more technically sophisticated* than most Medium/TDS RAG articles. This is not amateur work—it's an advanced research-grade implementation that would make a strong portfolio piece.
+**You are underestimating your project.** After thorough analysis, RAGLab is *more technically sophisticated* than most Medium/TDS RAG articles. This is not amateur work—it's an advanced research-grade implementation that would make a strong portfolio piece.
 
 ---
 
@@ -19,7 +19,7 @@
 - Narrative essay format, no implementation code
 - Reflective commentary, not technical tutorial
 
-### What RAG1-Mini implements:
+### What RAGLab implements:
 | Technique | Paper | Your Implementation |
 |-----------|-------|---------------------|
 | HyDE | arXiv:2212.10496 | Complete with domain-specific prompts |
@@ -58,7 +58,7 @@ This sits between intermediate and research-grade:
 ```
 Beginner Tutorial    Intermediate    Advanced Research-Grade
        |                 |                    |
-  LangChain          RAG from              RAG1-Mini ←
+  LangChain          RAG from              RAGLab ←
  quickstart        scratch with          (multi-strategy
   + Pinecone       single DB             + GraphRAG)
 ```
@@ -130,7 +130,7 @@ Your project is **not amateur**—the code already implements advanced technique
 ### README Structure to Showcase Technical Depth
 
 ```markdown
-# RAG1-Mini: Advanced Retrieval-Augmented Generation Pipeline
+# RAGLab: Advanced Retrieval-Augmented Generation Pipeline
 
 A research-grade RAG implementation featuring 5 modern techniques from 2024-2025 papers.
 

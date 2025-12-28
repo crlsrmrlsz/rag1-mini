@@ -1,4 +1,4 @@
-"""RAG1-Mini Search Interface.
+"""RAGLab Search Interface.
 
 A Streamlit application for testing the RAG system with Weaviate backend.
 Features:
@@ -54,7 +54,7 @@ from src.shared.openrouter_models import (
 # ============================================================================
 
 st.set_page_config(
-    page_title="RAG1-Mini Search",
+    page_title="RAGLab Search",
     page_icon="books",
     layout="wide",
 )
@@ -513,7 +513,7 @@ with st.sidebar.expander("Current Configuration", expanded=False):
 # MAIN CONTENT
 # ============================================================================
 
-st.title("RAG1-Mini Search")
+st.title("RAGLab Search")
 st.markdown("Search across 19 books combining neuroscience and philosophy.")
 
 # Show connection error if any

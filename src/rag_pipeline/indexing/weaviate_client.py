@@ -1,4 +1,4 @@
-"""Weaviate client wrapper for RAG1-Mini.
+"""Weaviate client wrapper for RAGLab.
 
 Provides functions for:
 - Connecting to local Weaviate instance

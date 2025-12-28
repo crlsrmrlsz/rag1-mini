@@ -1,4 +1,4 @@
-# Utils package for RAG1-Mini
+# Utils package for RAGLab
 
 # Import all utility functions to make them available for import
 from .files import (

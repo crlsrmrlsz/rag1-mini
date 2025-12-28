@@ -1,4 +1,4 @@
-"""Central configuration for RAG1-Mini pipeline.
+"""Central configuration for RAGLab pipeline.
 
 Contains:
 - Project paths for all pipeline stages (extraction through embedding)
@@ -582,7 +582,7 @@ RAPTOR_SUMMARY_PROMPT = "Write a summary of the following, including as many key
 # Neo4j connection settings
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "rag1mini_graphrag")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "raglab_graphrag")
 
 # Model for entity/relationship extraction
 # Using claude-3-haiku for consistency with RAPTOR and contextual

@@ -28,7 +28,7 @@ The RAPTOR paper ([arXiv:2401.18059](https://arxiv.org/abs/2401.18059)) evaluate
 - Two reference answers per question (captures variability)
 - Source: [GitHub](https://github.com/google-deepmind/narrativeqa)
 
-## RAG1-Mini Evaluation Approach
+## RAGLab Evaluation Approach
 
 This project uses **domain-specific evaluation** rather than generic benchmarks:
 

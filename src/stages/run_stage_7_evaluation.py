@@ -1,4 +1,4 @@
-"""Stage 7: RAGAS Evaluation for RAG1-Mini.
+"""Stage 7: RAGAS Evaluation for RAGLab.
 
 Runs RAGAS evaluation on test questions to measure RAG pipeline quality.
 Evaluates retrieval (context precision/recall) and generation (faithfulness/relevancy).

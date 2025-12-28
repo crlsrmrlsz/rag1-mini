@@ -17,7 +17,7 @@ RAPTOR is a retrieval technique that constructs a **hierarchical tree of summari
 - **55.7% F1** on QASPER (new SOTA), vs 53.0% for DPR
 - **18.5-57%** of retrieved nodes come from non-leaf layers (summaries actually matter!)
 
-**Why This Matters for RAG1-Mini:**
+**Why This Matters for RAGLab:**
 - Current chunking loses document-level context (contextual chunking helps but doesn't create hierarchies)
 - Questions about themes, arcs, or multi-section concepts fail because relevant info spans many chunks
 - RAPTOR enables answering "What is the main argument of this book?" alongside "What did Sapolsky say about cortisol?"
@@ -50,11 +50,11 @@ RAPTOR is a retrieval technique that constructs a **hierarchical tree of summari
 **Step 1: Initial Chunking**
 - Split documents into 100-token chunks (paper default)
 - Preserve sentence boundaries
-- *RAG1-Mini adaptation:* Use existing 800-token section chunks as leaves (already optimized for our corpus)
+- *RAGLab adaptation:* Use existing 800-token section chunks as leaves (already optimized for our corpus)
 
 **Step 2: Embed All Chunks**
 - Embed using SBERT (paper uses `multi-qa-mpnet-base-cos-v1`)
-- *RAG1-Mini adaptation:* Use `text-embedding-3-large` (our standard model)
+- *RAGLab adaptation:* Use `text-embedding-3-large` (our standard model)
 
 **Step 3: Dimensionality Reduction with UMAP**
 - High-dimensional embeddings (1536 dims) are difficult for GMM
@@ -154,7 +154,7 @@ key details as possible: {context}:"
 
 ### 2.4 Key Parameters Summary
 
-| Parameter | Paper Default | RAG1-Mini Recommendation | Rationale |
+| Parameter | Paper Default | RAGLab Recommendation | Rationale |
 |-----------|---------------|--------------------------|-----------|
 | Leaf chunk size | 100 tokens | 800 tokens | Our existing chunks are optimized |
 | Embedding model | SBERT | text-embedding-3-large | Consistency with pipeline |
@@ -168,11 +168,11 @@ key details as possible: {context}:"
 
 ---
 
-## 3. Project-Specific Analysis: RAG1-Mini Integration
+## 3. Project-Specific Analysis: RAGLab Integration
 
 ### 3.1 Current Architecture Mapping
 
-| RAPTOR Component | RAG1-Mini Equivalent | Integration Strategy |
+| RAPTOR Component | RAGLab Equivalent | Integration Strategy |
 |------------------|---------------------|---------------------|
 | Leaf chunks | `section_chunker.py` output | Use existing 800-token chunks |
 | Embedding | `embedder.py` | Reuse `embed_texts()` |

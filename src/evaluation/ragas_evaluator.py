@@ -1,4 +1,4 @@
-"""RAGAS evaluation for RAG1-Mini.
+"""RAGAS evaluation for RAGLab.
 
 Provides:
 - OpenRouter chat integration for answer generation

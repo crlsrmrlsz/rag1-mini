@@ -1,7 +1,7 @@
 # HyDE (Hypothetical Document Embeddings) Research
 
 **Date:** December 24, 2024
-**Purpose:** Research findings for improving the HyDE prompt in RAG1-Mini
+**Purpose:** Research findings for improving the HyDE prompt in RAGLab
 
 ---
 
@@ -118,7 +118,7 @@ From [RAG Techniques](https://github.com/NirDiamant/RAG_Techniques/blob/main/all
 
 ## 6. Overfitting Analysis: Current Prompt Problems
 
-The original RAG1-Mini `HYDE_PROMPT` had these issues:
+The original RAGLab `HYDE_PROMPT` had these issues:
 
 | Issue | Impact |
 |-------|--------|

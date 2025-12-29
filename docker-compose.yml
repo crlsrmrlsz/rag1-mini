@@ -114,8 +114,12 @@ services:
       # Authentication (change in production!)
       NEO4J_AUTH: neo4j/raglab_graphrag
 
-      # Enable GDS plugin
-      NEO4J_PLUGINS: '["graph-data-science"]'
+      # Enable GDS, APOC plugin
+      NEO4J_PLUGINS: '["graph-data-science", "apoc"]'
+      
+      # APOC import/export
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
 
       # Memory configuration (adjust based on your system)
       NEO4J_dbms_memory_heap_initial__size: 512m

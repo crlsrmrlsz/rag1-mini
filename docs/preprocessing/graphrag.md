@@ -301,7 +301,7 @@ See [Evaluation Results](../evaluation/results.md) for RAGAS metrics comparing G
 
 ## Crash-Proof Design (v2)
 
-> **Added:** 2025-12-29 | **Status:** Implementing
+> **Added:** 2025-12-29 | **Status:** Complete
 
 Stage 6b (Neo4j upload + Leiden + summarization) takes ~10 hours and costs ~$10. The original design was vulnerable to crashes, network errors, and API limits. This section documents the crash-proof redesign.
 

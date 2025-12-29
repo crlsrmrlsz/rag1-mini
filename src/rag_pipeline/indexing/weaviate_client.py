@@ -238,3 +238,169 @@ def get_collection_count(
     collection = client.collections.get(collection_name)
     result = collection.aggregate.over_all(total_count=True)
     return result.total_count
+
+
+# ============================================================================
+# Community Collection (for GraphRAG crash-proof design)
+# ============================================================================
+
+
+def create_community_collection(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+) -> None:
+    """Create a collection for GraphRAG community summaries.
+
+    Stores community metadata and embeddings for vector search.
+    Replaces the 383MB JSON file with efficient Weaviate storage.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Name for the community collection.
+
+    Raises:
+        weaviate.exceptions.WeaviateBaseError: If collection creation fails.
+    """
+    client.collections.create(
+        name=collection_name,
+        vector_config=Configure.Vectors.self_provided(
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
+        ),
+        properties=[
+            Property(name="community_id", data_type=DataType.TEXT),
+            Property(name="summary", data_type=DataType.TEXT),
+            Property(name="member_count", data_type=DataType.INT),
+            Property(name="relationship_count", data_type=DataType.INT),
+            Property(name="level", data_type=DataType.INT),
+        ],
+    )
+
+
+def _generate_uuid_from_community_id(community_id: str) -> str:
+    """Generate deterministic UUID from community_id for idempotent uploads.
+
+    Args:
+        community_id: Unique community identifier (e.g., "community_42").
+
+    Returns:
+        UUID string derived from community_id.
+    """
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"community:{community_id}"))
+
+
+def upload_community(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+    community_id: str,
+    summary: str,
+    embedding: List[float],
+    member_count: int,
+    relationship_count: int = 0,
+    level: int = 0,
+) -> None:
+    """Upload a single community to Weaviate.
+
+    Used for incremental saves during summarization (crash-proof).
+    Uses deterministic UUID for idempotent uploads.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Target community collection name.
+        community_id: Unique community identifier.
+        summary: LLM-generated community summary.
+        embedding: Summary embedding vector.
+        member_count: Number of entities in community.
+        relationship_count: Number of relationships in community.
+        level: Hierarchy level (0 = base level).
+    """
+    collection = client.collections.get(collection_name)
+
+    collection.data.insert(
+        properties={
+            "community_id": community_id,
+            "summary": summary,
+            "member_count": member_count,
+            "relationship_count": relationship_count,
+            "level": level,
+        },
+        vector=embedding,
+        uuid=_generate_uuid_from_community_id(community_id),
+    )
+
+
+def get_existing_community_ids(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+) -> set:
+    """Get set of community IDs already in Weaviate.
+
+    Used for resume functionality - skip communities already summarized.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Community collection name.
+
+    Returns:
+        Set of community_id strings already in collection.
+    """
+    if not client.collections.exists(collection_name):
+        return set()
+
+    collection = client.collections.get(collection_name)
+    existing_ids = set()
+
+    # Fetch all community_ids (no limit)
+    for obj in collection.iterator(return_properties=["community_id"]):
+        existing_ids.add(obj.properties["community_id"])
+
+    return existing_ids
+
+
+def query_communities_by_vector(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+    query_embedding: List[float],
+    top_k: int = 3,
+) -> List[Dict[str, Any]]:
+    """Query communities by vector similarity.
+
+    Replaces the in-memory cosine similarity loop with Weaviate HNSW search.
+    O(log n) instead of O(n) for large community sets.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Community collection name.
+        query_embedding: Query embedding vector.
+        top_k: Number of communities to return.
+
+    Returns:
+        List of dicts with community_id, summary, member_count, and score.
+    """
+    from weaviate.classes.query import MetadataQuery
+
+    if not client.collections.exists(collection_name):
+        return []
+
+    collection = client.collections.get(collection_name)
+
+    response = collection.query.near_vector(
+        near_vector=query_embedding,
+        limit=top_k,
+        return_metadata=MetadataQuery(distance=True),
+    )
+
+    results = []
+    for obj in response.objects:
+        # Convert distance to similarity (cosine distance = 1 - similarity)
+        similarity = 1.0 - obj.metadata.distance if obj.metadata.distance else 0.0
+
+        results.append({
+            "community_id": obj.properties["community_id"],
+            "summary": obj.properties["summary"],
+            "member_count": obj.properties["member_count"],
+            "score": similarity,
+        })
+
+    return results

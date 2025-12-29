@@ -40,10 +40,15 @@ from src.config import (
     GRAPHRAG_ENTITY_TYPES,
     GRAPHRAG_QUERY_EXTRACTION_PROMPT,
     DIR_GRAPH_DATA,
+    get_community_collection_name,
 )
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_structured_completion
 from src.rag_pipeline.embedding.embedder import embed_texts
+from src.rag_pipeline.indexing.weaviate_client import (
+    get_client as get_weaviate_client,
+    query_communities_by_vector,
+)
 from .neo4j_client import find_entity_neighbors, find_entities_by_names
 from .community import load_communities
 from .schemas import Community, QueryEntities
@@ -274,13 +279,12 @@ def retrieve_community_context(
 ) -> List[Dict[str, Any]]:
     """Retrieve relevant community summaries using embedding similarity.
 
-    Uses cosine similarity between query embedding and community summary
-    embeddings for semantic matching. Falls back to keyword matching if
-    embeddings are not available.
+    Tries Weaviate first for efficient HNSW search, then falls back to
+    in-memory file-based search if Weaviate collection doesn't exist.
 
     Args:
         query: User query string.
-        communities: List of Community objects (loads from file if None).
+        communities: List of Community objects (only for legacy fallback).
         top_k: Number of top communities to return.
 
     Returns:
@@ -291,6 +295,32 @@ def retrieve_community_context(
         >>> for c in context:
         ...     print(c["summary"][:100], c["score"])
     """
+    # Try Weaviate first (preferred - O(log n) HNSW search)
+    try:
+        collection_name = get_community_collection_name()
+        client = get_weaviate_client()
+
+        if client.collections.exists(collection_name):
+            logger.debug(f"Using Weaviate community retrieval from {collection_name}")
+            query_embedding = embed_texts([query])[0]
+
+            results = query_communities_by_vector(
+                client=client,
+                collection_name=collection_name,
+                query_embedding=query_embedding,
+                top_k=top_k,
+            )
+
+            client.close()
+            logger.info(f"Weaviate community retrieval found {len(results)} communities")
+            return results
+        else:
+            client.close()
+            logger.debug(f"Weaviate collection {collection_name} not found, using file fallback")
+    except Exception as e:
+        logger.warning(f"Weaviate community retrieval failed: {e}, using file fallback")
+
+    # Fallback: file-based retrieval (legacy - O(n) loop)
     if communities is None:
         try:
             communities = load_communities()
@@ -306,7 +336,7 @@ def retrieve_community_context(
 
     if has_embeddings:
         # Embedding-based retrieval (preferred)
-        logger.debug("Using embedding-based community retrieval")
+        logger.debug("Using file-based embedding community retrieval")
         query_embedding = embed_texts([query])[0]
 
         scored = []
@@ -348,7 +378,7 @@ def retrieve_community_context(
             "score": float(score),
         })
 
-    logger.info(f"Community retrieval found {len(results)} relevant communities")
+    logger.info(f"File-based community retrieval found {len(results)} communities")
     return results
 
 

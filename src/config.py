@@ -218,6 +218,31 @@ def get_collection_name(chunking_strategy: str = None) -> str:
     return f"RAG_{strategy_safe}_{EMBEDDING_MODEL_SHORT}_{COLLECTION_VERSION}"
 
 
+def get_community_collection_name(chunking_strategy: str = None) -> str:
+    """
+    Generate community collection name for GraphRAG.
+
+    Community embeddings are stored in Weaviate for efficient vector search.
+    Collection name includes strategy to match the chunks they were derived from.
+
+    Args:
+        chunking_strategy: Chunking strategy name (e.g., "section").
+            If None, uses CHUNKING_STRATEGY_NAME from config.
+
+    Returns:
+        Collection name in format: Community_{strategy}_{version}
+
+    Example:
+        >>> get_community_collection_name()
+        "Community_section800_v1"
+        >>> get_community_collection_name("semantic")
+        "Community_semantic_v1"
+    """
+    strategy = chunking_strategy if chunking_strategy else CHUNKING_STRATEGY_NAME
+    strategy_safe = strategy.replace(".", "_")
+    return f"Community_{strategy_safe}_{COLLECTION_VERSION}"
+
+
 # ============================================================================
 # UI SETTINGS
 # ============================================================================
@@ -650,6 +675,8 @@ GRAPHRAG_RELATIONSHIP_TYPES = [
 GRAPHRAG_LEIDEN_RESOLUTION = 1.0    # Higher = more, smaller communities
 GRAPHRAG_LEIDEN_MAX_LEVELS = 10     # Maximum hierarchy depth
 GRAPHRAG_MIN_COMMUNITY_SIZE = 3     # Minimum nodes per community
+GRAPHRAG_LEIDEN_SEED = 42           # Fixed seed for deterministic results
+GRAPHRAG_LEIDEN_CONCURRENCY = 1     # Single-threaded for reproducibility
 
 # Community summarization parameters
 GRAPHRAG_MAX_SUMMARY_TOKENS = 200   # Max tokens per community summary

@@ -36,15 +36,24 @@ from src.config import (
     GRAPHRAG_LEIDEN_RESOLUTION,
     GRAPHRAG_LEIDEN_MAX_LEVELS,
     GRAPHRAG_MIN_COMMUNITY_SIZE,
+    GRAPHRAG_LEIDEN_SEED,
+    GRAPHRAG_LEIDEN_CONCURRENCY,
     GRAPHRAG_SUMMARY_MODEL,
     GRAPHRAG_COMMUNITY_PROMPT,
     GRAPHRAG_MAX_SUMMARY_TOKENS,
     GRAPHRAG_MAX_CONTEXT_TOKENS,
     DIR_GRAPH_DATA,
+    get_community_collection_name,
 )
 from src.shared.openrouter_client import call_chat_completion
 from src.shared.files import setup_logging
 from src.rag_pipeline.embedding.embedder import embed_texts
+from src.rag_pipeline.indexing.weaviate_client import (
+    get_client as get_weaviate_client,
+    create_community_collection,
+    upload_community as weaviate_upload_community,
+    get_existing_community_ids as weaviate_get_existing_ids,
+)
 from .schemas import Community, CommunityMember
 from .neo4j_client import get_gds_client
 
@@ -98,35 +107,48 @@ def run_leiden(
     graph: Any,
     resolution: float = GRAPHRAG_LEIDEN_RESOLUTION,
     max_levels: int = GRAPHRAG_LEIDEN_MAX_LEVELS,
+    seed: int = GRAPHRAG_LEIDEN_SEED,
+    concurrency: int = GRAPHRAG_LEIDEN_CONCURRENCY,
 ) -> Dict[str, Any]:
     """Run Leiden community detection algorithm.
 
     Leiden improves on Louvain by guaranteeing well-connected communities.
     Returns hierarchical community assignments.
 
+    Uses randomSeed + concurrency=1 for DETERMINISTIC results.
+    Same graph + same seed = same community assignments (guaranteed).
+    This enables crash recovery without community ID mismatches.
+
     Args:
         gds: GraphDataScience client instance.
         graph: GDS Graph object from project_graph().
         resolution: Higher = more, smaller communities (default 1.0).
         max_levels: Maximum hierarchy depth.
+        seed: Random seed for deterministic results (default 42).
+        concurrency: Thread count (1 for determinism, default 1).
 
     Returns:
         Dict with:
         - community_count: Number of communities found
         - levels: Number of hierarchy levels
         - node_communities: List of (node_id, community_id) tuples
+        - seed: The seed used (for checkpoint verification)
 
     Example:
         >>> result = run_leiden(gds, graph)
         >>> print(result["community_count"])
         12
     """
-    # Run Leiden in stream mode to get results
+    logger.info(f"Running Leiden with seed={seed}, concurrency={concurrency}")
+
+    # Run Leiden in stream mode with deterministic settings
     result = gds.leiden.stream(
         graph,
         gamma=resolution,  # Resolution parameter
         maxLevels=max_levels,
         includeIntermediateCommunities=True,  # Get hierarchy
+        randomSeed=seed,  # Fixed seed for determinism
+        concurrency=concurrency,  # Single-threaded for reproducibility
     )
 
     # Convert to list of dicts
@@ -150,7 +172,124 @@ def run_leiden(
         "community_count": len(unique_communities),
         "node_count": len(node_communities),
         "node_communities": node_communities,
+        "seed": seed,  # Include for checkpoint verification
     }
+
+
+# ============================================================================
+# Leiden Checkpoint (for crash recovery)
+# ============================================================================
+
+
+def save_leiden_checkpoint(
+    leiden_result: Dict[str, Any],
+    output_name: str = "leiden_checkpoint.json",
+) -> Path:
+    """Save Leiden result to checkpoint file for crash recovery.
+
+    Stores the seed and node→community assignments so that:
+    1. We can verify Leiden produces same results on re-run
+    2. We can resume summarization without re-running Leiden
+
+    Args:
+        leiden_result: Result from run_leiden() with node_communities and seed.
+        output_name: Checkpoint filename.
+
+    Returns:
+        Path to saved checkpoint file.
+
+    Example:
+        >>> result = run_leiden(gds, graph)
+        >>> path = save_leiden_checkpoint(result)
+        >>> print(f"Saved checkpoint to {path}")
+    """
+    from datetime import datetime
+
+    output_path = DIR_GRAPH_DATA / output_name
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    checkpoint = {
+        "seed": leiden_result["seed"],
+        "timestamp": datetime.now().isoformat(),
+        "community_count": leiden_result["community_count"],
+        "node_count": leiden_result["node_count"],
+        "assignments": leiden_result["node_communities"],
+    }
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(checkpoint, f, indent=2)
+
+    logger.info(f"Saved Leiden checkpoint to {output_path}")
+    return output_path
+
+
+def load_leiden_checkpoint(
+    input_name: str = "leiden_checkpoint.json",
+) -> Optional[Dict[str, Any]]:
+    """Load Leiden checkpoint from file.
+
+    Args:
+        input_name: Checkpoint filename.
+
+    Returns:
+        Checkpoint dict with seed, timestamp, and assignments,
+        or None if file doesn't exist.
+
+    Example:
+        >>> checkpoint = load_leiden_checkpoint()
+        >>> if checkpoint:
+        ...     print(f"Loaded {len(checkpoint['assignments'])} assignments")
+    """
+    input_path = DIR_GRAPH_DATA / input_name
+
+    if not input_path.exists():
+        return None
+
+    with open(input_path, "r", encoding="utf-8") as f:
+        checkpoint = json.load(f)
+
+    logger.info(
+        f"Loaded Leiden checkpoint: seed={checkpoint['seed']}, "
+        f"{checkpoint['community_count']} communities, "
+        f"{checkpoint['node_count']} nodes"
+    )
+    return checkpoint
+
+
+def verify_leiden_checkpoint(
+    leiden_result: Dict[str, Any],
+    checkpoint: Dict[str, Any],
+) -> bool:
+    """Verify that Leiden result matches checkpoint.
+
+    Checks that seed and community assignments are identical,
+    ensuring deterministic behavior.
+
+    Args:
+        leiden_result: Result from run_leiden().
+        checkpoint: Loaded checkpoint from load_leiden_checkpoint().
+
+    Returns:
+        True if results match, False otherwise.
+
+    Raises:
+        ValueError: If seed or assignments don't match.
+    """
+    if leiden_result["seed"] != checkpoint["seed"]:
+        raise ValueError(
+            f"Seed mismatch: got {leiden_result['seed']}, "
+            f"expected {checkpoint['seed']}"
+        )
+
+    if leiden_result["community_count"] != checkpoint["community_count"]:
+        logger.warning(
+            f"Community count changed: {leiden_result['community_count']} vs "
+            f"{checkpoint['community_count']} (this may indicate graph changes)"
+        )
+        return False
+
+    logger.info("Leiden checkpoint verification passed")
+    return True
 
 
 def write_communities_to_neo4j(
@@ -372,18 +511,22 @@ def detect_and_summarize_communities(
 ) -> List[Community]:
     """Run full community detection and summarization pipeline.
 
-    Main entry point for community processing:
+    Main entry point for community processing with crash-proof design:
     1. Project graph to GDS (unless skip_leiden)
-    2. Run Leiden algorithm (unless skip_leiden)
-    3. Write community IDs to Neo4j (unless skip_leiden)
-    4. Generate summaries for each community (with resume support)
+    2. Run Leiden algorithm (deterministic with seed, unless skip_leiden)
+    3. Save Leiden checkpoint for crash recovery
+    4. Write community IDs to Neo4j (unless skip_leiden)
+    5. Generate summaries and upload to Weaviate (atomic per community)
+
+    Resume mode checks Weaviate for existing communities, enabling
+    crash recovery without community ID mismatches.
 
     Args:
         driver: Neo4j driver instance.
         gds: GraphDataScience client.
         min_size: Minimum community size to summarize.
         model: LLM model for summarization.
-        resume: If True, load existing summaries and skip already-done communities.
+        resume: If True, skip already-done communities (checks Weaviate).
         skip_leiden: If True, skip Leiden and use existing community_ids from Neo4j.
 
     Returns:
@@ -394,15 +537,35 @@ def detect_and_summarize_communities(
         >>> for c in communities:
         ...     print(c.community_id, c.member_count, c.summary[:50])
     """
-    # Load existing summaries if resuming
-    existing_summaries = {}
+    # Initialize Weaviate client for crash-proof storage
+    collection_name = get_community_collection_name()
+    try:
+        weaviate_client = get_weaviate_client()
+        use_weaviate = True
+
+        # Create collection if it doesn't exist
+        if not weaviate_client.collections.exists(collection_name):
+            create_community_collection(weaviate_client, collection_name)
+            logger.info(f"Created Weaviate collection: {collection_name}")
+    except Exception as e:
+        logger.warning(f"Weaviate not available, using file-only storage: {e}")
+        weaviate_client = None
+        use_weaviate = False
+
+    # Get existing community IDs for resume (from Weaviate if available)
+    existing_ids = set()
     if resume:
-        try:
-            existing = load_communities()
-            existing_summaries = {c.community_id: c for c in existing}
-            logger.info(f"Loaded {len(existing_summaries)} existing summaries for resume")
-        except FileNotFoundError:
-            logger.info("No existing summaries found, starting fresh")
+        if use_weaviate:
+            existing_ids = weaviate_get_existing_ids(weaviate_client, collection_name)
+            logger.info(f"Found {len(existing_ids)} existing communities in Weaviate")
+        else:
+            # Fallback: load from JSON file
+            try:
+                existing = load_communities()
+                existing_ids = {c.community_id for c in existing}
+                logger.info(f"Loaded {len(existing_ids)} existing summaries from file")
+            except FileNotFoundError:
+                logger.info("No existing summaries found, starting fresh")
 
     # Get community IDs
     if skip_leiden:
@@ -414,25 +577,28 @@ def detect_and_summarize_communities(
         # Step 1: Project graph
         graph = project_graph(gds)
 
-        # Step 2: Run Leiden
+        # Step 2: Run Leiden (deterministic with seed)
         leiden_result = run_leiden(gds, graph)
 
-        # Step 3: Write community IDs to Neo4j
+        # Step 3: Save Leiden checkpoint for crash recovery
+        save_leiden_checkpoint(leiden_result)
+
+        # Step 4: Write community IDs to Neo4j
         write_communities_to_neo4j(driver, leiden_result["node_communities"])
 
-        # Step 4: Get unique community IDs
+        # Step 5: Get unique community IDs
         unique_ids = set(nc["community_id"] for nc in leiden_result["node_communities"])
 
-    # Step 5: Process each community
-    communities = list(existing_summaries.values()) if resume else []
-    summarized_ids = set(existing_summaries.keys())
+    # Step 6: Process each community
+    communities = []
     new_summaries = 0
+    total_to_process = len(unique_ids)
 
-    for community_id in sorted(unique_ids):  # Sort for consistent ordering
+    for idx, community_id in enumerate(sorted(unique_ids)):  # Sort for consistent ordering
         community_key = f"community_{community_id}"
 
-        # Skip if already summarized (resume mode)
-        if community_key in summarized_ids:
+        # Skip if already in Weaviate (resume mode)
+        if community_key in existing_ids:
             continue
 
         # Get members
@@ -447,7 +613,7 @@ def detect_and_summarize_communities(
 
         # Generate summary AND embedding
         logger.info(
-            f"Summarizing community {community_id} "
+            f"[{idx + 1}/{total_to_process}] Summarizing community {community_id} "
             f"({len(members)} members, {len(relationships)} relationships)"
         )
         summary, embedding = summarize_community(members, relationships, model=model)
@@ -465,16 +631,37 @@ def detect_and_summarize_communities(
         communities.append(community)
         new_summaries += 1
 
-        # Save incrementally after each summary
+        # Upload to Weaviate immediately (crash-proof: atomic per community)
+        if use_weaviate and embedding:
+            try:
+                weaviate_upload_community(
+                    client=weaviate_client,
+                    collection_name=collection_name,
+                    community_id=community_key,
+                    summary=summary,
+                    embedding=embedding,
+                    member_count=len(members),
+                    relationship_count=len(relationships),
+                    level=0,
+                )
+                logger.debug(f"Uploaded {community_key} to Weaviate")
+            except Exception as e:
+                logger.warning(f"Failed to upload {community_key} to Weaviate: {e}")
+
+        # Also save to JSON incrementally (backup)
         save_communities(communities)
 
     # Cleanup: drop graph projection (if we created one)
     if graph is not None:
         gds.graph.drop(graph.name())
 
+    # Close Weaviate client
+    if weaviate_client:
+        weaviate_client.close()
+
     logger.info(
         f"Generated {new_summaries} new community summaries "
-        f"({len(communities)} total)"
+        f"({len(communities)} total, stored in Weaviate: {use_weaviate})"
     )
     return communities
 

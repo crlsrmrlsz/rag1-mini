@@ -1,10 +1,11 @@
 # GraphRAG Improvements: Final Implementation Plan
 
-**Date:** 2025-12-28
-**Status:** IMPLEMENTED
+**Date:** 2025-12-28 (updated 2025-12-29)
+**Status:** IMPLEMENTING v2
 **References:**
 - `graphrag-research.md` - Background analysis
 - Implementation plan: `.claude/plans/async-gliding-allen.md`
+- Crash-proof design: `docs/preprocessing/graphrag.md#crash-proof-design-v2`
 
 ## Implementation Status
 
@@ -13,12 +14,60 @@
 | Phase 1 | Enhanced Entity Resolution | COMPLETE |
 | Phase 2 | Community Embedding Retrieval | COMPLETE |
 | Phase 3 | Verification and Documentation | COMPLETE |
+| **Phase 4** | **Crash-Proof Design + Weaviate Storage** | **IN PROGRESS** |
 
 **Tests:** 30 tests passing (`pytest tests/ -v`)
 
-**Next Steps:**
-1. Re-run Stage 6b to regenerate communities with embeddings: `python -m src.stages.run_stage_6b_neo4j`
-2. Entity deduplication will apply automatically during upload
+---
+
+## Phase 4: Crash-Proof Design (v2)
+
+**Added:** 2025-12-29
+
+### Problem Statement
+
+Stage 6b takes ~10 hours and costs ~$10. Three critical issues:
+
+1. **Leiden non-determinism** - Each run produces different community IDs
+2. **383MB JSON file** - Embeddings stored inline (81% of file size)
+3. **Resume broken after Neo4j reset** - Community IDs mismatch
+
+### Solution
+
+1. **Deterministic Leiden** - Add `randomSeed=42` + `concurrency=1`
+2. **Weaviate storage** - Store community embeddings in Weaviate, not JSON
+3. **Checkpoint file** - Small JSON with Leiden assignments
+
+### Code Changes
+
+| File | Change |
+|------|--------|
+| `config.py` | Add `LEIDEN_SEED = 42` |
+| `community.py:run_leiden()` | Add `randomSeed`, `concurrency=1` |
+| `community.py` | Add `save_leiden_checkpoint()`, `load_leiden_checkpoint()` |
+| `weaviate_client.py` | Add `create_community_collection()`, `upload_community()`, `get_existing_community_ids()` |
+| `query.py` | Change `retrieve_community_context()` to query Weaviate |
+| `run_stage_6b_neo4j.py` | Use new checkpoint/Weaviate workflow |
+
+### Storage Comparison
+
+| Storage | Before | After |
+|---------|--------|-------|
+| communities.json | 383 MB | 0 |
+| leiden_checkpoint.json | N/A | ~2 MB |
+| Weaviate collection | N/A | ~10 MB |
+| **Total** | **383 MB** | **~12 MB** |
+
+### Crash Recovery
+
+| Crash Point | Recovery |
+|-------------|----------|
+| During Upload | Re-run (MERGE idempotent) |
+| During Leiden | Re-run (deterministic with seed) |
+| During Summarization | `--resume` (skips existing in Weaviate) |
+| Neo4j deleted | Re-upload + Leiden (same seed = same IDs), resume |
+
+---
 
 ---
 

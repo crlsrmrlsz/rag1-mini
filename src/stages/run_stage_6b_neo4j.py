@@ -6,17 +6,36 @@ This stage uploads extracted entities and relationships to Neo4j,
 then runs Leiden community detection to identify clusters of
 related entities. Community summaries enable global queries.
 
+## Crash-Proof Design
+
+Stage 6b is designed to handle crashes during the ~10 hour summarization:
+
+1. **Deterministic Leiden**: Uses randomSeed=42 + concurrency=1
+   - Same graph + same seed = same community assignments (guaranteed)
+   - Enables resume after Neo4j reset without ID mismatches
+
+2. **Weaviate Storage**: Community embeddings stored in Weaviate
+   - Efficient HNSW vector search (O(log n) vs O(n) for JSON file)
+   - ~12MB total vs 383MB JSON with inline embeddings
+
+3. **Atomic Uploads**: Each community uploaded to Weaviate immediately
+   - Resume skips existing communities (checks Weaviate)
+   - No data loss on crash
+
 ## Data Flow
 
 Input: Extraction results from Stage 4.6 (data/processed/07_graph/extraction_results.json)
 Output:
 - Neo4j graph with entities, relationships, and community IDs
-- Community summaries (data/processed/07_graph/communities.json)
+- Weaviate collection with community embeddings (Community_section800_v1)
+- Leiden checkpoint (data/processed/07_graph/leiden_checkpoint.json)
+- Backup JSON (data/processed/07_graph/communities.json)
 
 ## Prerequisites
 
 1. Neo4j must be running: docker compose up -d neo4j
-2. Stage 4.6 must be complete (extraction results exist)
+2. Weaviate must be running: docker compose up -d weaviate
+3. Stage 4.6 must be complete (extraction results exist)
 
 ## Usage
 
@@ -33,7 +52,7 @@ python -m src.stages.run_stage_6b_neo4j --leiden-only
 # Clear graph before upload
 python -m src.stages.run_stage_6b_neo4j --clear
 
-# Resume after crash (skip Leiden, only generate missing summaries)
+# Resume after crash (skip Leiden, continue from Weaviate checkpoint)
 python -m src.stages.run_stage_6b_neo4j --resume
 ```
 """
@@ -117,7 +136,7 @@ def main():
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Resume after crash: skip upload/Leiden, only generate missing summaries",
+        help="Resume after crash: skip Leiden, generate missing summaries (checks Weaviate)",
     )
 
     args = parser.parse_args()

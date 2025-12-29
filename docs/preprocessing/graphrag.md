@@ -297,6 +297,173 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 
 See [Evaluation Results](../evaluation/results.md) for RAGAS metrics comparing GraphRAG against none, HyDE, and decomposition strategies.
 
+---
+
+## Crash-Proof Design (v2)
+
+> **Added:** 2025-12-29 | **Status:** Implementing
+
+Stage 6b (Neo4j upload + Leiden + summarization) takes ~10 hours and costs ~$10. The original design was vulnerable to crashes, network errors, and API limits. This section documents the crash-proof redesign.
+
+### The Problem
+
+**Original workflow had three vulnerabilities:**
+
+1. **Leiden is non-deterministic** - Each run produces different community IDs
+2. **JSON file grows to 383MB** - Embeddings stored inline (inefficient)
+3. **Resume doesn't work after Neo4j reset** - Community IDs mismatch
+
+```
+Crash Scenario:
+─────────────────────────────────────────────────────────────
+1. Run Stage 6b (10 hours)
+2. Crash at community 475/7734 (Neo4j password issue)
+3. Delete Neo4j data to fix password
+4. Try to resume → BROKEN!
+   • Leiden produces DIFFERENT community IDs
+   • JSON file has "community_5" but new run assigns those entities to "community_847"
+   • Resume skips "community_5" (exists in file) but it's now DIFFERENT entities!
+```
+
+### The Solution
+
+**Three key changes:**
+
+1. **Deterministic Leiden** - `randomSeed=42` + `concurrency=1`
+2. **Weaviate storage** - Community embeddings in Weaviate, not JSON
+3. **Checkpoint file** - Small JSON with Leiden assignments for verification
+
+### Deterministic Leiden
+
+Neo4j GDS Leiden supports deterministic results:
+
+```python
+# Before (non-deterministic):
+gds.leiden.stream(graph, gamma=1.0, maxLevels=3)
+
+# After (deterministic):
+gds.leiden.stream(
+    graph,
+    gamma=1.0,
+    maxLevels=3,
+    randomSeed=42,      # Fixed seed
+    concurrency=1,      # Single-threaded
+)
+```
+
+**Same graph + same seed = same community assignments** (guaranteed).
+
+### Weaviate Community Storage
+
+**Before:** 383MB JSON file with inline embeddings (81% of size)
+
+**After:** Weaviate collection + small metadata file
+
+```
+Weaviate "Community_section_v1" collection:
+├── community_id (string)
+├── summary (text)
+├── member_count (int)
+├── level (int)
+└── vector (embedding)  ← Efficient HNSW storage
+
+leiden_checkpoint.json (~2MB):
+├── seed: 42
+├── timestamp: "2025-12-29T10:00:00"
+└── assignments: [{node_id, entity_name, community_id}, ...]
+```
+
+**Query flow:**
+```python
+# Before: Load 383MB JSON, loop all communities, compute cosine similarity
+communities = load_communities()  # 383MB into RAM
+for c in communities:
+    similarity = cosine_similarity(query_emb, c.embedding)
+
+# After: Query Weaviate directly
+results = weaviate.query.near_vector(
+    query_embedding,
+    limit=3,
+    return_properties=["community_id", "summary", "member_count"]
+)
+```
+
+### Crash Recovery Matrix
+
+| Crash Point | State | Recovery |
+|-------------|-------|----------|
+| During Upload | Neo4j partial | Re-run. MERGE is idempotent. |
+| During Leiden | No community_ids | Re-run Leiden (deterministic). |
+| During Summarization | Weaviate partial | `--resume`: skips existing. |
+| Neo4j deleted | Weaviate has summaries | Re-upload + Leiden (same seed = same IDs). |
+
+### New Workflow Diagram
+
+```
+extraction_results.json (source of truth)
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ PHASE 1: UPLOAD (idempotent)                               │
+│   upload_extraction_results()  ── MERGE = safe to re-run   │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ PHASE 2: LEIDEN (deterministic)                            │
+│   gds.leiden.stream(..., randomSeed=42, concurrency=1)     │
+│   save_leiden_checkpoint()  ──► leiden_checkpoint.json     │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│ PHASE 3: SUMMARIZATION (resumable)                         │
+│   existing_ids = get_community_ids_from_weaviate()         │
+│   for community_id in unique_ids:                          │
+│       if community_id in existing_ids: continue            │
+│       summary = summarize_community(...)                   │
+│       upload_to_weaviate(community)  ← Atomic per item     │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+Weaviate Community collection + leiden_checkpoint.json
+```
+
+### File Size Comparison
+
+| Storage | Before | After |
+|---------|--------|-------|
+| communities.json | 383 MB | 0 (deleted) |
+| leiden_checkpoint.json | N/A | ~2 MB |
+| Weaviate collection | N/A | ~10 MB |
+| **Total** | **383 MB** | **~12 MB** |
+
+### CLI Changes
+
+```bash
+# Full run (deterministic Leiden, saves to Weaviate)
+python -m src.stages.run_stage_6b_neo4j
+
+# Resume after crash (skips existing in Weaviate)
+python -m src.stages.run_stage_6b_neo4j --resume
+
+# Upload only (no Leiden, no summarization)
+python -m src.stages.run_stage_6b_neo4j --upload-only
+```
+
+### Code Changes
+
+| File | Change |
+|------|--------|
+| `config.py` | Add `LEIDEN_SEED = 42` |
+| `community.py:run_leiden()` | Add `randomSeed`, `concurrency=1` |
+| `community.py` | Add checkpoint save/load functions |
+| `weaviate_client.py` | Add Community collection schema + upload |
+| `query.py` | Query Weaviate instead of loading JSON |
+| `run_stage_6b_neo4j.py` | Use new workflow |
+
+---
+
 ## Related
 
 - [RAPTOR](../chunking/raptor.md) — Alternative hierarchy via clustering

@@ -543,6 +543,10 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     all_results = []
     count = 0
 
+    # Define checkpoint path for crash resilience
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    checkpoint_path = RESULTS_DIR / f"comprehensive_checkpoint_{timestamp}.json"
+
     for collection, alpha, strategy in valid_combinations:
         count += 1
         logger.info(
@@ -591,11 +595,27 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 "error": str(e),
             })
 
+        # Save checkpoint after every combination for crash resilience
+        checkpoint_data = {
+            "timestamp": datetime.now().isoformat(),
+            "completed": count,
+            "total": len(valid_combinations),
+            "progress_pct": round(count / len(valid_combinations) * 100, 1),
+            "results": all_results,
+            "grid_params": {
+                "collections": collections,
+                "alphas": alphas,
+                "strategies": all_strategies,
+            },
+        }
+        with open(checkpoint_path, "w") as f:
+            json.dump(checkpoint_data, f, indent=2)
+        logger.info(f"  Checkpoint saved: {count}/{len(valid_combinations)} ({checkpoint_data['progress_pct']}%)")
+
     # Calculate total duration
     duration_seconds = time.time() - start_time
 
-    # Generate comprehensive report
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Generate comprehensive report (uses same timestamp as checkpoint for consistency)
     output_path = Path(args.output) if args.output else RESULTS_DIR / f"comprehensive_{timestamp}.json"
 
     # Build grid parameters for report

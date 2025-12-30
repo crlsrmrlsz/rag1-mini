@@ -190,7 +190,7 @@ def _render_rrf_stage(rrf, prep) -> None:
             for cid, qt in list(rrf.query_contributions.items())[:5]
         ]
         if contrib_data:
-            st.dataframe(pd.DataFrame(contrib_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(contrib_data), width="stretch")
 
 
 def _render_graph_stage(graph_meta: dict) -> None:
@@ -234,7 +234,7 @@ def _render_rerank_stage(rerank) -> None:
         df.columns = ["Before", "After", "Old Score", "New Score", "Preview"]
         df["Old Score"] = df["Old Score"].round(3)
         df["New Score"] = df["New Score"].round(3)
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width="stretch")
 
 
 def _render_generation_stage(ans) -> None:

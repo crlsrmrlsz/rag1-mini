@@ -133,16 +133,24 @@ def _display_chunks(chunks, show_indices=True):
         book_title = book_parts[0].strip()
         author = book_parts[1].rstrip(")") if len(book_parts) > 1 else ""
 
+        # RAPTOR summary indicator
+        is_summary = chunk.get("is_summary", False)
+        tree_level = chunk.get("tree_level", 0)
+        summary_badge = " [SUMMARY]" if is_summary else ""
+
         prefix = f"[{i}] " if show_indices else ""
         with st.expander(
-            f"**{prefix}**{book_title[:50]}... | Score: {chunk['similarity']:.3f}",
+            f"**{prefix}**{book_title[:50]}...{summary_badge} | Score: {chunk['similarity']:.3f}",
             expanded=(i <= 3 and not st.session_state.generated_answer),
         ):
             # Metadata row
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             col1.metric("Similarity", f"{chunk['similarity']:.4f}")
             col2.metric("Tokens", chunk["token_count"])
             col3.markdown(f"**Author:** {author}")
+            # Show tree level for RAPTOR chunks
+            if tree_level > 0 or is_summary:
+                col4.metric("Tree Level", tree_level)
 
             # Section info
             st.markdown(f"**Section:** {chunk['section']}")
@@ -357,6 +365,13 @@ if collection_infos:
             st.markdown(f"**Strategy:** `{selected_info.strategy}`")
             st.markdown(f"**Collection:** `{selected_info.collection_name}`")
             st.caption(selected_info.description)
+            # RAPTOR-specific note
+            if selected_info.strategy == "raptor":
+                st.info(
+                    "RAPTOR uses a collapsed tree approach. Leaf chunks are "
+                    "identical to section chunks. Summary chunks (marked [SUMMARY]) "
+                    "are LLM-generated cluster summaries at higher tree levels."
+                )
 
     # Get collection strategy for preprocessing compatibility
     collection_strategy = selected_info.strategy if selected_info else "section"

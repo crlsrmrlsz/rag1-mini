@@ -33,6 +33,8 @@ class SearchResult:
         text: The actual chunk text content.
         token_count: Number of tokens in the chunk.
         score: Relevance score (similarity for vector, combined for hybrid).
+        is_summary: For RAPTOR collections, True if this is a summary node.
+        tree_level: For RAPTOR collections, depth in tree (0=leaf, 1+=summary).
     """
 
     chunk_id: str
@@ -42,6 +44,8 @@ class SearchResult:
     text: str
     token_count: int
     score: float
+    is_summary: bool = False
+    tree_level: int = 0
 
 
 def _build_book_filter(
@@ -112,6 +116,8 @@ def _parse_results(
                 text=props.get("text", ""),
                 token_count=props.get("token_count", 0),
                 score=score,
+                is_summary=props.get("is_summary", False),
+                tree_level=props.get("tree_level", 0),
             )
         )
 
@@ -164,6 +170,7 @@ def query_similar(
         collection_name = get_collection_name()
 
     # Step 1: Embed the query using the SAME model as the stored chunks
+    logger.info(f"[query_similar] Collection: {collection_name}")
     logger.info(f"Embedding query: {query_text[:50]}...")
     query_embedding = embed_texts([query_text])[0]
 
@@ -230,6 +237,8 @@ def query_hybrid(
     """
     if collection_name is None:
         collection_name = get_collection_name()
+
+    logger.info(f"[query_hybrid] Collection: {collection_name}")
 
     # Use precomputed embedding or embed the query
     if precomputed_embedding is not None:

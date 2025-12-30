@@ -29,6 +29,9 @@ from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
 )
+from src.shared.files import setup_logging
+
+logger = setup_logging(__name__)
 from src.rag_pipeline.indexing import get_client, query_similar, query_hybrid, SearchResult
 from src.rag_pipeline.retrieval.reranking_utils import apply_reranking_with_metadata
 
@@ -173,6 +176,7 @@ def search_chunks(
         >>> print(output.graph_metadata["query_entities"])
     """
     collection_name = collection_name or get_collection_name()
+    logger.info(f"[search_chunks] Using collection: {collection_name}")
     rerank_data = None
     rrf_data = None
     graph_metadata = None
@@ -238,6 +242,8 @@ def search_chunks(
             "text": r.text,
             "token_count": r.token_count,
             "similarity": r.score,
+            "is_summary": r.is_summary,
+            "tree_level": r.tree_level,
         }
         for r in results
     ]

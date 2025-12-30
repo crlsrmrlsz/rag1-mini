@@ -106,9 +106,8 @@ def _format_config_summary() -> str:
     prep = st.session_state.preprocessed_query
     ans = st.session_state.generated_answer
 
-    # Extract collection strategy from name (e.g., "RAG_section_..." -> "section")
-    coll = settings.get("collection_name", "")
-    strategy = coll.split("_")[1] if coll.startswith("RAG_") else coll
+    # Collection name
+    coll = settings.get("collection_name", "unknown")
 
     # Search type
     search = settings.get("search_type", "hybrid")
@@ -134,7 +133,7 @@ def _format_config_summary() -> str:
         total_ms += getattr(ans, "generation_time_ms", 0)
     time_str = f"{total_ms:,.0f}ms" if total_ms else ""
 
-    return f"{strategy} | {search_str} | {prep_str} | {top_k} results | {time_str}"
+    return f"{coll} | {search_str} | {prep_str} | {top_k} results | {time_str}"
 
 
 

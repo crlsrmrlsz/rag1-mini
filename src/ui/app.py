@@ -332,6 +332,7 @@ selected_strategy = st.sidebar.selectbox(
     options=list(strategy_options.keys()),
     format_func=lambda x: f"{strategy_options[x][0]} - {strategy_options[x][1]}",
     help="How to transform the query before searching.",
+    key="preprocessing_strategy",
 )
 enable_preprocessing = selected_strategy != "none"
 

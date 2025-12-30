@@ -25,6 +25,8 @@ Two-Stage Retrieval:
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Tuple
 
+import streamlit as st
+
 from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
@@ -368,6 +370,7 @@ def extract_strategy_from_collection(collection_name: str) -> str:
     return parts[0]
 
 
+@st.cache_data(ttl=60)
 def get_available_collections() -> List[CollectionInfo]:
     """
     List all RAG collections with enriched metadata.

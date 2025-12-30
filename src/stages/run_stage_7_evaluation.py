@@ -501,6 +501,22 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
     all_strategies = list_strategies()
 
+    # Filter semantic collections to only 0.3 and 0.75 thresholds
+    # Collection names: RAG_semantic_0_3_embed3large_v1 -> strategy "semantic_0.3"
+    ALLOWED_SEMANTIC_THRESHOLDS = ["semantic_0.3", "semantic_0.75"]
+    filtered_collections = []
+    for coll in collections:
+        strategy = extract_strategy_from_collection(coll)
+        if strategy.startswith("semantic_"):
+            if strategy in ALLOWED_SEMANTIC_THRESHOLDS:
+                filtered_collections.append(coll)
+            else:
+                logger.info(f"Skipping collection: {coll} (strategy '{strategy}' not in allowed thresholds)")
+        else:
+            # Non-semantic collections pass through
+            filtered_collections.append(coll)
+    collections = filtered_collections
+
     if not collections:
         logger.error("No RAG collections found in Weaviate. Run stage 6 first.")
         return

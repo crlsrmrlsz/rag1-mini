@@ -30,7 +30,7 @@ from typing import Optional, List, Dict, Any, Tuple
 import requests
 from pydantic import ValidationError as PydanticValidationError
 
-from src.config import PREPROCESSING_MODEL, HYDE_PROMPT, DECOMPOSITION_PROMPT
+from src.config import PREPROCESSING_MODEL, HYDE_PROMPT, DECOMPOSITION_PROMPT, HYDE_K
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_chat_completion, call_structured_completion
 from src.rag_pipeline.retrieval.preprocessing.schemas import (
@@ -74,13 +74,13 @@ class PreprocessedQuery:
 # =============================================================================
 
 
-def hyde_prompt(query: str, model: Optional[str] = None, k: int = 5) -> List[str]:
+def hyde_prompt(query: str, model: Optional[str] = None, k: int = HYDE_K) -> List[str]:
     """Generate k hypothetical answers for HyDE retrieval.
 
     HyDE (Hypothetical Document Embeddings) generates plausible answers
     to the query, then searches for real passages similar to these answers.
-    Multiple hypotheticals (K=5 default) improve retrieval robustness by
-    covering diverse phrasings and perspectives.
+    Multiple hypotheticals improve retrieval robustness by covering
+    diverse phrasings and perspectives.
 
     Paper: arXiv:2212.10496 - "Precise Zero-Shot Dense Retrieval without
     Relevance Labels"
@@ -88,15 +88,15 @@ def hyde_prompt(query: str, model: Optional[str] = None, k: int = 5) -> List[str
     Args:
         query: The user's original question.
         model: Override model (defaults to PREPROCESSING_MODEL).
-        k: Number of hypothetical passages to generate (default=5, paper recommendation).
+        k: Number of hypothetical passages to generate (default from HYDE_K config).
 
     Returns:
         List of k hypothetical passages. Embeddings should be averaged downstream.
 
     Example:
-        >>> passages = hyde_prompt("Why do we procrastinate?", k=5)
+        >>> passages = hyde_prompt("Why do we procrastinate?", k=2)
         >>> len(passages)
-        5
+        2
         >>> passages[0]
         "Procrastination stems from temporal discounting..."
     """

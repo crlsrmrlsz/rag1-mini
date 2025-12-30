@@ -31,7 +31,7 @@ wrapped in strategy functions that conform to a common signature.
 import time
 from typing import Callable, Dict, List, Optional
 
-from src.config import PREPROCESSING_MODEL
+from src.config import PREPROCESSING_MODEL, HYDE_K
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
     PreprocessedQuery,
     hyde_prompt as _hyde_prompt_fn,
@@ -69,11 +69,11 @@ def none_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
 
 
 def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """HyDE: Generate K=5 hypothetical answers, average embeddings for retrieval.
+    """HyDE: Generate K hypothetical answers, average embeddings for retrieval.
 
     Hypothetical Document Embeddings (HyDE) generates plausible answers
     to the query, then searches for real passages similar to these answers.
-    Multiple hypotheticals (K=5) improve retrieval robustness by covering
+    Multiple hypotheticals improve retrieval robustness by covering
     diverse phrasings and perspectives. Embeddings are averaged downstream.
 
     Research: arXiv:2212.10496 - Outperforms unsupervised dense retrievers
@@ -89,8 +89,8 @@ def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
     start_time = time.time()
     model = model or PREPROCESSING_MODEL
 
-    # Generate K=5 hypothetical answers (paper recommendation)
-    hyde_passages = _hyde_prompt_fn(query, model=model, k=5)
+    # Generate K hypothetical answers (configurable via HYDE_K)
+    hyde_passages = _hyde_prompt_fn(query, model=model, k=HYDE_K)
     logger.info(f"[hyde] Generated {len(hyde_passages)} hypotheticals, first: {hyde_passages[0][:80]}...")
 
     elapsed_ms = (time.time() - start_time) * 1000

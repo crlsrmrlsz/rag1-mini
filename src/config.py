@@ -787,6 +787,10 @@ GRAPHRAG_MIN_CORPUS_PERCENTAGE = 1.0  # Minimum % within corpus to be considered
 # =============================================================================
 # Prompts for query transformation strategies (HyDE, decomposition)
 
+# Number of hypothetical documents to generate for HyDE
+# Paper recommends K=5 for robustness, but K=2 reduces cost/latency
+HYDE_K = 2
+
 HYDE_PROMPT = """Please write a short passage drawing on insights from brain science and classical philosophy (Stoicism, Taoism, Confucianism, Schopenhauer, Gracian) to answer the question.
 
 Question: {query}

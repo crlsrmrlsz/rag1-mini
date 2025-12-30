@@ -32,21 +32,14 @@ import pandas as pd
 from src.config import (
     DEFAULT_TOP_K,
     MAX_TOP_K,
-    AVAILABLE_GENERATION_MODELS,
-    AVAILABLE_PREPROCESSING_MODELS,
     AVAILABLE_PREPROCESSING_STRATEGIES,
-    DEFAULT_PREPROCESSING_STRATEGY,
     GENERATION_MODEL,
     PREPROCESSING_MODEL,
+    get_valid_preprocessing_strategies,
 )
-from src.ui.services.search import search_chunks, list_collections, get_available_collections, CollectionInfo
+from src.ui.services.search import search_chunks, get_available_collections, CollectionInfo
 from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 from src.rag_pipeline.generation.answer_generator import generate_answer
-from src.shared.openrouter_models import (
-    fetch_available_models,
-    get_preprocessing_models,
-    get_generation_models,
-)
 
 
 # ============================================================================
@@ -58,32 +51,6 @@ st.set_page_config(
     page_icon="books",
     layout="wide",
 )
-
-
-# ============================================================================
-# DYNAMIC MODEL LOADING
-# ============================================================================
-# Fetch models from OpenRouter API, cached for 1 hour to avoid repeated calls
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_cached_models():
-    """Fetch and cache available models from OpenRouter API.
-
-    Returns tuple of (preprocessing_models, generation_models).
-    Falls back to config defaults if API fails.
-    """
-    models = fetch_available_models()
-    if models:
-        prep_models = get_preprocessing_models(models)
-        gen_models = get_generation_models(models)
-        return prep_models, gen_models
-    # Fallback to config defaults
-    return AVAILABLE_PREPROCESSING_MODELS, AVAILABLE_GENERATION_MODELS
-
-
-# Load models (cached)
-DYNAMIC_PREPROCESSING_MODELS, DYNAMIC_GENERATION_MODELS = get_cached_models()
 
 
 # ============================================================================
@@ -119,10 +86,39 @@ if "graph_metadata" not in st.session_state:
 if "retrieval_settings" not in st.session_state:
     st.session_state.retrieval_settings = {}
 
+# UI selection state (for progressive disclosure and reset logic)
+if "ui_preprocessing_strategy" not in st.session_state:
+    st.session_state.ui_preprocessing_strategy = "none"
+if "ui_collection" not in st.session_state:
+    st.session_state.ui_collection = None
+
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+
+def _find_section_collection(collection_infos: list[CollectionInfo]) -> str | None:
+    """Find the section collection name from available collections."""
+    for info in collection_infos:
+        if info.strategy == "section":
+            return info.collection_name
+    return None
+
+
+def _on_preprocessing_change():
+    """Reset collection when preprocessing strategy changes."""
+    strategy = st.session_state.ui_preprocessing_strategy
+    if strategy == "graphrag":
+        # GraphRAG requires section collection - auto-select it
+        try:
+            collections = get_available_collections()
+            st.session_state.ui_collection = _find_section_collection(collections)
+        except Exception:
+            st.session_state.ui_collection = None
+    else:
+        # Reset collection so user must re-select
+        st.session_state.ui_collection = None
 
 
 def _display_chunks(chunks, show_indices=True):
@@ -161,182 +157,153 @@ def _display_chunks(chunks, show_indices=True):
             st.markdown(chunk["text"])
 
 
+def _render_preprocessing_stage(prep) -> None:
+    """Render preprocessing stage details."""
+    strategy = getattr(prep, 'strategy_used', 'N/A')
+    model = getattr(prep, 'model', 'N/A')
+
+    col1, col2, col3 = st.columns(3)
+    col1.markdown(f"**Strategy:** `{strategy}`")
+    col2.markdown(f"**Model:** `{model}`")
+    col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
+
+    # HyDE output
+    hyde_passage = getattr(prep, 'hyde_passage', None)
+    if hyde_passage and hyde_passage != prep.original_query:
+        st.markdown("**Hypothetical Passage:**")
+        st.info(hyde_passage)
+
+    # Decomposition output
+    sub_queries = getattr(prep, 'sub_queries', None)
+    if sub_queries:
+        st.markdown("**Sub-Questions:**")
+        for i, sq in enumerate(sub_queries, 1):
+            st.markdown(f"{i}. {sq}")
+
+
+def _render_retrieval_stage(settings: dict, results: list, prep) -> None:
+    """Render retrieval stage details."""
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Type", settings.get("search_type", "N/A"))
+    col2.metric("Alpha", settings.get("alpha", "N/A"))
+    col3.metric("Top-K", settings.get("top_k", "N/A"))
+    col4.metric("Found", len(results))
+
+    search_q = prep.search_query if prep else st.session_state.last_query
+    st.markdown("**Search Query:**")
+    st.code(search_q, language="text")
+
+
+def _render_rrf_stage(rrf, prep) -> None:
+    """Render RRF merging stage details."""
+    col1, col2, col3 = st.columns(3)
+    num_chunks = len(rrf.query_contributions) if hasattr(rrf, 'query_contributions') and rrf.query_contributions else 0
+    num_queries = len(prep.generated_queries) if prep and hasattr(prep, 'generated_queries') else 0
+    col1.metric("Queries Merged", num_queries)
+    col2.metric("Unique Chunks", num_chunks)
+    col3.metric("Time", f"{rrf.merge_time_ms:.0f}ms")
+
+    if hasattr(rrf, 'query_contributions') and rrf.query_contributions:
+        contrib_data = [
+            {"Chunk": cid[:30] + "..." if len(cid) > 30 else cid, "Found By": ", ".join(qt)}
+            for cid, qt in list(rrf.query_contributions.items())[:5]
+        ]
+        if contrib_data:
+            st.dataframe(pd.DataFrame(contrib_data), use_container_width=True)
+
+
+def _render_graph_stage(graph_meta: dict) -> None:
+    """Render GraphRAG stage details."""
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Entities", len(graph_meta.get("query_entities", [])))
+    col2.metric("Graph Chunks", graph_meta.get("graph_chunk_count", 0))
+    col3.metric("Boosted", graph_meta.get("boosted_count", 0))
+
+    if graph_meta.get("query_entities"):
+        st.markdown(f"**Entities:** {', '.join(graph_meta['query_entities'])}")
+
+    if graph_meta.get("community_context"):
+        st.markdown("**Communities:**")
+        for comm in graph_meta["community_context"][:2]:
+            st.caption(f"- {comm['summary'][:150]}...")
+
+
+def _render_rerank_stage(rerank) -> None:
+    """Render reranking stage details."""
+    col1, col2 = st.columns(2)
+    col1.markdown(f"**Model:** `{rerank.model}`")
+    col2.metric("Time", f"{rerank.rerank_time_ms:.0f}ms")
+
+    if rerank.order_changes:
+        df = pd.DataFrame(rerank.order_changes)
+        df = df[["before_rank", "after_rank", "before_score", "after_score", "text_preview"]]
+        df.columns = ["Before", "After", "Old Score", "New Score", "Preview"]
+        df["Old Score"] = df["Old Score"].round(3)
+        df["New Score"] = df["New Score"].round(3)
+        st.dataframe(df, use_container_width=True)
+
+
+def _render_generation_stage(ans) -> None:
+    """Render generation stage details."""
+    col1, col2, col3 = st.columns(3)
+    col1.markdown(f"**Model:** `{ans.model}`")
+    col2.metric("Time", f"{ans.generation_time_ms:.0f}ms")
+    col3.markdown(f"**Sources:** {ans.sources_used}")
+
+    with st.expander("Show Prompt", expanded=False):
+        st.code(f"[System]\n{ans.system_prompt_used}\n\n[User]\n{ans.user_prompt_used}", language="text")
+
+
 def _render_pipeline_log():
-    """Render the Pipeline Log tab with detailed prompts and transformations."""
+    """Render executed pipeline stages (only shows stages that were used)."""
     prep = st.session_state.preprocessed_query
-    ans = st.session_state.generated_answer
-    rerank = st.session_state.rerank_data
     settings = st.session_state.retrieval_settings
-
-    # Stage 1: Query Preprocessing
-    with st.expander("Stage 1: Query Preprocessing", expanded=True):
-        if prep:
-            col1, col2, col3 = st.columns(3)
-
-            # Strategy used (with backward compat for cached objects)
-            strategy_used = getattr(prep, 'strategy_used', 'N/A')
-            col1.markdown(f"**Strategy:** `{strategy_used}`")
-
-            # Model used (with backward compat for cached objects)
-            prep_model = getattr(prep, 'model', 'N/A')
-            col2.markdown(f"**Model:** `{prep_model}`")
-
-            col3.metric("Time", f"{prep.preprocessing_time_ms:.0f}ms")
-
-            # Show HyDE section if hyde strategy was used
-            hyde_passage = getattr(prep, 'hyde_passage', None)
-            if hyde_passage and hyde_passage != prep.original_query:
-                st.divider()
-                st.markdown("#### HyDE: Hypothetical Document")
-
-                # Show HyDE generated passage
-                hyde_passage = getattr(prep, 'hyde_passage', None)
-                if hyde_passage:
-                    st.markdown("**Generated Hypothetical Passage (used for retrieval):**")
-                    st.info(hyde_passage)
-
-            # Show decomposition section if decomposition strategy was used
-            sub_queries = getattr(prep, 'sub_queries', None)
-            if sub_queries and len(sub_queries) > 0:
-                st.divider()
-                st.markdown("#### Query Decomposition")
-
-                # Show decomposition prompt
-                decomposition_prompt = getattr(prep, 'decomposition_prompt_used', None)
-                if decomposition_prompt:
-                    st.markdown("**Decomposition Prompt:**")
-                    st.code(decomposition_prompt, language="text")
-
-                # Show sub-questions
-                st.markdown("**Sub-Questions:**")
-                for i, sq in enumerate(sub_queries, 1):
-                    st.markdown(f"**{i}.** {sq}")
-        else:
-            st.info("Preprocessing was disabled for this query.")
-
-    # Stage 2: Retrieval
-    with st.expander("Stage 2: Retrieval", expanded=True):
-        if settings:
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Search Type", settings.get("search_type", "N/A"))
-            col2.metric("Alpha", settings.get("alpha", "N/A"))
-            col3.metric("Top-K", settings.get("top_k", "N/A"))
-
-            search_q = prep.search_query if prep else st.session_state.last_query
-            st.markdown(f"**Query Sent to Weaviate:**")
-            st.code(search_q, language="text")
-
-            st.metric("Results Retrieved", len(st.session_state.search_results))
-        else:
-            st.info("No retrieval data available.")
-
-    # Stage 2.5: RRF Merging (if multi-query was used)
+    results = st.session_state.search_results
     rrf = st.session_state.rrf_data
-    with st.expander("Stage 2.5: RRF Merging", expanded=True):
-        if rrf:
-            col1, col2, col3 = st.columns(3)
-            num_queries = len(rrf.query_contributions) if hasattr(rrf, 'query_contributions') and rrf.query_contributions else 0
-            col1.metric("Unique Chunks Found", num_queries)
-            col2.metric("Queries Merged", len(prep.generated_queries) if prep and hasattr(prep, 'generated_queries') else 0)
-            col3.metric("Merge Time", f"{rrf.merge_time_ms:.0f}ms")
-
-            # Show which queries contributed to top results
-            if hasattr(rrf, 'query_contributions') and rrf.query_contributions:
-                st.markdown("**Query Contributions (which queries found each chunk):**")
-
-                # Build contribution summary for top 10 results
-                contrib_data = []
-                for chunk_id, query_types in list(rrf.query_contributions.items())[:10]:
-                    contrib_data.append({
-                        "Chunk ID": chunk_id[:30] + "..." if len(chunk_id) > 30 else chunk_id,
-                        "Found By": ", ".join(query_types),
-                        "Query Count": len(query_types),
-                    })
-
-                if contrib_data:
-                    df = pd.DataFrame(contrib_data)
-                    st.dataframe(df, width="stretch")
-        else:
-            st.info("RRF merging was not used (single-query search or non-decomposition strategy).")
-
-    # Stage 2.6: GraphRAG (if graphrag strategy was used)
     graph_meta = st.session_state.graph_metadata
-    with st.expander("Stage 2.6: GraphRAG", expanded=True):
-        if graph_meta and not graph_meta.get("error"):
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Entities Found", len(graph_meta.get("query_entities", [])))
-            col2.metric("Graph Chunks", graph_meta.get("graph_chunk_count", 0))
-            col3.metric("Boosted Results", graph_meta.get("boosted_count", 0))
+    rerank = st.session_state.rerank_data
+    ans = st.session_state.generated_answer
 
-            # Show extracted entities
-            if graph_meta.get("query_entities"):
-                st.markdown("**Entities Extracted from Query:**")
-                st.code(", ".join(graph_meta["query_entities"]))
+    # Preprocessing (only if used)
+    if prep and getattr(prep, 'strategy_used', 'none') != 'none':
+        with st.expander("Preprocessing", expanded=True):
+            _render_preprocessing_stage(prep)
 
-            # Show community context
-            if graph_meta.get("community_context"):
-                st.markdown("**Relevant Communities:**")
-                for comm in graph_meta["community_context"][:3]:
-                    st.markdown(f"- {comm['summary'][:200]}...")
-        elif graph_meta and graph_meta.get("error"):
-            st.warning(f"GraphRAG failed: {graph_meta['error']}")
-        else:
-            st.info("GraphRAG was not used (select 'graphrag' preprocessing strategy).")
+    # Retrieval (always shown when we have results)
+    if settings:
+        with st.expander("Retrieval", expanded=True):
+            _render_retrieval_stage(settings, results, prep)
 
-    # Stage 3: Reranking
-    with st.expander("Stage 3: Reranking", expanded=True):
-        if rerank:
-            col1, col2 = st.columns(2)
-            col1.markdown(f"**Model:** `{rerank.model}`")
-            col2.metric("Time", f"{rerank.rerank_time_ms:.0f}ms")
+    # RRF (only if multi-query was used)
+    if rrf:
+        with st.expander("RRF Merging", expanded=False):
+            _render_rrf_stage(rrf, prep)
 
-            if rerank.order_changes:
-                st.markdown("**Order Changes (how rankings shifted):**")
+    # GraphRAG (only if used and successful)
+    if graph_meta and not graph_meta.get("error"):
+        with st.expander("Graph Enrichment", expanded=False):
+            _render_graph_stage(graph_meta)
+    elif graph_meta and graph_meta.get("error"):
+        st.warning(f"GraphRAG failed: {graph_meta['error']}")
 
-                # Create a DataFrame for display
-                df = pd.DataFrame(rerank.order_changes)
-                df = df[["before_rank", "after_rank", "before_score", "after_score", "text_preview"]]
-                df.columns = ["Before Rank", "After Rank", "Before Score", "After Score", "Text Preview"]
-                df["Before Score"] = df["Before Score"].round(3)
-                df["After Score"] = df["After Score"].round(3)
+    # Reranking (only if enabled)
+    if rerank:
+        with st.expander("Reranking", expanded=False):
+            _render_rerank_stage(rerank)
 
-                st.dataframe(df, width="stretch")
-        else:
-            st.info("Reranking was disabled for this query.")
-
-    # Stage 4: Answer Generation
-    with st.expander("Stage 4: Answer Generation", expanded=True):
-        if ans:
-            col1, col2 = st.columns(2)
-            col1.markdown(f"**Model:** `{ans.model}`")
-            col2.metric("Time", f"{ans.generation_time_ms:.0f}ms")
-
-            # Show complete generation prompt (system + user)
-            st.markdown("**Generation Prompt (sent to LLM):**")
-            generation_full = f"[System]\n{ans.system_prompt_used}\n\n[User]\n{ans.user_prompt_used}"
-            st.code(generation_full, language="text")
-
-            # Show LLM response (the generated answer)
-            st.markdown("**LLM Response:**")
-            st.code(ans.answer, language="text")
-
-            st.markdown(f"**Sources Cited:** {ans.sources_used}")
-        else:
-            st.info("No answer was generated (check for errors above).")
+    # Generation (always shown when we have an answer)
+    if ans:
+        with st.expander("Generation", expanded=True):
+            _render_generation_stage(ans)
 
 
 # ============================================================================
-# SIDEBAR - Wizard-style: Collection first, then filtered Preprocessing options
+# SIDEBAR - User flow: Preprocessing → Collection → Retrieval → Reranking
 # ============================================================================
 
 st.sidebar.title("Settings")
 
-# -----------------------------------------------------------------------------
-# Collection (select first - determines available preprocessing options)
-# -----------------------------------------------------------------------------
-st.sidebar.markdown("### Collection")
-
-# Collection selector with strategy metadata
+# Load collections once (cached)
 try:
     collection_infos = get_available_collections()
     st.session_state.connection_error = None
@@ -344,184 +311,125 @@ except Exception as e:
     collection_infos = []
     st.session_state.connection_error = str(e)
 
-if collection_infos:
-    # Build display options: "Display Name - Description"
-    collection_display = {
-        info.collection_name: f"{info.display_name} - {info.description}"
-        for info in collection_infos
-    }
-
-    selected_collection = st.sidebar.selectbox(
-        "Chunking Strategy",
-        options=list(collection_display.keys()),
-        format_func=lambda x: collection_display[x],
-        help="Select which chunking strategy's embeddings to search. Each collection uses a different chunking approach.",
-    )
-
-    # Show strategy details in expander
-    selected_info = next((c for c in collection_infos if c.collection_name == selected_collection), None)
-    if selected_info:
-        with st.sidebar.expander("Collection Details", expanded=False):
-            st.markdown(f"**Strategy:** `{selected_info.strategy}`")
-            st.markdown(f"**Collection:** `{selected_info.collection_name}`")
-            st.caption(selected_info.description)
-            # RAPTOR-specific note
-            if selected_info.strategy == "raptor":
-                st.info(
-                    "RAPTOR uses a collapsed tree approach. Leaf chunks are "
-                    "identical to section chunks. Summary chunks (marked [SUMMARY]) "
-                    "are LLM-generated cluster summaries at higher tree levels."
-                )
-
-    # Get collection strategy for preprocessing compatibility
-    collection_strategy = selected_info.strategy if selected_info else "section"
-else:
-    st.sidebar.warning("No collections found. Is Weaviate running?")
-    selected_collection = None
-    collection_strategy = "section"
-
-st.sidebar.divider()
-
 # -----------------------------------------------------------------------------
-# Query Preprocessing (filtered based on selected collection)
+# Query Preprocessing (always visible - user selects strategy first)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Query Preprocessing")
 
-# Get valid preprocessing strategies for the selected collection
-from src.config import get_valid_preprocessing_strategies
-
-valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
-
-# Filter strategies to only valid ones for this collection
-filtered_strategies = [
-    s for s in AVAILABLE_PREPROCESSING_STRATEGIES if s[0] in valid_preprocessing
-]
-
-# Build strategy options from filtered list
-strategy_options = {s[0]: (s[1], s[2]) for s in filtered_strategies}
-strategy_ids = list(strategy_options.keys())
+# Build strategy options
+strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
 
 selected_strategy = st.sidebar.selectbox(
     "Strategy",
-    options=strategy_ids,
-    index=0,  # Default to "none"
-    format_func=lambda x: strategy_options[x][0],  # Display label
-    help="Query transformation strategy. Select 'None' to use the original query.",
+    options=list(strategy_options.keys()),
+    key="ui_preprocessing_strategy",
+    format_func=lambda x: f"{strategy_options[x][0]} - {strategy_options[x][1]}",
+    help="How to transform the query before searching.",
+    on_change=_on_preprocessing_change,
 )
 
-# Show caption if graphrag is filtered out
-if "graphrag" not in valid_preprocessing:
-    st.sidebar.caption("GraphRAG not available for this collection (chunk ID mismatch)")
-
 enable_preprocessing = selected_strategy != "none"
-
-# Model selector (only shown when preprocessing is enabled)
-if enable_preprocessing:
-    prep_model_options = {model_id: label for model_id, label in DYNAMIC_PREPROCESSING_MODELS}
-    selected_prep_model = st.sidebar.selectbox(
-        "Preprocessing Model",
-        options=list(prep_model_options.keys()),
-        index=0,  # Default to first (cheapest)
-        format_func=lambda x: prep_model_options[x],
-        help="Model used for query preprocessing (HyDE, decomposition).",
-    )
-else:
-    selected_prep_model = PREPROCESSING_MODEL
 
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# Retrieval
+# Collection (shown after preprocessing selected, hidden for graphrag)
+# -----------------------------------------------------------------------------
+if selected_strategy == "graphrag":
+    # GraphRAG auto-selects section collection
+    st.sidebar.markdown("### Collection")
+    st.sidebar.caption("graphrag uses section chunks (required for entity matching)")
+    selected_collection = st.session_state.ui_collection
+    if not selected_collection and collection_infos:
+        selected_collection = _find_section_collection(collection_infos)
+        st.session_state.ui_collection = selected_collection
+elif collection_infos:
+    st.sidebar.markdown("### Collection")
+
+    # Filter collections based on preprocessing compatibility
+    valid_strategies = get_valid_preprocessing_strategies
+    compatible_collections = [
+        info for info in collection_infos
+        if selected_strategy in valid_strategies(info.strategy)
+    ]
+
+    if compatible_collections:
+        collection_display = {
+            info.collection_name: f"{info.display_name}"
+            for info in compatible_collections
+        }
+
+        # Get current selection or default to first
+        current_collection = st.session_state.ui_collection
+        if current_collection not in collection_display:
+            current_collection = list(collection_display.keys())[0]
+            st.session_state.ui_collection = current_collection
+
+        selected_collection = st.sidebar.selectbox(
+            "Chunking Strategy",
+            options=list(collection_display.keys()),
+            key="ui_collection",
+            format_func=lambda x: collection_display[x],
+            help="Which chunking method to search.",
+        )
+    else:
+        st.sidebar.warning("No compatible collections for this strategy.")
+        selected_collection = None
+else:
+    st.sidebar.warning("No collections found. Is Weaviate running?")
+    selected_collection = None
+
+st.sidebar.divider()
+
+# -----------------------------------------------------------------------------
+# Retrieval (always visible)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Retrieval")
 
-# Search type selector
 search_type = st.sidebar.radio(
     "Search Type",
     options=["vector", "hybrid"],
-    index=1,  # Default to hybrid (better for this corpus)
-    format_func=lambda x: "Semantic (Vector)" if x == "vector" else "Hybrid (Vector + Keyword)",
-    help="Semantic search finds similar meaning. Hybrid also matches exact keywords.",
+    index=1,
+    format_func=lambda x: "Semantic" if x == "vector" else "Hybrid",
+    help="Hybrid = vector + keyword matching.",
+    horizontal=True,
 )
 
-# Alpha slider for hybrid search
 if search_type == "hybrid":
     alpha = st.sidebar.slider(
-        "Hybrid Alpha",
+        "Alpha",
         min_value=0.0,
         max_value=1.0,
         value=0.7,
         step=0.1,
-        help="0.0 = keyword only, 1.0 = vector only, 0.5 = balanced",
+        help="0 = keyword only, 1 = vector only",
     )
 else:
     alpha = 0.5
 
-# Number of results
 top_k = st.sidebar.slider(
-    "Number of Results",
+    "Results",
     min_value=1,
     max_value=MAX_TOP_K,
     value=DEFAULT_TOP_K,
-    help="How many chunks to retrieve.",
+    help="Number of chunks to retrieve.",
 )
 
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# Reranking
+# Reranking (always visible)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Reranking")
 
 use_reranking = st.sidebar.checkbox(
-    "Enable Cross-Encoder Reranking",
+    "Enable Cross-Encoder",
     value=False,
-    help="Re-scores results with a cross-encoder for higher accuracy.",
+    help="Re-score results for higher accuracy (slow on CPU).",
 )
 
 if use_reranking:
-    st.sidebar.caption("Slow on CPU (~2 min/query). Retrieves 50 candidates, reranks to top-k.")
-
-st.sidebar.divider()
-
-# -----------------------------------------------------------------------------
-# Answer Generation
-# -----------------------------------------------------------------------------
-st.sidebar.markdown("### Answer Generation")
-
-model_options = {model_id: label for model_id, label in DYNAMIC_GENERATION_MODELS}
-selected_model = st.sidebar.selectbox(
-    "Generation Model",
-    options=list(model_options.keys()),
-    index=min(1, len(model_options) - 1),  # Default to second option (balanced)
-    format_func=lambda x: model_options[x],
-    help="Model used for answer generation. (Fetched from OpenRouter)",
-)
-
-st.sidebar.divider()
-
-# Show current configuration summary
-with st.sidebar.expander("Current Configuration", expanded=False):
-    config_summary = f"""
-**Preprocessing**
-- Strategy: {strategy_options[selected_strategy][0]}
-{f'- Model: {selected_prep_model}' if enable_preprocessing else ''}
-
-**Collection**
-- Strategy: {selected_collection if selected_collection else 'None'}
-
-**Retrieval**
-- Type: {search_type}
-- Alpha: {alpha if search_type == 'hybrid' else 'N/A'}
-- Top-K: {top_k}
-
-**Reranking**
-- Enabled: {'Yes' if use_reranking else 'No'}
-
-**Generation**
-- Model: {selected_model}
-    """
-    st.markdown(config_summary.strip())
+    st.sidebar.caption("~2 min/query on CPU")
 
 
 # ============================================================================
@@ -558,7 +466,7 @@ if search_clicked and query:
             with st.spinner("Stage 1: Analyzing query..."):
                 try:
                     preprocessed = preprocess_query(
-                        query, model=selected_prep_model, strategy=selected_strategy
+                        query, model=PREPROCESSING_MODEL, strategy=selected_strategy
                     )
                     search_query = preprocessed.search_query
                     st.session_state.preprocessed_query = preprocessed
@@ -619,7 +527,7 @@ if search_clicked and query:
                     answer = generate_answer(
                         query=query,
                         chunks=st.session_state.search_results,
-                        model=selected_model,
+                        model=GENERATION_MODEL,
                     )
                     st.session_state.generated_answer = answer
                 except Exception as e:

@@ -106,8 +106,8 @@ def _format_config_summary() -> str:
     prep = st.session_state.preprocessed_query
     ans = st.session_state.generated_answer
 
-    # Collection name
-    coll = settings.get("collection_name", "unknown")
+    # Collection display name (fallback to raw name)
+    coll = settings.get("collection_display_name", settings.get("collection_name", "unknown"))
 
     # Search type
     search = settings.get("search_type", "hybrid")
@@ -531,11 +531,17 @@ if search_clicked and query:
                 st.session_state.rrf_data = search_output.rrf_data
                 st.session_state.graph_metadata = search_output.graph_metadata
                 st.session_state.last_query = query
+                # Get display name for the selected collection
+                display_name = next(
+                    (c.display_name for c in collection_infos if c.collection_name == selected_collection),
+                    selected_collection,
+                )
                 st.session_state.retrieval_settings = {
                     "search_type": search_type,
                     "alpha": alpha,
                     "top_k": top_k,
                     "collection_name": selected_collection,
+                    "collection_display_name": display_name,
                 }
                 st.session_state.connection_error = None
             except Exception as e:

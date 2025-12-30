@@ -86,12 +86,6 @@ if "graph_metadata" not in st.session_state:
 if "retrieval_settings" not in st.session_state:
     st.session_state.retrieval_settings = {}
 
-# UI selection state (for progressive disclosure and reset logic)
-if "ui_preprocessing_strategy" not in st.session_state:
-    st.session_state.ui_preprocessing_strategy = "none"
-if "ui_collection" not in st.session_state:
-    st.session_state.ui_collection = None
-
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -298,7 +292,7 @@ def _render_pipeline_log():
 
 
 # ============================================================================
-# SIDEBAR - User flow: Preprocessing → Collection → Retrieval → Reranking
+# SIDEBAR - Simple flow: Preprocessing → Collection → Retrieval → Reranking
 # ============================================================================
 
 st.sidebar.title("Settings")
@@ -312,72 +306,45 @@ except Exception as e:
     st.session_state.connection_error = str(e)
 
 # -----------------------------------------------------------------------------
-# Query Preprocessing (always visible - user selects strategy first)
+# Query Preprocessing
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### Query Preprocessing")
 
-# Build strategy options
 strategy_options = {s[0]: (s[1], s[2]) for s in AVAILABLE_PREPROCESSING_STRATEGIES}
-strategy_ids = list(strategy_options.keys())
-
-# Get current index from session state
-current_strategy = st.session_state.ui_preprocessing_strategy
-current_idx = strategy_ids.index(current_strategy) if current_strategy in strategy_ids else 0
-
 selected_strategy = st.sidebar.selectbox(
     "Strategy",
-    options=strategy_ids,
-    index=current_idx,
+    options=list(strategy_options.keys()),
     format_func=lambda x: f"{strategy_options[x][0]} - {strategy_options[x][1]}",
     help="How to transform the query before searching.",
 )
-
-# Detect strategy change and reset collection
-if selected_strategy != st.session_state.ui_preprocessing_strategy:
-    st.session_state.ui_preprocessing_strategy = selected_strategy
-    st.session_state.ui_collection = None  # Reset collection on strategy change
-    st.rerun()
-
 enable_preprocessing = selected_strategy != "none"
 
 st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
-# Collection (shown after preprocessing selected, hidden for graphrag)
+# Collection
 # -----------------------------------------------------------------------------
-if selected_strategy == "graphrag":
-    # GraphRAG auto-selects section collection
-    st.sidebar.markdown("### Collection")
-    st.sidebar.caption("graphrag uses section chunks (required for entity matching)")
-    selected_collection = _find_section_collection(collection_infos) if collection_infos else None
-elif collection_infos:
-    st.sidebar.markdown("### Collection")
+st.sidebar.markdown("### Collection")
 
-    # Filter collections based on preprocessing compatibility
-    compatible_collections = [
+if selected_strategy == "graphrag":
+    # GraphRAG requires section collection
+    st.sidebar.caption("graphrag uses section chunks (required for entity matching)")
+    selected_collection = _find_section_collection(collection_infos)
+    if not selected_collection:
+        st.sidebar.error("No section collection found. Run Stage 4 with section strategy first.")
+elif collection_infos:
+    # Filter to compatible collections
+    compatible = [
         info for info in collection_infos
         if selected_strategy in get_valid_preprocessing_strategies(info.strategy)
     ]
-
-    if compatible_collections:
-        collection_names = [info.collection_name for info in compatible_collections]
-        collection_display = {info.collection_name: info.display_name for info in compatible_collections}
-
-        # Get current index from session state
-        current_coll = st.session_state.ui_collection
-        current_coll_idx = collection_names.index(current_coll) if current_coll in collection_names else 0
-
+    if compatible:
         selected_collection = st.sidebar.selectbox(
             "Chunking Strategy",
-            options=collection_names,
-            index=current_coll_idx,
-            format_func=lambda x: collection_display[x],
+            options=[c.collection_name for c in compatible],
+            format_func=lambda x: next(c.display_name for c in compatible if c.collection_name == x),
             help="Which chunking method to search.",
         )
-
-        # Update session state if changed
-        if selected_collection != st.session_state.ui_collection:
-            st.session_state.ui_collection = selected_collection
     else:
         st.sidebar.warning("No compatible collections for this strategy.")
         selected_collection = None

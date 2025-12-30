@@ -174,6 +174,21 @@ def _render_retrieval_stage(settings: dict, results: list, prep) -> None:
     st.markdown("**Search Query:**")
     st.code(search_q, language="text")
 
+    # Collapsible chunks section
+    if results:
+        # Score explanation based on retrieval method
+        reranked = st.session_state.get("rerank_data") is not None
+        if reranked:
+            score_info = "Scores: cross-encoder semantic relevance (0.0-1.0+)"
+        elif st.session_state.get("rrf_data") is not None:
+            score_info = "Scores: RRF (Reciprocal Rank Fusion, k=60)"
+        else:
+            score_info = "Scores: cosine similarity (0.0-1.0)"
+
+        with st.expander(f"Retrieved Chunks ({len(results)})", expanded=False):
+            st.caption(score_info)
+            _display_chunks(results)
+
 
 def _render_rrf_stage(rrf, prep) -> None:
     """Render RRF merging stage details."""
@@ -527,7 +542,7 @@ if search_clicked and query:
 
 
 # ============================================================================
-# RESULTS DISPLAY - Tabs: Answer | Pipeline Log | Chunks
+# RESULTS DISPLAY - Tabs: Answer | Pipeline Log
 # ============================================================================
 
 if st.session_state.search_results:
@@ -535,7 +550,7 @@ if st.session_state.search_results:
     st.subheader(f"Results for: \"{st.session_state.last_query}\"")
 
     # Create tabs for different views
-    tab_answer, tab_log, tab_chunks = st.tabs(["Answer", "Pipeline Log", "Retrieved Chunks"])
+    tab_answer, tab_log = st.tabs(["Answer", "Pipeline Log"])
 
     # -------------------------------------------------------------------------
     # TAB 1: Answer
@@ -612,27 +627,6 @@ if st.session_state.search_results:
         st.markdown("### Pipeline Execution Log")
         st.caption("Full visibility into what happened at each stage of the RAG pipeline.")
         _render_pipeline_log()
-
-    # -------------------------------------------------------------------------
-    # TAB 3: Retrieved Chunks
-    # -------------------------------------------------------------------------
-    with tab_chunks:
-        st.markdown(f"### Retrieved Chunks ({len(st.session_state.search_results)})")
-
-        # Show score explanation based on retrieval method
-        prep = st.session_state.preprocessed_query
-        strategy = getattr(prep, 'strategy_used', 'none') if prep else 'none'
-        reranked = st.session_state.get("rerank_data") is not None
-
-        if reranked:
-            score_info = "Scores: cross-encoder semantic relevance (0.0–1.0+, higher = more relevant)"
-        elif st.session_state.get("rrf_data") is not None:
-            score_info = "Scores: RRF (Reciprocal Rank Fusion, k=60). Range ~0.01–0.05. See: Cormack et al. (2009)"
-        else:
-            score_info = "Scores: cosine similarity (0.0–1.0, higher = more semantically similar)"
-
-        st.caption(score_info)
-        _display_chunks(st.session_state.search_results)
 
 elif query and not st.session_state.search_results:
     st.info("No results found. Try a different query.")

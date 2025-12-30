@@ -100,6 +100,43 @@ def _find_section_collection(collection_infos: list[CollectionInfo]) -> str | No
     return None
 
 
+def _format_config_summary() -> str:
+    """Format compact config summary for display."""
+    settings = st.session_state.retrieval_settings
+    prep = st.session_state.preprocessed_query
+    ans = st.session_state.generated_answer
+
+    # Extract collection strategy from name (e.g., "RAG_section_..." -> "section")
+    coll = settings.get("collection_name", "")
+    strategy = coll.split("_")[1] if coll.startswith("RAG_") else coll
+
+    # Search type
+    search = settings.get("search_type", "hybrid")
+    alpha = settings.get("alpha", 0.5)
+    search_str = f"{search}" if search == "vector" else f"hybrid (α={alpha})"
+
+    # Preprocessing
+    prep_str = "none"
+    if prep:
+        prep_str = getattr(prep, "strategy_used", "none")
+        sub_q = getattr(prep, "sub_queries", None)
+        if sub_q:
+            prep_str += f" ({len(sub_q)} sub-q)"
+
+    # Results count
+    top_k = settings.get("top_k", 5)
+
+    # Total time
+    total_ms = 0
+    if prep:
+        total_ms += getattr(prep, "preprocessing_time_ms", 0)
+    if ans:
+        total_ms += getattr(ans, "generation_time_ms", 0)
+    time_str = f"{total_ms:,.0f}ms" if total_ms else ""
+
+    return f"{strategy} | {search_str} | {prep_str} | {top_k} results | {time_str}"
+
+
 
 
 def _display_chunks(chunks, show_indices=True):
@@ -390,7 +427,7 @@ if search_type == "hybrid":
         "Alpha",
         min_value=0.0,
         max_value=1.0,
-        value=0.7,
+        value=0.5,
         step=0.1,
         help="0 = keyword only, 1 = vector only",
     )
@@ -499,6 +536,7 @@ if search_clicked and query:
                     "search_type": search_type,
                     "alpha": alpha,
                     "top_k": top_k,
+                    "collection_name": selected_collection,
                 }
                 st.session_state.connection_error = None
             except Exception as e:
@@ -557,33 +595,8 @@ if st.session_state.search_results:
     # TAB 1: Answer
     # -------------------------------------------------------------------------
     with tab_answer:
-        # Query Analysis Section (if preprocessing was enabled)
-        if st.session_state.preprocessed_query:
-            prep = st.session_state.preprocessed_query
-            with st.container():
-                st.markdown("#### Query Preprocessing")
-                col1, col2 = st.columns(2)
-
-                strategy_used = getattr(prep, 'strategy_used', 'N/A')
-                col1.markdown(f"**Strategy:** `{strategy_used}`")
-                col2.markdown(f"**Time:** {prep.preprocessing_time_ms:.0f}ms")
-
-                # Show HyDE passage if applied
-                hyde_passage = getattr(prep, 'hyde_passage', None)
-                if hyde_passage and hyde_passage != prep.original_query:
-                    st.info(f"**HyDE Passage:** {hyde_passage[:100]}...")
-
-                # Show multi-query info
-                generated_queries = getattr(prep, 'generated_queries', None)
-                if generated_queries and len(generated_queries) > 1:
-                    st.info(f"**Multi-Query:** {len(generated_queries)} queries generated")
-
-                # Show decomposition info
-                sub_queries = getattr(prep, 'sub_queries', None)
-                if sub_queries and len(sub_queries) > 0:
-                    st.info(f"**Decomposed into:** {len(sub_queries)} sub-questions")
-
-                st.divider()
+        # Compact config summary
+        st.caption(f"config: {_format_config_summary()}")
 
         # Generated Answer Section
         if st.session_state.generated_answer:

@@ -399,7 +399,7 @@ def get_graph_chunk_ids(
     Returns:
         Tuple of:
         - List of chunk IDs found via graph traversal
-        - Metadata dict with query_entities and graph_context
+        - Metadata dict with query_entities, extracted_entities, and graph_context
 
     Raises:
         neo4j.exceptions.ServiceUnavailable: If Neo4j connection fails.
@@ -410,18 +410,30 @@ def get_graph_chunk_ids(
         ["behave::chunk_42", "behave::chunk_43", ...]
     """
     metadata = {
-        "query_entities": [],
+        "extracted_entities": [],  # What LLM found in query
+        "query_entities": [],      # What matched in Neo4j
         "graph_context": [],
     }
 
-    # Extract entities from query
-    query_entities = extract_query_entities(query, driver)
-    metadata["query_entities"] = query_entities
+    # Step 1: Extract entities from query using LLM
+    extracted = extract_query_entities_llm(query)
+    metadata["extracted_entities"] = extracted
+    logger.info(f"LLM extracted from query: {extracted}")
 
-    if not query_entities:
+    # Step 2: Validate against Neo4j
+    if extracted and driver:
+        db_entities = find_entities_by_names(driver, extracted)
+        matched = [e["name"] for e in db_entities]
+        metadata["query_entities"] = matched
+        logger.info(f"Matched in Neo4j: {matched}")
+    else:
+        metadata["query_entities"] = []
+
+    if not metadata["query_entities"]:
+        logger.info("No entities matched in graph, skipping traversal")
         return [], metadata
 
-    # Get graph context via traversal
+    # Step 3: Traverse graph from matched entities
     graph_context = retrieve_graph_context(query, driver)
     metadata["graph_context"] = graph_context
 
@@ -429,7 +441,7 @@ def get_graph_chunk_ids(
     chunk_ids = get_chunk_ids_from_graph(graph_context)
 
     logger.info(
-        f"Graph retrieval: {len(query_entities)} entities -> "
+        f"Graph retrieval: {len(metadata['query_entities'])} matched entities -> "
         f"{len(graph_context)} neighbors -> {len(chunk_ids)} chunks"
     )
 
@@ -515,6 +527,7 @@ def hybrid_graph_retrieval(
 
     # Build metadata
     metadata = {
+        "extracted_entities": graph_meta.get("extracted_entities", []),
         "query_entities": graph_meta.get("query_entities", []),
         "graph_context": graph_meta.get("graph_context", []),
         "community_context": community_context,

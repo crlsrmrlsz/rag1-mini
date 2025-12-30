@@ -201,18 +201,31 @@ def _render_rrf_stage(rrf, prep) -> None:
 
 def _render_graph_stage(graph_meta: dict) -> None:
     """Render GraphRAG stage details."""
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Entities", len(graph_meta.get("query_entities", [])))
-    col2.metric("Graph Chunks", graph_meta.get("graph_chunk_count", 0))
-    col3.metric("Boosted", graph_meta.get("boosted_count", 0))
+    extracted = graph_meta.get("extracted_entities", [])
+    matched = graph_meta.get("query_entities", [])
+    communities = graph_meta.get("community_context", [])
 
-    if graph_meta.get("query_entities"):
-        st.markdown(f"**Entities:** {', '.join(graph_meta['query_entities'])}")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Extracted", len(extracted))
+    col2.metric("Matched", len(matched))
+    col3.metric("Graph Chunks", graph_meta.get("graph_chunk_count", 0))
+    col4.metric("Communities", len(communities))
 
-    if graph_meta.get("community_context"):
-        st.markdown("**Communities:**")
-        for comm in graph_meta["community_context"][:2]:
-            st.caption(f"- {comm['summary'][:150]}...")
+    # Show extracted vs matched entities
+    if extracted:
+        st.markdown(f"**LLM Extracted:** {', '.join(extracted)}")
+        if matched:
+            st.markdown(f"**Found in Graph:** {', '.join(matched)}")
+        else:
+            st.caption("None of the extracted entities exist in the knowledge graph.")
+    else:
+        st.caption("LLM did not extract any entities from the query.")
+
+    # Show community summaries
+    if communities:
+        st.markdown("**Relevant Communities:**")
+        for comm in communities[:2]:
+            st.info(f"{comm['summary'][:200]}...")
 
 
 def _render_rerank_stage(rerank) -> None:

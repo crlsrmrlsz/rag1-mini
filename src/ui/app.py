@@ -215,11 +215,12 @@ def _render_graph_stage(graph_meta: dict) -> None:
     else:
         st.caption("LLM did not extract any entities from the query.")
 
-    # Show community summaries
+    # Show community summaries (full text in expanders)
     if communities:
         st.markdown("**Relevant Communities:**")
-        for comm in communities[:2]:
-            st.info(f"{comm['summary'][:200]}...")
+        for i, comm in enumerate(communities, 1):
+            with st.expander(f"Community {i}: {comm['summary'][:80]}...", expanded=(i == 1)):
+                st.markdown(comm['summary'])
 
 
 def _render_rerank_stage(rerank) -> None:

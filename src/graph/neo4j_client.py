@@ -425,6 +425,7 @@ def find_entity_neighbors(
         neighbor.name as name,
         neighbor.entity_type as entity_type,
         neighbor.description as description,
+        neighbor.source_chunk_id as source_chunk_id,
         length(path) as path_length
     ORDER BY path_length, name
     LIMIT $limit

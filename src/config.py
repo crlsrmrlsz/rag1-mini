@@ -724,7 +724,13 @@ Extract all relevant entities, including:
 - Implied concepts (e.g., "why we procrastinate" implies "procrastination")
 - Domain concepts (e.g., "self-control", "consciousness", "happiness")
 
-Be concise - extract only the key entities (typically 1-5 per query)."""
+Be concise - extract only the key entities (typically 1-5 per query).
+
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
+{{"entities": [{{"name": "entity_name", "entity_type": "TYPE"}}]}}
+
+Example response for "How does stress affect memory?":
+{{"entities": [{{"name": "stress", "entity_type": "CONCEPT"}}, {{"name": "memory", "entity_type": "COGNITIVE_PROCESS"}}]}}"""
 
 # Graph retrieval parameters
 GRAPHRAG_TOP_COMMUNITIES = 3        # Number of communities to retrieve

@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "version": "2.0",
+    "version": "3.0",
     "created": "2025-12-24",
-    "description": "Curated 10-question subset for comprehensive evaluation. Synced with test_questions.json version 4.1. All questions have coherent reference, ground_truth_quote, and expected_books.",
-    "selection_criteria": "High-quality ground truth, diverse topics, balanced difficulty",
-    "total_questions": 10,
-    "updated": "2025-12-25"
+    "description": "Curated 15-question subset for comprehensive evaluation: 5 single-concept + 10 cross-domain. Synced with test_questions.json version 4.1. Cross-domain questions require retrieval from both neuroscience AND philosophy sources.",
+    "selection_criteria": "Multi-source retrieval, synthesis requirement, semantic diversity, discrimination power",
+    "total_questions": 15,
+    "updated": "2025-12-31"
   },
   "questions": [
     {
@@ -138,6 +138,79 @@
         "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
         "Essays and Aphorisms (Arthur Schopenhauer)",
         "Wisdom of Life (Schopenhauer)"
+      ]
+    },
+    {
+      "id": "cross_death_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "How do humans process the awareness of death, and what approaches help accept mortality?",
+      "reference": "For primates, the definition of a stressor expands beyond physical challenges to include thinking you're going to be thrown out of homeostasis - anticipatory stress. The stress response did not evolve for dealing with this recent mammalian innovation. We activate stress responses for purely psychological reasons, including contemplating mortality. The sight of threat activates the amygdala, which stimulates brain-stem neurons to mobilize the sympathetic nervous system, releasing epinephrine and norepinephrine throughout the body. Stoic philosophy directly addresses mortality anxiety. Men are disturbed not by things themselves, but by their opinions about them - death is nothing terrible. Seneca taught that we do not fear death but the thought of death. Despise death, for there is no sorrow when we escape the fear of death. Marcus Aurelius observed that death is like birth - a mystery of nature, one a commixture of elements, the other a resolution into them. The Tao Te Ching teaches that the thirteen organs of our living are the thirteen organs of our dying - we suffer because we hold too hard to living. Both neuroscience and philosophy agree that much of death anxiety is cognitive - the anticipation and thought rather than the reality - and that wisdom involves accepting mortality as natural process.",
+      "ground_truth_quote": "\"For primates the definition of a stressor expands beyond merely a physical challenge to homeostasis. In addition, it includes thinking you're going to be thrown out of homeostasis\" (Sapolsky); \"The stress response did not evolve for dealing with this recent mammalian innovation\" (Sapolsky); \"The sight of the lion activates the amygdala; amygdaloid neurons stimulate brain-stem neurons, which then inhibit the parasympathetic nervous system and mobilize the sympathetic nervous system\" (Sapolsky); \"Men are disturbed not by the things which happen, but by the opinions about the things; for example, death is nothing terrible\" (Epictetus Enchiridion); \"I must die. Must I then die lamenting?\" (Epictetus Enchiridion); \"We do not fear death; we fear the thought of death\" (Seneca); \"Despise death. There is no sorrow in the world, when we have escaped from the fear of death\" (Seneca); \"Death is, like our birth, a mystery of nature; the one a commixture of elements, the other a resolution into them\" (Marcus Aurelius); \"The thirteen organs of our living are the thirteen organs of our dying. Because we hold too hard to living\" (Tao te ching)",
+      "expected_books": [
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "The Enchiridion (Epictetus)",
+        "Letters from a Stoic (Seneca)",
+        "The Meditations (Marcus Aurelius)",
+        "Tao te ching Lao_tzu (Lao Tzu)"
+      ]
+    },
+    {
+      "id": "cross_reputation_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "Why do humans care so much about what others think, and how should we relate to reputation?",
+      "reference": "The brain has dedicated circuitry for processing social reputation. The medial prefrontal cortex and dorsal striatum activate when reflecting on how others view us, creating reward signals that make reputation feel intrinsically valuable. Social criticism activates the amygdala, producing anxiety akin to fear responses. Losing in social competition inhibits dopamine release - not winning an auction feels like social subordination, not mere bad luck. The dopamine system responds to envy and schadenfreude, showing reputation concerns are deeply wired into reward circuits. However, ancient wisdom traditions uniformly caution against excessive concern with reputation. Schopenhauer argued that every person's chief and real existence is in their own skin, not in other people's opinions - people generally think too much about what others think of them. True happiness depends on internal qualities like health and temperament, not external validation. Marcus Aurelius taught that what is beautiful or honorable is so from itself - being praised is no part of its excellence. Epictetus advised: don't be afraid of verbal abuse or criticism; only the morally weak feel compelled to defend themselves to others. Let the quality of your deeds speak on your behalf. It is natural to want to be well-regarded, but one must wean oneself from such dependence. Seneca emphasized that a good conscience welcomes the crowd, but a bad conscience is disturbed even in solitude - virtue should be its own standard. Gracian offered practical wisdom: gain a reputation for courtesy, don't make yourself disliked, but ultimately focus on cultivating genuine virtue rather than mere appearances.",
+      "ground_truth_quote": "\"both the medial prefrontal cortex and the associated dorsal striatum showed strong activation in one study when subjects reflected on how they were viewed by others\" (Eagleman); \"self-image and reputation can exert powerful effects on the landscape of reward and motivation\" (Eagleman); \"Not winning the lottery is bad luck; not winning an auction is social subordination\" (Sapolsky); \"there's dopaminergic activation during schadenfreude-gloating over an envied person's fall from grace\" (Sapolsky); \"every man's chief and real existence is in his own skin, and not in other people's opinions\" (Schopenhauer); \"people generally think too much about the opinion which others form of them\" (Schopenhauer); \"Whatever is beautiful or honourable, is so from itself, and its excellence rests in itself: its being praised is no part of its excellence\" (Marcus Aurelius); \"Don't be afraid of verbal abuse or criticism. Only the morally weak feel compelled to defend or explain themselves to others\" (Epictetus); \"Let the quality of your deeds speak on your behalf\" (Epictetus); \"It is natural to want to be well-regarded by others, but you must gradually wean yourself from such dependence\" (Epictetus); \"A good conscience welcomes the crowd, but a bad conscience, even in solitude, is disturbed and troubled\" (Seneca); \"Gain a reputation for courtesy. This is enough to win you praise\" (Gracian)",
+      "expected_books": [
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "Wisdom of Life (Schopenhauer)",
+        "The Meditations (Marcus Aurelius)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)",
+        "Letters from a Stoic (Seneca)",
+        "The Pocket Oracle and Art of Prudence (Baltasar Gracian)"
+      ]
+    },
+    {
+      "id": "cross_pain_pleasure_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "Why does pain seem to outweigh pleasure in human experience, and what explains this asymmetry?",
+      "reference": "Negativity dominance is a fundamental psychological principle: bad impressions and stereotypes are quicker to form and more resistant to change than good ones. The self is more motivated to avoid bad self-definitions than to pursue good ones. Research on marital relationships shows that a stable relationship requires good interactions to outnumber bad by at least 5 to 1. A friendship that took years to build can be destroyed by a single action. This asymmetry reflects evolutionary priorities - pain commands immediate attention for survival, while pleasure is more subtle and easily habituated. Schopenhauer made this asymmetry central to his philosophy: if the immediate purpose of life is not suffering, then existence is ill-adapted to its purpose. We never really notice what is agreeable to our will - we notice when our will is thwarted. All that opposes and frustrates us impresses itself instantly, while we think not of successful activities but of trifles that vex us. This is the negativity of well-being and positivity of pain. Good is merely the abolition of desire; evil is what makes itself palpable. A quick test of the claim that enjoyment balances pain would be to compare the feelings of an animal eating another with those of the animal being eaten.",
+      "ground_truth_quote": "\"Bad impressions and bad stereotypes are quicker to form and more resistant to disconfirmation than good ones\" (Kahneman); \"The self is more motivated to avoid bad self-definitions than to pursue good ones\" (Kahneman); \"a stable relationship requires that good interactions outnumber bad interactions by at least 5 to 1\" (Kahneman); \"If the immediate and direct purpose of our life is not suffering then our existence is the most ill-adapted to its purpose in the world\" (Schopenhauer); \"we never really notice or become conscious of what is agreeable to our will; if we are to notice something, our will has to have been thwarted\" (Schopenhauer); \"all that opposes, frustrates and resists our will, that is to say all that is unpleasant and painful, impresses itself upon us instantly, directly and with great clarity\" (Schopenhauer); \"the negativity of well-being and happiness, in antithesis to the positivity of pain\" (Schopenhauer)",
+      "expected_books": [
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Essays and Aphorisms (Arthur Schopenhauer)"
+      ]
+    },
+    {
+      "id": "cross_procrastination_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "Why do people procrastinate even on important tasks, and what drives sustained motivation?",
+      "reference": "Procrastination emerges from the brain's reward architecture. Kahneman's research shows that intuitive System 1 thinking dominates behavior, making it easier to default to immediately gratifying choices. 'The intuitive System 1 is more influential than your experience tells you, and it is the secret author of many choices and judgments.' Decisions are shaped by 'inconsequential features of choice problems,' and immediate versus delayed consequences are processed differently - the brain discounts future rewards hyperbolically. Cognitive effort depletes self-control resources, making procrastination more likely when fatigued. The expectation of needing to account for decisions creates motivation through 'anticipated judgments' of others. Stoic philosophy offers complementary insights: Seneca emphasized that procrastination stems from pursuing immediate pleasures rather than virtue, and that time is 'the only irreplaceable resource.' True motivation flows from internal virtue rather than external consequences. Marcus Aurelius taught that anticipating others' judgments should not dictate our actions - authentic motivation comes from within. Both perspectives suggest that overcoming procrastination requires understanding its cognitive roots, creating accountability structures, aligning actions with deeper values, and recognizing that the effort of starting is often the primary barrier.",
+      "ground_truth_quote": "\"Once you have deliberated and determined that a course of action is wise, never discredit your judgment. Stand squarely behind your decision\" (Epictetus Art of Living); \"He will think as little as possible. The law of least effort is operating here\" (Kahneman); \"This is a pupil-dilating task. It requires mental effort!\" (Kahneman); \"Emotions have a priority-setting function that colors the landscape of our perceptions and motivations\" (Eagleman); \"Lay hold of today's task, and you will not need to depend so much upon tomorrow's\" (Seneca); \"If he maps out important work for himself on great lines, a glance at this miniature plan of his life will urge him on to action\" (Schopenhauer)",
+      "expected_books": [
+        "Thinking Fast and Slow (Daniel Kahneman)",
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Letters from a Stoic (Seneca)",
+        "The essays, counsels and maxims (Arthur Schopenhauer)",
+        "The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness (Epictetus)"
+      ]
+    },
+    {
+      "id": "cross_empathy_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "How do humans form social bonds and experience empathy for others?",
+      "reference": "Why does it hurt when someone else hurts? The neural substrates of empathy have become a major research topic. Empathy is a core ability of the human social animal, broken into cognitive aspects (evaluating others' feelings) and emotional aspects (feeling the same feeling). The anterior insula and anterior cingulate cortex activate both during one's own pain and when watching a partner receive pain - these areas represent the emotional unpleasantness of pain. Subjects with higher empathy scores show stronger activation in these regions. Emotions are contagious in social species; all we need to do is let empathy do its automatic work and look inside ourselves. Oxytocin and vasopressin facilitate bonding between parent and child and between couples. These neuropeptides are involved in prosociality ranging from parent/offspring bonds to trust, empathy, and generosity. When a dog and its owner interact, they secrete oxytocin - a remarkable evolutionary development. Confucius placed commitment and compassion at the center of human excellence - our Master's ideal consists of nothing more than these two principles. Students should look kindly on all but treat the humane as kinsmen, and treat each man as an older brother. This widening of brotherhood to include those outside the family represents the Confucian path to social harmony.",
+      "ground_truth_quote": "\"Why does it hurt when someone else hurts? If a frail elderly woman should fall in the street, we may feel concern or a pang of pain, even if we are entirely uninjured\" (Eagleman); \"the anterior insula and anterior cingulate cortex activated during stimulation of either the subject or her partner\" (Eagleman); \"Subjects with higher scores on empathy questionnaires showed stronger empathetic pain activation in these regions\" (Eagleman); \"Empathy is one example of such contagion; it regulates social behavior as well as providing us with a mechanism for figuring out how others feel\" (Fundamentals); \"All we need to do is let empathy do its automatic work and look inside ourselves: if we know how we feel, we will know how the other person feels\" (Fundamentals); \"Empathy is the act of experiencing that state oneself. Think of it as feeling someone else's pain. Empathy is a core ability of the human social animal\" (Fundamentals); \"oxytocin and vasopressin facilitate bonding between parent and child and between couples\" (Sapolsky); \"Oxytocin and vasopressin are involved in prosociality, ranging from parent/offspring bonds to monogamous bonds to trust, empathy, generosity\" (Sapolsky); \"Our Master's ideal consists of nothing more than commitment and compassion\" (Confucius); \"look kindly on all but treat the humane as kinsmen\" (Confucius); \"treat each man as an older brother\" (Confucius)",
+      "expected_books": [
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+        "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)",
+        "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
+        "The Analects Conclusions and Conversations (Confucius)"
       ]
     }
   ]

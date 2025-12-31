@@ -164,7 +164,7 @@ The `memory-bank/` directory contains project context:
 - `project-status.md` - Pipeline status and overview
 - `model-selection.md` - Model research and pricing
 - `rag-improve-research.md` - RAG improvement strategies
-- `evaluation-history.md` - RAGAS runs with configs and metrics
+- `evaluation-workflow.md` - Evaluation architecture and design decisions
 - `rag-improvement-plan.md` - Detailed implementation plan for RAG improvements
 
 Update these files when making significant changes to maintain project continuity.
@@ -208,11 +208,14 @@ Update these files when making significant changes to maintain project continuit
 - [x] Register decomposition in STRATEGIES dict
 - [x] Update config, CLI, logger, and UI
 
-**Phase 5: Alpha Tuning** - COMPLETE (Dec 24)
-- [x] Comprehensive evaluation mode: `--comprehensive` flag for grid search
-- [x] Tests all combinations: collections x alphas (0.0-1.0) x strategies
-- [x] Curated 10-question subset in `comprehensive_questions.json`
+**Phase 5: Alpha Tuning + Comprehensive Eval** - COMPLETE (Dec 24-31)
+- [x] Comprehensive evaluation mode: `--comprehensive` flag for 4D grid search
+- [x] Tests all combinations: collections × alphas × top_k × strategies
+- [x] Curated 15-question subset in `comprehensive_questions.json`
 - [x] Leaderboard report with metric breakdowns
+- [x] Trace persistence for metric recalculation (Dec 31)
+- [x] Retrieval caching for top_k dimension (Dec 31)
+- [x] Retry logic with exponential backoff (Dec 31)
 
 **Phase 6: Contextual Retrieval** - COMPLETE (Dec 22)
 - [x] Create contextual_chunker.py (prepend LLM context to chunks)
@@ -235,8 +238,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
-- RAPTOR hierarchical summarization: Tree building + GMM clustering + LLM summaries (Dec 25)
-- GraphRAG implementation: Neo4j + Leiden communities + hybrid retrieval via RRF (Dec 25)
-- Comprehensive evaluation mode: `--comprehensive` for grid search across all configs (Dec 24)
-- Replaced step_back with HyDE (Hypothetical Document Embeddings, arXiv:2212.10496) - proper RAG research technique (Dec 23)
-- Removed multi_query strategy: decomposition subsumes its domain-targeting (~380 lines removed) (Dec 23)
+- Evaluation docs update: 4D grid, traces, caching, design decisions (~180 lines consolidated) (Dec 31)
+- Retrieval caching: top_k as innermost loop, 50% fewer API calls in grid search (Dec 31)
+- Top_k as 4th evaluation dimension: [10, 20] to test retrieval depth impact (Dec 31)
+- Trace schemas + retry logic: QuestionTrace, EvaluationTrace, exponential backoff (Dec 31)
+- Expanded comprehensive questions: 10→15 (5 single-concept + 10 cross-domain) (Dec 31)

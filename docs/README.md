@@ -24,15 +24,15 @@ How raw documents become searchable chunks.
 RAGLab separates RAG optimization into two independent axes, enabling systematic A/B testing:
 
 ```
-                        CHUNKING (Index Time)
-                    ┌───────────────────────────────────────┐
-                    │  section    contextual    raptor      │
-                    └───────────────────────────────────────┘
-                              ↓           ↓          ↓
-PREPROCESSING   none    ┌─────┬─────────┬─────────────────────┐
-(Query Time)    hyde    │     │  12 possible combinations    │
-                decomp  │     │    evaluated with RAGAS      │
-                graphrag└─────┴───────────────────────────────┘
+4D Evaluation Grid:
+  Collections × Alphas × Top-K × Strategies
+       │          │        │         │
+       │          │        │         └── [none, hyde, decomposition, graphrag]
+       │          │        └── [10, 20] retrieval depth
+       │          └── [0.0-1.0] BM25 ↔ vector balance
+       └── [section, contextual, raptor]
+
+~85-120 valid combinations evaluated with RAGAS
 ```
 
 ## Chunking Strategies (Index Time)
@@ -58,8 +58,8 @@ How queries are transformed before retrieval. Applied at search time, independen
 
 ## Evaluation
 
-- [RAGAS Framework](evaluation/README.md) — Metrics and methodology
-- [Results](evaluation/results.md) — Grid search across all combinations *(pending)*
+- [RAGAS Framework](evaluation/README.md) — 5 metrics, 4D grid search, trace persistence
+- [Workflow & Design Decisions](../memory-bank/evaluation-workflow.md) — Architecture diagrams, caching, retry logic
 
 ## Quick Reference
 

@@ -271,6 +271,9 @@ EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions
 # Results output directory
 EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 
+# Default RAGAS metrics for evaluation
+EVAL_DEFAULT_METRICS = ["faithfulness", "relevancy", "context_precision", "context_recall"]
+
 
 # ============================================================================
 # QUERY PREPROCESSING SETTINGS

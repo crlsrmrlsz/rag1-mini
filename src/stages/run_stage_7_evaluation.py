@@ -40,7 +40,7 @@ Usage Examples:
 
 Arguments:
     -n, --questions N         Limit to first N questions
-    -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision)
+    -m, --metrics METRICS     Metrics to compute (default: faithfulness relevancy context_precision context_recall)
     -k, --top-k K             Chunks to retrieve per question (default: 10)
     -a, --alpha ALPHA         Hybrid search balance: 0.0=keyword, 0.5=balanced, 1.0=vector
     --collection NAME         Weaviate collection to evaluate (default: from config)
@@ -79,6 +79,7 @@ from src.config import (
     EVAL_EVALUATION_MODEL,
     EVAL_TEST_QUESTIONS_FILE,
     EVAL_RESULTS_DIR,
+    EVAL_DEFAULT_METRICS,
     PROJECT_ROOT,
     MAX_CHUNK_TOKENS,
     OVERLAP_SENTENCES,
@@ -557,7 +558,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         try:
             results = run_evaluation(
                 test_questions=questions,
-                metrics=["faithfulness", "relevancy", "context_precision"],
+                metrics=EVAL_DEFAULT_METRICS,
                 top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
                 generation_model=args.generation_model,
                 evaluation_model=args.evaluation_model,
@@ -581,7 +582,8 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
             logger.info(
                 f"  -> faith={scores.get('faithfulness', 0):.3f} "
                 f"relev={scores.get('relevancy', 0):.3f} "
-                f"ctx_prec={scores.get('context_precision', 0):.3f}"
+                f"ctx_prec={scores.get('context_precision', 0):.3f} "
+                f"ctx_rec={scores.get('context_recall', 0):.3f}"
             )
 
         except Exception as e:
@@ -590,7 +592,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 "collection": collection,
                 "alpha": alpha,
                 "strategy": strategy,
-                "scores": {"faithfulness": 0, "relevancy": 0, "context_precision": 0},
+                "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
                 "num_questions": len(questions),
                 "error": str(e),
             })
@@ -653,7 +655,7 @@ def compute_statistical_breakdown(
     groups: Dict[str, List[float]] = defaultdict(list)
     for r in results:
         if "error" not in r:
-            groups[str(r[group_key])].append(r["composite_score"])
+            groups[str(r[group_key])].append(r["scores"].get("faithfulness") or 0)
 
     analysis = {}
     for group, scores in groups.items():
@@ -671,26 +673,19 @@ def find_best_configurations(
     sorted_results: List[Dict[str, Any]],
     successful_runs: List[Dict[str, Any]],
 ) -> Dict[str, Dict[str, Any]]:
-    """Find best configurations overall and per metric.
+    """Find best configurations per metric.
 
     Args:
-        sorted_results: Results sorted by composite score.
+        sorted_results: Results sorted by faithfulness.
         successful_runs: Only successful runs.
 
     Returns:
-        Dict with "overall" and per-metric best configurations.
+        Dict with per-metric best configurations.
     """
-    best = {
-        "overall": {
-            "collection": sorted_results[0]["collection"],
-            "alpha": sorted_results[0]["alpha"],
-            "strategy": sorted_results[0]["strategy"],
-            "composite_score": round(sorted_results[0]["composite_score"], 4),
-        } if sorted_results else None,
-    }
+    best = {}
 
     # Find best per metric
-    for metric in ["faithfulness", "relevancy", "context_precision"]:
+    for metric in EVAL_DEFAULT_METRICS:
         sorted_by_metric = sorted(
             successful_runs,
             key=lambda x: x["scores"].get(metric) or 0,
@@ -732,18 +727,10 @@ def generate_comprehensive_report(
     # Create results directory if needed
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Calculate composite score for ranking (average of all metrics)
-    for result in all_results:
-        scores = result["scores"]
-        faithfulness = scores.get("faithfulness") or 0
-        relevancy = scores.get("relevancy") or 0
-        context_precision = scores.get("context_precision") or 0
-        result["composite_score"] = (faithfulness + relevancy + context_precision) / 3
-
-    # Sort by composite score (descending)
+    # Sort by faithfulness (primary metric for grounded answers)
     sorted_results = sorted(
         all_results,
-        key=lambda x: x["composite_score"],
+        key=lambda x: x["scores"].get("faithfulness") or 0,
         reverse=True
     )
 
@@ -813,23 +800,23 @@ def generate_comprehensive_report(
     print(f"\nTested {len(all_results)} combinations on {len(questions)} questions")
     print(f"Duration: {duration_str}")
     print(f"Successful: {len(successful_runs)} | Failed: {len(failed_runs)}")
-    print("\n" + "-" * 100)
-    print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'Avg':<8}")
-    print("-" * 100)
+    print("\n" + "-" * 110)
+    print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'CtxRec':<8}")
+    print("-" * 110)
 
     for i, result in enumerate(sorted_results, 1):
         scores = result["scores"]
         faith = scores.get("faithfulness") or 0
         relev = scores.get("relevancy") or 0
         ctx_prec = scores.get("context_precision") or 0
-        avg = result["composite_score"]
+        ctx_rec = scores.get("context_recall") or 0
         collection_short = result["collection"][:35]
         error_marker = " *" if "error" in result else ""
 
         print(
             f"{i:<5} {collection_short:<35} {result['alpha']:<7} "
             f"{result['strategy']:<15} {faith:<8.3f} {relev:<8.3f} "
-            f"{ctx_prec:<8.3f} {avg:<8.3f}{error_marker}"
+            f"{ctx_prec:<8.3f} {ctx_rec:<8.3f}{error_marker}"
         )
 
     # =========================================================================
@@ -863,10 +850,7 @@ def generate_comprehensive_report(
     print(f"  Questions per run: {len(questions)}")
 
     print(f"\nBEST CONFIGURATIONS")
-    if best_configs.get("overall"):
-        b = best_configs["overall"]
-        print(f"  Overall:        {b['collection'][:30]} + alpha={b['alpha']} + {b['strategy']} (avg: {b['composite_score']:.3f})")
-    for metric in ["faithfulness", "relevancy", "context_precision"]:
+    for metric in EVAL_DEFAULT_METRICS:
         key = f"by_{metric}"
         if best_configs.get(key):
             b = best_configs[key]
@@ -917,8 +901,8 @@ def main():
         "--metrics",
         "-m",
         nargs="+",
-        default=["faithfulness", "relevancy", "context_precision"],
-        help="Metrics to compute (default: faithfulness relevancy context_precision)",
+        default=EVAL_DEFAULT_METRICS,
+        help=f"Metrics to compute (default: {' '.join(EVAL_DEFAULT_METRICS)})",
     )
     parser.add_argument(
         "--top-k",

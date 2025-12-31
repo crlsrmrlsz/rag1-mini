@@ -256,11 +256,10 @@ MAX_TOP_K = 20
 # EVALUATION SETTINGS (RAGAS)
 # ============================================================================
 
-# Model selection: GPT-5 Nano for consistency and cost-efficiency
-# $0.05/$0.40 per 1M tokens - cheapest paid option on OpenRouter (Aug 2025)
-# Using same model everywhere ensures fair comparisons in evaluation grid search
-# Research shows different LLMs disagree significantly as RAGAS judges
-EVAL_GENERATION_MODEL = "openai/gpt-5-nano"
+# Model selection: DeepSeek V3.2 for better reasoning
+# GPT-5 Nano produced empty answers for cross-domain questions
+# DeepSeek V3.2: $0.14/1M input - good balance of cost and capability
+EVAL_GENERATION_MODEL = "deepseek/deepseek-v3.2"
 
 # Evaluation model: Claude 3 Haiku for stable LLM-as-judge
 # RAGAS research: "Anthropic models were the most stable" for evaluation
@@ -630,8 +629,9 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "raglab_graphrag")
 
 # Model for entity/relationship extraction
-# Using GPT-5 Nano for consistency across all tasks
-GRAPHRAG_EXTRACTION_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
+# Claude 3 Haiku for reliable structured output (JSON Schema)
+# GPT-5 Nano produced 400 errors with structured output
+GRAPHRAG_EXTRACTION_MODEL = "anthropic/claude-3-haiku"
 
 # Model for community summarization (same as extraction for consistency)
 GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano

@@ -117,6 +117,8 @@ def extract_query_entities_llm(
         return entities
     except Exception as e:
         logger.warning(f"LLM query extraction failed: {e}")
+        logger.debug(f"  Query: {query[:100]}")
+        logger.debug(f"  Model: {model}")
         return []
 
 

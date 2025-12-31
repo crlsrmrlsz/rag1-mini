@@ -98,6 +98,7 @@ def create_evaluator_llm(model: str = "openai/gpt-4o-mini") -> LangchainLLMWrapp
         base_url=OPENROUTER_BASE_URL,
         api_key=OPENROUTER_API_KEY,
         temperature=0.1,
+        max_tokens=2048,  # Prevent JSON truncation in RAGAS metrics
     )
     return LangchainLLMWrapper(llm)
 

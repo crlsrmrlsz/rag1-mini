@@ -9,6 +9,7 @@ Provides:
 
 import time
 import math
+from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from datetime import datetime
@@ -593,6 +594,210 @@ def retrieve_contexts_with_cache(
 
 
 # ============================================================================
+# PER-QUESTION PROCESSING WITH RETRY
+# ============================================================================
+
+
+@dataclass
+class QuestionProcessingResult:
+    """Result of processing a single question through the RAG pipeline.
+
+    Attributes:
+        success: Whether processing completed successfully.
+        sample: RAGAS sample dict (user_input, retrieved_contexts, response, reference).
+        trace: QuestionTrace for debugging and recalculation.
+        error: Error message if processing failed.
+        failed_at_stage: Which stage failed (preprocessing, retrieval, generation).
+    """
+
+    success: bool
+    sample: Optional[Dict[str, Any]] = None
+    trace: Optional[QuestionTrace] = None
+    error: Optional[str] = None
+    failed_at_stage: Optional[str] = None
+
+
+def process_single_question(
+    question_data: Dict[str, Any],
+    question_index: int,
+    preprocessing_strategy: str,
+    preprocessing_model: Optional[str],
+    top_k: int,
+    resolved_collection: str,
+    use_reranking: bool,
+    alpha: float,
+    generation_model: str,
+    retrieval_cache: Optional[Dict] = None,
+    max_retrieval_k: Optional[int] = None,
+    max_retries: int = 3,
+    backoff_base: float = 2.0,
+) -> QuestionProcessingResult:
+    """Process a single question through preprocessing, retrieval, and generation with retry.
+
+    Implements per-question retry logic with exponential backoff for resilience
+    against transient LLM failures.
+
+    Args:
+        question_data: Question dict with 'question', optional 'reference', 'id', etc.
+        question_index: Index of question in the list (for default ID).
+        preprocessing_strategy: Strategy to use (none, hyde, decomposition, graphrag).
+        preprocessing_model: Model for preprocessing LLM calls.
+        top_k: Number of chunks to retrieve.
+        resolved_collection: Weaviate collection name.
+        use_reranking: Whether to apply cross-encoder reranking.
+        alpha: Hybrid search balance.
+        generation_model: Model for answer generation.
+        retrieval_cache: Optional cache dict for comprehensive mode.
+        max_retrieval_k: Max retrieval count for caching.
+        max_retries: Maximum retry attempts per stage.
+        backoff_base: Exponential backoff base.
+
+    Returns:
+        QuestionProcessingResult with success status, sample, trace, or error details.
+    """
+    question = question_data["question"]
+    reference = question_data.get("reference")
+    question_id = question_data.get("id", f"q_{question_index}")
+    difficulty = question_data.get("difficulty", "unknown")
+    category = question_data.get("category", "unknown")
+
+    last_error = None
+    failed_at_stage = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            # =====================================================================
+            # STAGE 1: Preprocessing
+            # =====================================================================
+            failed_at_stage = "preprocessing"  # Set early for proper error tracking
+            search_query = question
+            preprocessed = None
+            generated_queries = None
+
+            if preprocessing_strategy != "none":
+                from src.rag_pipeline.retrieval.preprocessing import preprocess_query
+
+                try:
+                    preprocessed = preprocess_query(
+                        query=question,
+                        strategy=preprocessing_strategy,
+                        model=preprocessing_model,
+                    )
+                    search_query = preprocessed.search_query
+                    generated_queries = preprocessed.generated_queries
+                    logger.info(f"  Preprocessed ({preprocessing_strategy}): {search_query[:50]}...")
+                except Exception as e:
+                    # Preprocessing failures are warnings, not fatal
+                    logger.warning(f"  Preprocessing failed: {e}. Using original query.")
+                    search_query = question
+                    preprocessed = None
+
+            # =====================================================================
+            # STAGE 2: Retrieval
+            # =====================================================================
+            failed_at_stage = "retrieval"
+
+            cache_key = None
+            if retrieval_cache is not None:
+                cache_key = (question_id, resolved_collection, alpha, preprocessing_strategy)
+
+            retrieval_k = max_retrieval_k if max_retrieval_k else top_k
+
+            contexts = retrieve_contexts_with_cache(
+                question=search_query,
+                top_k=top_k,
+                retrieval_k=retrieval_k,
+                collection_name=resolved_collection,
+                use_reranking=use_reranking,
+                alpha=alpha,
+                preprocessed=preprocessed,
+                cache=retrieval_cache,
+                cache_key=cache_key,
+            )
+            logger.info(f"  Retrieved {len(contexts)} contexts")
+
+            # =====================================================================
+            # STAGE 3: Generation
+            # =====================================================================
+            failed_at_stage = "generation"
+
+            answer = generate_answer(
+                question=question,
+                contexts=contexts,
+                model=generation_model,
+            )
+            logger.info(f"  Generated answer: {answer[:100]}...")
+
+            # =====================================================================
+            # BUILD SAMPLE AND TRACE
+            # =====================================================================
+            sample = {
+                "user_input": question,
+                "retrieved_contexts": contexts,
+                "response": answer,
+            }
+            if reference:
+                sample["reference"] = reference
+
+            trace = QuestionTrace(
+                question_id=question_id,
+                question=question,
+                difficulty=difficulty,
+                category=category,
+                reference=reference,
+                preprocessing_strategy=preprocessing_strategy,
+                search_query=search_query,
+                generated_queries=generated_queries,
+                retrieved_contexts=contexts,
+                retrieval_metadata={
+                    "top_k": top_k,
+                    "alpha": alpha,
+                    "collection": resolved_collection,
+                    "reranking": use_reranking,
+                },
+                generated_answer=answer,
+                generation_model=generation_model,
+            )
+
+            return QuestionProcessingResult(success=True, sample=sample, trace=trace)
+
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+
+            # Check if error is retryable
+            is_retryable = (
+                "rate" in error_str
+                or "limit" in error_str
+                or "429" in error_str
+                or "500" in error_str
+                or "502" in error_str
+                or "503" in error_str
+                or "timeout" in error_str
+                or "connection" in error_str
+            )
+
+            if is_retryable and attempt < max_retries:
+                delay = backoff_base ** (attempt + 1)
+                logger.warning(
+                    f"  Question processing failed ({type(e).__name__}), "
+                    f"retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                )
+                time.sleep(delay)
+                continue
+
+            # Non-retryable or max retries exceeded
+            break
+
+    # All retries exhausted
+    return QuestionProcessingResult(
+        success=False,
+        error=str(last_error),
+        failed_at_stage=failed_at_stage,
+    )
+
+
+# ============================================================================
 # RAGAS EVALUATION
 # ============================================================================
 
@@ -690,101 +895,64 @@ def run_evaluation(
         "evaluation_model": evaluation_model,
     }
 
-    # Build evaluation samples and question traces
+    # Build evaluation samples and question traces with per-question retry
     samples = []
     question_traces = []
+    failed_questions = []
 
     for i, q in enumerate(test_questions):
-        question = q["question"]
-        reference = q.get("reference")
         question_id = q.get("id", f"q_{i}")
-        difficulty = q.get("difficulty", "unknown")
-        category = q.get("category", "unknown")
+        question_text = q["question"]
 
-        logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question[:50]}...")
+        logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question_text[:50]}...")
 
-        # Apply preprocessing if enabled
-        search_query = question
-        preprocessed = None
-        generated_queries = None
-
-        if preprocessing_strategy != "none":
-            from src.rag_pipeline.retrieval.preprocessing import preprocess_query
-            try:
-                preprocessed = preprocess_query(
-                    query=question,
-                    strategy=preprocessing_strategy,
-                    model=preprocessing_model,
-                )
-                search_query = preprocessed.search_query
-                generated_queries = preprocessed.generated_queries
-                logger.info(f"  Preprocessed ({preprocessing_strategy}): {search_query[:50]}...")
-            except Exception as e:
-                logger.warning(f"  Preprocessing failed: {e}. Using original query.")
-                search_query = question
-                preprocessed = None
-
-        # Retrieve contexts with strategy-aware routing (with optional caching for comprehensive mode)
-        # Build cache key if caching is enabled
-        cache_key = None
-        if retrieval_cache is not None:
-            cache_key = (question_id, resolved_collection, alpha, preprocessing_strategy)
-
-        # Determine actual retrieval count (may be larger for caching)
-        retrieval_k = max_retrieval_k if max_retrieval_k else top_k
-
-        contexts = retrieve_contexts_with_cache(
-            question=search_query,
+        # Process question with retry logic
+        result = process_single_question(
+            question_data=q,
+            question_index=i,
+            preprocessing_strategy=preprocessing_strategy,
+            preprocessing_model=preprocessing_model,
             top_k=top_k,
-            retrieval_k=retrieval_k,
-            collection_name=resolved_collection,
+            resolved_collection=resolved_collection,
             use_reranking=use_reranking,
             alpha=alpha,
-            preprocessed=preprocessed,
-            cache=retrieval_cache,
-            cache_key=cache_key,
-        )
-        logger.info(f"  Retrieved {len(contexts)} contexts")
-
-        # Generate answer
-        answer = generate_answer(
-            question=question,
-            contexts=contexts,
-            model=generation_model,
-        )
-        logger.info(f"  Generated answer: {answer[:100]}...")
-
-        # Build RAGAS sample
-        sample = {
-            "user_input": question,
-            "retrieved_contexts": contexts,
-            "response": answer,
-        }
-        if reference:
-            sample["reference"] = reference
-        samples.append(sample)
-
-        # Build question trace
-        question_trace = QuestionTrace(
-            question_id=question_id,
-            question=question,
-            difficulty=difficulty,
-            category=category,
-            reference=reference,
-            preprocessing_strategy=preprocessing_strategy,
-            search_query=search_query,
-            generated_queries=generated_queries,
-            retrieved_contexts=contexts,
-            retrieval_metadata={
-                "top_k": top_k,
-                "alpha": alpha,
-                "collection": resolved_collection,
-                "reranking": use_reranking,
-            },
-            generated_answer=answer,
             generation_model=generation_model,
+            retrieval_cache=retrieval_cache,
+            max_retrieval_k=max_retrieval_k,
+            max_retries=ragas_max_retries,
+            backoff_base=ragas_backoff_base,
         )
-        question_traces.append(question_trace)
+
+        if result.success:
+            samples.append(result.sample)
+            question_traces.append(result.trace)
+        else:
+            # Track failed question but continue with others
+            failed_questions.append({
+                "question_id": question_id,
+                "question": question_text,
+                "error": result.error,
+                "failed_at_stage": result.failed_at_stage,
+            })
+            logger.error(
+                f"  FAILED after retries: {result.error} "
+                f"(stage: {result.failed_at_stage})"
+            )
+
+    # Log summary of failures
+    if failed_questions:
+        logger.warning(
+            f"Failed to process {len(failed_questions)}/{len(test_questions)} questions"
+        )
+        for fq in failed_questions:
+            logger.warning(f"  - {fq['question_id']}: {fq['error'][:100]}...")
+
+    # Check if we have any successful samples
+    if not samples:
+        raise RAGASEvaluationError(
+            f"All {len(test_questions)} questions failed processing. "
+            f"First error: {failed_questions[0]['error'] if failed_questions else 'Unknown'}"
+        )
 
     # Create RAGAS dataset
     dataset = EvaluationDataset.from_list(samples)
@@ -857,10 +1025,15 @@ def run_evaluation(
                     if _is_valid_score(value):
                         trace.scores[metric_name] = float(value)
 
-    # Compute difficulty breakdown
+    # Compute difficulty breakdown (using successfully processed questions only)
+    # Build list matching results_df indices from question_traces
+    processed_questions = [
+        {"difficulty": trace.difficulty, "category": trace.category}
+        for trace in question_traces
+    ]
     difficulty_breakdown = compute_difficulty_breakdown(
         results_df=results_df,
-        test_questions=test_questions,
+        test_questions=processed_questions,
         metrics=selected_metric_names,
     )
 
@@ -893,4 +1066,7 @@ def run_evaluation(
         "samples": samples,
         "difficulty_breakdown": difficulty_breakdown,
         "trace_path": saved_trace_path,
+        "failed_questions": failed_questions,
+        "questions_processed": len(samples),
+        "questions_failed": len(failed_questions),
     }

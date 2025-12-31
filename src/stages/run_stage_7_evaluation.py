@@ -79,6 +79,7 @@ from src.config import (
     EVAL_EVALUATION_MODEL,
     EVAL_TEST_QUESTIONS_FILE,
     EVAL_RESULTS_DIR,
+    EVAL_LOGS_DIR,
     EVAL_DEFAULT_METRICS,
     PROJECT_ROOT,
     MAX_CHUNK_TOKENS,
@@ -93,6 +94,46 @@ from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_ar
 COMPREHENSIVE_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "comprehensive_questions.json"
 
 logger = setup_logging(__name__)
+
+
+def setup_file_logging(timestamp: str) -> Path:
+    """Set up file logging for comprehensive evaluation.
+
+    Creates a log file that captures all logger output for later review.
+    The file handler is added to the root logger so all modules' logs are captured.
+
+    Args:
+        timestamp: Timestamp string for the log filename.
+
+    Returns:
+        Path to the log file.
+    """
+    import logging
+
+    # Ensure logs directory exists
+    EVAL_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    log_path = EVAL_LOGS_DIR / f"comprehensive_{timestamp}.log"
+
+    # Create file handler with same format as console
+    file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+
+    # Use a detailed format for file logs
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    file_handler.setFormatter(formatter)
+
+    # Add to root logger so all modules' logs are captured
+    root_logger = logging.getLogger()
+    root_logger.addHandler(file_handler)
+
+    logger.info(f"Log file: {log_path}")
+
+    return log_path
+
 
 # Type alias for retrieval cache (used in comprehensive mode)
 # Cache key: (question_id, collection, alpha, strategy) - top_k is NOT in key
@@ -507,6 +548,12 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     from src.config import get_valid_preprocessing_strategies
     from src.evaluation.schemas import FailedCombinationsReport
 
+    # Generate timestamp early for consistent naming across log, checkpoint, and results
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Set up file logging (captures all output to log file)
+    log_path = setup_file_logging(timestamp)
+
     logger.info("Starting comprehensive evaluation mode...")
     start_time = time.time()
 
@@ -519,7 +566,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
 
     # Get all collections, alphas, top_k values, all strategies
     collections = list_collections()
-    alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
+    alphas = [0.0, 0.5, 1.0]  # Reduced from 5 to 3 (removed 0.3, 0.7 - minimal impact)
     top_k_values = [10, 20]
     all_strategies = list_strategies()
 
@@ -572,8 +619,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     all_results = []
     count = 0
 
-    # Define checkpoint and failure tracking paths
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Define checkpoint and failure tracking paths (uses timestamp from start of function)
     comprehensive_run_id = f"comprehensive_{timestamp}"
     checkpoint_path = RESULTS_DIR / f"comprehensive_checkpoint_{timestamp}.json"
 
@@ -612,12 +658,17 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                     alpha=alpha,
                     preprocessing_strategy=strategy,
                     preprocessing_model=None,
-                    save_trace=False,  # Skip traces in comprehensive mode (too many files)
+                    save_trace=True,  # Enable traces for debugging and recalculation
                     retrieval_cache=retrieval_cache,  # Caching for top_k optimization
                     max_retrieval_k=max_retrieval_k,  # Always retrieve max, slice for smaller
                 )
 
-                # Store configuration + scores + difficulty breakdown
+                # Store configuration + scores + difficulty breakdown + trace path
+                trace_path = results.get("trace_path")
+                questions_processed = results.get("questions_processed", len(questions))
+                questions_failed = results.get("questions_failed", 0)
+                failed_questions = results.get("failed_questions", [])
+
                 all_results.append({
                     "collection": collection,
                     "alpha": alpha,
@@ -626,15 +677,20 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                     "scores": results["scores"],
                     "difficulty_breakdown": results.get("difficulty_breakdown", {}),
                     "num_questions": len(questions),
+                    "questions_processed": questions_processed,
+                    "questions_failed": questions_failed,
+                    "failed_questions": failed_questions,
+                    "trace_path": str(trace_path) if trace_path else None,
                 })
 
                 scores = results["scores"]
+                status_suffix = f" ({questions_failed} questions failed)" if questions_failed > 0 else ""
                 logger.info(
                     f"  -> faith={scores.get('faithfulness', 0):.3f} "
                     f"relev={scores.get('relevancy', 0):.3f} "
                     f"ctx_prec={scores.get('context_precision', 0):.3f} "
                     f"ctx_rec={scores.get('context_recall', 0):.3f} "
-                    f"ans_corr={scores.get('answer_correctness', 0):.3f}"
+                    f"ans_corr={scores.get('answer_correctness', 0):.3f}{status_suffix}"
                 )
 
             except Exception as e:
@@ -707,7 +763,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     }
 
     generate_comprehensive_report(
-        all_results, questions, output_path, duration_seconds, grid_params
+        all_results, questions, output_path, duration_seconds, grid_params, log_path
     )
 
     # Save failed combinations report if there were any failures
@@ -950,6 +1006,7 @@ def generate_comprehensive_report(
     output_path: Path,
     duration_seconds: float = 0.0,
     grid_params: Optional[Dict[str, Any]] = None,
+    log_path: Optional[Path] = None,
 ) -> None:
     """Generate enhanced leaderboard and statistical analysis for articles.
 
@@ -964,6 +1021,7 @@ def generate_comprehensive_report(
         output_path: Path for output JSON file.
         duration_seconds: Total experiment duration in seconds.
         grid_params: Grid search parameters (collections, alphas, strategies).
+        log_path: Path to the execution log file.
     """
     # Create results directory if needed
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1001,6 +1059,7 @@ def generate_comprehensive_report(
             "total_combinations": len(all_results),
             "successful_runs": len(successful_runs),
             "failed_runs": len(failed_runs),
+            "log_file": str(log_path) if log_path else None,
         },
         "grid_parameters": {
             "collections": grid_params.get("collections", []) if grid_params else [],

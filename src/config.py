@@ -288,6 +288,9 @@ EVAL_DEFAULT_METRICS = [
 # Trace output directory for evaluation runs
 EVAL_TRACES_DIR = DATA_DIR / "evaluation" / "traces"
 
+# Log output directory for comprehensive evaluation runs
+EVAL_LOGS_DIR = DATA_DIR / "evaluation" / "logs"
+
 
 # ============================================================================
 # QUERY PREPROCESSING SETTINGS

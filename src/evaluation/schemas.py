@@ -165,6 +165,7 @@ class FailedCombination:
     Attributes:
         collection: Weaviate collection name.
         alpha: Hybrid search alpha value.
+        top_k: Number of chunks retrieved.
         strategy: Preprocessing strategy used.
         error_type: Exception class name (e.g., "RateLimitError").
         error_message: Full error message.
@@ -175,6 +176,7 @@ class FailedCombination:
 
     collection: str
     alpha: float
+    top_k: int
     strategy: str
     error_type: str
     error_message: str
@@ -270,6 +272,7 @@ class FailedCombinationsReport:
         self,
         collection: str,
         alpha: float,
+        top_k: int,
         strategy: str,
         error: Exception,
         failed_at_stage: str,
@@ -279,6 +282,7 @@ class FailedCombinationsReport:
         Args:
             collection: Weaviate collection name.
             alpha: Hybrid search alpha value.
+            top_k: Number of chunks retrieved.
             strategy: Preprocessing strategy.
             error: The exception that caused the failure.
             failed_at_stage: Where in the pipeline the failure occurred.
@@ -287,6 +291,7 @@ class FailedCombinationsReport:
             FailedCombination(
                 collection=collection,
                 alpha=alpha,
+                top_k=top_k,
                 strategy=strategy,
                 error_type=type(error).__name__,
                 error_message=str(error),

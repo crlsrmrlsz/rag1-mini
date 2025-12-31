@@ -512,9 +512,10 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         return
     logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
 
-    # Get all collections, alphas, all strategies
+    # Get all collections, alphas, top_k values, all strategies
     collections = list_collections()
     alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
+    top_k_values = [10, 20]
     all_strategies = list_strategies()
 
     # Filter semantic collections to only 0.3 and 0.75 thresholds
@@ -543,15 +544,18 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         collection_strategy = extract_strategy_from_collection(collection)
         valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
         for alpha in alphas:
-            for strategy in all_strategies:
-                if strategy in valid_preprocessing:
-                    valid_combinations.append((collection, alpha, strategy))
+            for top_k in top_k_values:
+                for strategy in all_strategies:
+                    if strategy in valid_preprocessing:
+                        valid_combinations.append((collection, alpha, top_k, strategy))
 
     # Log what we're testing
-    skipped = len(collections) * len(alphas) * len(all_strategies) - len(valid_combinations)
+    total_possible = len(collections) * len(alphas) * len(top_k_values) * len(all_strategies)
+    skipped = total_possible - len(valid_combinations)
     logger.info(f"Testing {len(valid_combinations)} valid combinations ({skipped} invalid skipped):")
     logger.info(f"  Collections ({len(collections)}): {collections}")
     logger.info(f"  Alphas ({len(alphas)}): {alphas}")
+    logger.info(f"  Top-K values ({len(top_k_values)}): {top_k_values}")
     logger.info(f"  Strategies ({len(all_strategies)}): {all_strategies}")
     logger.info(f"  Note: graphrag only valid with section/contextual collections")
 
@@ -570,18 +574,18 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         timestamp=datetime.now().isoformat(),
     )
 
-    for collection, alpha, strategy in valid_combinations:
+    for collection, alpha, top_k, strategy in valid_combinations:
         count += 1
         logger.info(
             f"\n[{count}/{len(valid_combinations)}] "
-            f"{collection} | alpha={alpha} | strategy={strategy}"
+            f"{collection} | alpha={alpha} | top_k={top_k} | strategy={strategy}"
         )
 
         try:
             results = run_evaluation(
                 test_questions=questions,
                 metrics=EVAL_DEFAULT_METRICS,
-                top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
+                top_k=top_k,
                 generation_model=args.generation_model,
                 evaluation_model=args.evaluation_model,
                 collection_name=collection,
@@ -596,6 +600,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
             all_results.append({
                 "collection": collection,
                 "alpha": alpha,
+                "top_k": top_k,
                 "strategy": strategy,
                 "scores": results["scores"],
                 "difficulty_breakdown": results.get("difficulty_breakdown", {}),
@@ -629,6 +634,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
             failed_report.add_failure(
                 collection=collection,
                 alpha=alpha,
+                top_k=top_k,
                 strategy=strategy,
                 error=e,
                 failed_at_stage=failed_at_stage,
@@ -637,6 +643,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
             all_results.append({
                 "collection": collection,
                 "alpha": alpha,
+                "top_k": top_k,
                 "strategy": strategy,
                 "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
                 "num_questions": len(questions),
@@ -654,6 +661,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
             "grid_params": {
                 "collections": collections,
                 "alphas": alphas,
+                "top_k_values": top_k_values,
                 "strategies": all_strategies,
             },
         }
@@ -671,6 +679,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     grid_params = {
         "collections": collections,
         "alphas": alphas,
+        "top_k_values": top_k_values,
         "strategies": all_strategies,
         "valid_combinations_count": len(valid_combinations),
         "skipped_count": skipped,
@@ -747,14 +756,14 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
     for i, fc in enumerate(failed_report.failed_combinations):
         logger.info(
             f"\n[{i + 1}/{failed_report.total_failed}] Retrying: "
-            f"{fc.collection} | alpha={fc.alpha} | strategy={fc.strategy}"
+            f"{fc.collection} | alpha={fc.alpha} | top_k={fc.top_k} | strategy={fc.strategy}"
         )
 
         try:
             results = run_evaluation(
                 test_questions=questions,
                 metrics=EVAL_DEFAULT_METRICS,
-                top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
+                top_k=fc.top_k,
                 generation_model=args.generation_model,
                 evaluation_model=args.evaluation_model,
                 collection_name=fc.collection,
@@ -768,6 +777,7 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
             retry_results.append({
                 "collection": fc.collection,
                 "alpha": fc.alpha,
+                "top_k": fc.top_k,
                 "strategy": fc.strategy,
                 "scores": results["scores"],
                 "difficulty_breakdown": results.get("difficulty_breakdown", {}),
@@ -790,6 +800,7 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
             new_failures.add_failure(
                 collection=fc.collection,
                 alpha=fc.alpha,
+                top_k=fc.top_k,
                 strategy=fc.strategy,
                 error=e,
                 failed_at_stage=fc.failed_at_stage,
@@ -798,6 +809,7 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
             retry_results.append({
                 "collection": fc.collection,
                 "alpha": fc.alpha,
+                "top_k": fc.top_k,
                 "strategy": fc.strategy,
                 "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
                 "num_questions": len(questions),
@@ -851,7 +863,7 @@ def compute_statistical_breakdown(
 
     Args:
         results: List of result dicts (only successful runs).
-        group_key: Key to group by ("strategy", "alpha", "collection").
+        group_key: Key to group by ("strategy", "alpha", "top_k", "collection").
 
     Returns:
         Dict mapping group values to stats (mean, std, min, max, n).
@@ -903,6 +915,7 @@ def find_best_configurations(
             best[f"by_{metric}"] = {
                 "collection": top["collection"],
                 "alpha": top["alpha"],
+                "top_k": top["top_k"],
                 "strategy": top["strategy"],
                 "score": round(top["scores"].get(metric) or 0, 4),
             }
@@ -948,6 +961,7 @@ def generate_comprehensive_report(
     # Compute statistical analysis
     strategy_analysis = compute_statistical_breakdown(successful_runs, "strategy")
     alpha_analysis = compute_statistical_breakdown(successful_runs, "alpha")
+    top_k_analysis = compute_statistical_breakdown(successful_runs, "top_k")
     collection_analysis = compute_statistical_breakdown(successful_runs, "collection")
 
     # Find best configurations
@@ -970,6 +984,7 @@ def generate_comprehensive_report(
         "grid_parameters": {
             "collections": grid_params.get("collections", []) if grid_params else [],
             "alphas": grid_params.get("alphas", []) if grid_params else [],
+            "top_k_values": grid_params.get("top_k_values", []) if grid_params else [],
             "strategies": grid_params.get("strategies", []) if grid_params else [],
             "num_questions": len(questions),
             "reranking_enabled": False,
@@ -978,6 +993,7 @@ def generate_comprehensive_report(
         "statistical_analysis": {
             "by_strategy": strategy_analysis,
             "by_alpha": alpha_analysis,
+            "by_top_k": top_k_analysis,
             "by_collection": collection_analysis,
         },
         "best_configurations": best_configs,
@@ -985,6 +1001,7 @@ def generate_comprehensive_report(
             {
                 "collection": r["collection"],
                 "alpha": r["alpha"],
+                "top_k": r["top_k"],
                 "strategy": r["strategy"],
                 "error": r.get("error", "Unknown"),
             }
@@ -1007,9 +1024,9 @@ def generate_comprehensive_report(
     print(f"\nTested {len(all_results)} combinations on {len(questions)} questions")
     print(f"Duration: {duration_str}")
     print(f"Successful: {len(successful_runs)} | Failed: {len(failed_runs)}")
-    print("\n" + "-" * 110)
-    print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'CtxRec':<8}")
-    print("-" * 110)
+    print("\n" + "-" * 118)
+    print(f"{'Rank':<5} {'Collection':<35} {'Alpha':<7} {'TopK':<6} {'Strategy':<15} {'Faith':<8} {'Relev':<8} {'CtxPrec':<8} {'CtxRec':<8}")
+    print("-" * 118)
 
     for i, result in enumerate(sorted_results, 1):
         scores = result["scores"]
@@ -1022,7 +1039,7 @@ def generate_comprehensive_report(
 
         print(
             f"{i:<5} {collection_short:<35} {result['alpha']:<7} "
-            f"{result['strategy']:<15} {faith:<8.3f} {relev:<8.3f} "
+            f"{result['top_k']:<6} {result['strategy']:<15} {faith:<8.3f} {relev:<8.3f} "
             f"{ctx_prec:<8.3f} {ctx_rec:<8.3f}{error_marker}"
         )
 
@@ -1042,6 +1059,7 @@ def generate_comprehensive_report(
 
     _print_breakdown("BREAKDOWN BY PREPROCESSING STRATEGY", strategy_analysis, str.upper)
     _print_breakdown("BREAKDOWN BY ALPHA (0.0=keyword, 1.0=vector)", alpha_analysis, lambda a: f"ALPHA={a}")
+    _print_breakdown("BREAKDOWN BY TOP_K", top_k_analysis, lambda k: f"TOP_K={k}")
     _print_breakdown("BREAKDOWN BY COLLECTION", collection_analysis)
 
     # =========================================================================
@@ -1061,7 +1079,7 @@ def generate_comprehensive_report(
         key = f"by_{metric}"
         if best_configs.get(key):
             b = best_configs[key]
-            print(f"  {metric.title():<15} {b['collection'][:30]} + alpha={b['alpha']} + {b['strategy']} ({b['score']:.3f})")
+            print(f"  {metric.title():<15} {b['collection'][:25]} + alpha={b['alpha']} + top_k={b['top_k']} + {b['strategy']} ({b['score']:.3f})")
 
     # Calculate improvement percentages vs baseline (none strategy)
     if "none" in strategy_analysis:
@@ -1081,7 +1099,7 @@ def generate_comprehensive_report(
         print("FAILED RUNS")
         print("=" * 100)
         for result in failed_runs:
-            print(f"  {result['collection']} | alpha={result['alpha']} | {result['strategy']}")
+            print(f"  {result['collection']} | alpha={result['alpha']} | top_k={result['top_k']} | {result['strategy']}")
             print(f"    Error: {result.get('error', 'Unknown')}")
 
     print("\n" + "=" * 100)

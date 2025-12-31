@@ -272,7 +272,19 @@ EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions
 EVAL_RESULTS_DIR = DATA_DIR / "evaluation" / "ragas_results"
 
 # Default RAGAS metrics for evaluation
-EVAL_DEFAULT_METRICS = ["faithfulness", "relevancy", "context_precision", "context_recall"]
+# Retrieval: context_precision, context_recall (requires reference)
+# Generation: faithfulness, relevancy
+# End-to-end: answer_correctness (requires reference)
+EVAL_DEFAULT_METRICS = [
+    "faithfulness",        # Generation: Is answer grounded in context?
+    "relevancy",           # Generation: Does answer address question?
+    "context_precision",   # Retrieval: Are retrieved chunks relevant?
+    "context_recall",      # Retrieval: Did we get all needed info? (requires reference)
+    "answer_correctness",  # End-to-end: Is answer factually correct? (requires reference)
+]
+
+# Trace output directory for evaluation runs
+EVAL_TRACES_DIR = DATA_DIR / "evaluation" / "traces"
 
 
 # ============================================================================

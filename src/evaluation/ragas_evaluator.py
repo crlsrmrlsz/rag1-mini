@@ -7,10 +7,11 @@ Provides:
 - Strategy-aware retrieval (decomposition RRF, graphrag hybrid)
 """
 
-import re
-import string
-from collections import Counter
-from typing import List, Dict, Any, Optional, Callable
+import time
+import math
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+from datetime import datetime
 
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import PreprocessedQuery
 
@@ -33,11 +34,13 @@ from src.config import (
     EMBEDDING_MODEL_ID,
     get_collection_name,
     DEFAULT_TOP_K,
+    EVAL_TRACES_DIR,
 )
 from src.rag_pipeline.indexing import get_client, query_hybrid
 from src.rag_pipeline.retrieval.reranking_utils import apply_reranking_if_enabled
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_simple_prompt
+from src.evaluation.schemas import QuestionTrace, EvaluationTrace
 
 logger = setup_logging(__name__)
 
@@ -45,62 +48,34 @@ logger = setup_logging(__name__)
 # Default model for answer generation (can be overridden)
 DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
 
+# Mapping from our metric names to RAGAS DataFrame column names
+RAGAS_METRIC_COLUMN_MAP = {
+    "faithfulness": "faithfulness",
+    "relevancy": "answer_relevancy",
+    "context_precision": "context_precision",
+    "context_recall": "context_recall",
+    "answer_correctness": "answer_correctness",
+}
 
-# ============================================================================
-# SQUAD-STYLE F1 (Token Overlap)
-# ============================================================================
 
-
-def normalize_answer(s: str) -> str:
-    """Normalize answer for SQuAD-style F1 comparison.
-
-    Applies standard QA normalization:
-    1. Lowercase
-    2. Remove articles (a, an, the)
-    3. Remove punctuation
-    4. Collapse whitespace
+def _is_valid_score(value: Any) -> bool:
+    """Check if a value is a valid numeric score (not None, not NaN).
 
     Args:
-        s: Raw answer string.
+        value: The value to check.
 
     Returns:
-        Normalized string for token comparison.
+        True if the value is a valid numeric score.
     """
-    s = s.lower()
-    s = re.sub(r"\b(a|an|the)\b", " ", s)
-    s = "".join(c for c in s if c not in string.punctuation)
-    return " ".join(s.split())
+    if value is None:
+        return False
+    try:
+        float_val = float(value)
+        return not math.isnan(float_val)
+    except (TypeError, ValueError):
+        return False
 
 
-def compute_squad_f1(prediction: str, reference: str) -> float:
-    """Compute SQuAD-style token-level F1 score.
-
-    Treats prediction and reference as bags of tokens and computes
-    precision, recall, and F1 based on token overlap. This is the
-    standard metric used in QASPER, NarrativeQA, and SQuAD benchmarks.
-
-    Args:
-        prediction: Generated answer.
-        reference: Ground truth answer.
-
-    Returns:
-        F1 score between 0.0 and 1.0.
-    """
-    pred_tokens = normalize_answer(prediction).split()
-    ref_tokens = normalize_answer(reference).split()
-
-    if not pred_tokens or not ref_tokens:
-        return 0.0
-
-    common = Counter(pred_tokens) & Counter(ref_tokens)
-    num_same = sum(common.values())
-
-    if num_same == 0:
-        return 0.0
-
-    precision = num_same / len(pred_tokens)
-    recall = num_same / len(ref_tokens)
-    return 2 * precision * recall / (precision + recall)
 
 
 # ============================================================================
@@ -140,6 +115,136 @@ def create_evaluator_embeddings() -> LangchainEmbeddingsWrapper:
         api_key=OPENROUTER_API_KEY,
     )
     return LangchainEmbeddingsWrapper(embeddings)
+
+
+class RAGASEvaluationError(Exception):
+    """Raised when RAGAS evaluation fails after all retries."""
+
+    pass
+
+
+def evaluate_with_retry(
+    dataset: EvaluationDataset,
+    metrics: List,
+    llm: LangchainLLMWrapper,
+    embeddings: LangchainEmbeddingsWrapper,
+    max_retries: int = 3,
+    backoff_base: float = 2.0,
+) -> Any:
+    """Run RAGAS evaluation with exponential backoff retry.
+
+    Wraps ragas.evaluate() to handle transient API failures.
+    Uses the same retry pattern as openrouter_client.py.
+
+    Args:
+        dataset: RAGAS EvaluationDataset.
+        metrics: List of RAGAS metric objects.
+        llm: Wrapped LLM for evaluation.
+        embeddings: Wrapped embeddings for evaluation.
+        max_retries: Maximum retry attempts.
+        backoff_base: Exponential backoff base.
+
+    Returns:
+        RAGAS evaluation results.
+
+    Raises:
+        RAGASEvaluationError: After all retries exhausted.
+    """
+    last_error = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            results = evaluate(
+                dataset=dataset,
+                metrics=metrics,
+                llm=llm,
+                embeddings=embeddings,
+            )
+            return results
+
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+
+            # Check if it's a retryable error (rate limit, server error, network)
+            is_retryable = (
+                "rate" in error_str
+                or "limit" in error_str
+                or "429" in error_str
+                or "500" in error_str
+                or "502" in error_str
+                or "503" in error_str
+                or "timeout" in error_str
+                or "connection" in error_str
+            )
+
+            if is_retryable and attempt < max_retries:
+                delay = backoff_base ** (attempt + 1)
+                logger.warning(
+                    f"RAGAS evaluation failed ({type(e).__name__}), "
+                    f"retry {attempt + 1}/{max_retries} after {delay:.1f}s"
+                )
+                time.sleep(delay)
+                continue
+
+            # Non-retryable error or max retries exceeded
+            break
+
+    raise RAGASEvaluationError(
+        f"RAGAS evaluation failed after {max_retries} retries: {last_error}"
+    ) from last_error
+
+
+def compute_difficulty_breakdown(
+    results_df: Any,
+    test_questions: List[Dict[str, Any]],
+    metrics: List[str],
+) -> Dict[str, Dict[str, float]]:
+    """Compute per-difficulty metric averages.
+
+    Groups questions by difficulty field ("single_concept" or "cross_domain")
+    and computes average scores for each metric within each group.
+
+    Args:
+        results_df: RAGAS results DataFrame with metric columns.
+        test_questions: Original test questions with difficulty field.
+        metrics: List of metric names to include in breakdown.
+
+    Returns:
+        Dict mapping difficulty -> {metric: avg_score}.
+        Example: {
+            "single_concept": {"faithfulness": 0.95, "relevancy": 0.88},
+            "cross_domain": {"faithfulness": 0.82, "relevancy": 0.75}
+        }
+    """
+    breakdown: Dict[str, Dict[str, List[float]]] = {}
+
+    for i, q in enumerate(test_questions):
+        if i >= len(results_df):
+            continue
+
+        difficulty = q.get("difficulty", "unknown")
+        if difficulty not in breakdown:
+            breakdown[difficulty] = {m: [] for m in metrics}
+
+        for metric in metrics:
+            col_name = RAGAS_METRIC_COLUMN_MAP.get(metric, metric)
+            if col_name in results_df.columns:
+                value = results_df.iloc[i].get(col_name)
+                if _is_valid_score(value):
+                    breakdown[difficulty][metric].append(float(value))
+
+    # Compute averages
+    result = {}
+    for difficulty, metric_scores in breakdown.items():
+        result[difficulty] = {}
+        for metric, scores in metric_scores.items():
+            if scores:
+                result[difficulty][metric] = round(sum(scores) / len(scores), 4)
+            else:
+                result[difficulty][metric] = 0.0
+
+    return result
 
 
 # ============================================================================
@@ -436,15 +541,20 @@ def run_evaluation(
     alpha: float = 0.5,
     preprocessing_strategy: str = "none",
     preprocessing_model: Optional[str] = None,
+    save_trace: bool = True,
+    trace_path: Optional[Path] = None,
+    ragas_max_retries: int = 3,
+    ragas_backoff_base: float = 2.0,
 ) -> Dict[str, Any]:
     """
-    Run RAGAS evaluation on test questions.
+    Run RAGAS evaluation on test questions with traceability and resilience.
 
     This function:
-    1. Optionally preprocesses each question (step-back, multi-query, etc.)
+    1. Optionally preprocesses each question (hyde, decomposition, etc.)
     2. Retrieves contexts for each question (with optional cross-encoder reranking)
     3. Generates answers using the RAG pipeline
-    4. Evaluates using RAGAS metrics
+    4. Evaluates using RAGAS metrics with retry logic
+    5. Builds and saves trace file for recalculation
 
     Args:
         test_questions: List of dicts with 'question' and optionally 'reference' keys.
@@ -453,7 +563,7 @@ def run_evaluation(
             - "relevancy": Does the answer address the question?
             - "context_precision": Are retrieved chunks relevant?
             - "context_recall": Did retrieval capture needed info? (requires reference)
-            - "factual_correctness": Is the answer correct? (requires reference)
+            - "answer_correctness": Is the answer factually correct? (requires reference)
         top_k: Number of chunks to retrieve per question.
         generation_model: Model for answer generation.
         evaluation_model: Model for RAGAS evaluation.
@@ -464,38 +574,65 @@ def run_evaluation(
         preprocessing_strategy: Query preprocessing strategy ("none", "hyde", "decomposition").
                                Default: "none" for clean baseline evaluation.
         preprocessing_model: Model for preprocessing LLM calls (default from config).
+        save_trace: If True, save trace file with all interactions for recalculation.
+        trace_path: Custom path for trace file. If None, auto-generates path.
+        ragas_max_retries: Maximum retries for RAGAS evaluation API calls.
+        ragas_backoff_base: Exponential backoff base for RAGAS retries.
 
     Returns:
         Dict with:
             - "scores": Dict of metric_name -> average score
             - "results": Per-question results DataFrame
             - "samples": List of evaluation samples
+            - "difficulty_breakdown": Per-difficulty group metric averages
+            - "trace_path": Path where trace was saved (if save_trace=True)
+
+    Raises:
+        RAGASEvaluationError: If RAGAS evaluation fails after all retries.
     """
-    # Default metrics - includes reference-based metrics since all questions have ground truth
+    from src.config import EVAL_DEFAULT_METRICS
+
+    # Default metrics from centralized config
     if metrics is None:
-        metrics = [
-            "faithfulness",
-            "relevancy",
-            "context_precision",
-            "context_recall",
-            "factual_correctness",
-            "answer_correctness",  # Includes F1 component for benchmark comparability
-        ]
+        metrics = EVAL_DEFAULT_METRICS.copy()
+
+    # Generate run_id for trace
+    run_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    resolved_collection = collection_name or get_collection_name()
 
     logger.info(f"Starting evaluation with {len(test_questions)} questions")
     logger.info(f"Metrics: {metrics}")
 
-    # Build evaluation samples
+    # Build config dict for trace
+    config = {
+        "collection": resolved_collection,
+        "alpha": alpha,
+        "top_k": top_k,
+        "use_reranking": use_reranking,
+        "preprocessing_strategy": preprocessing_strategy,
+        "preprocessing_model": preprocessing_model,
+        "generation_model": generation_model,
+        "evaluation_model": evaluation_model,
+    }
+
+    # Build evaluation samples and question traces
     samples = []
+    question_traces = []
+
     for i, q in enumerate(test_questions):
         question = q["question"]
         reference = q.get("reference")
+        question_id = q.get("id", f"q_{i}")
+        difficulty = q.get("difficulty", "unknown")
+        category = q.get("category", "unknown")
 
         logger.info(f"Processing question {i + 1}/{len(test_questions)}: {question[:50]}...")
 
         # Apply preprocessing if enabled
         search_query = question
         preprocessed = None
+        generated_queries = None
+
         if preprocessing_strategy != "none":
             from src.rag_pipeline.retrieval.preprocessing import preprocess_query
             try:
@@ -505,6 +642,7 @@ def run_evaluation(
                     model=preprocessing_model,
                 )
                 search_query = preprocessed.search_query
+                generated_queries = preprocessed.generated_queries
                 logger.info(f"  Preprocessed ({preprocessing_strategy}): {search_query[:50]}...")
             except Exception as e:
                 logger.warning(f"  Preprocessing failed: {e}. Using original query.")
@@ -512,16 +650,13 @@ def run_evaluation(
                 preprocessed = None
 
         # Retrieve contexts with strategy-aware routing
-        # - decomposition: Multi-query RRF merge
-        # - graphrag: Neo4j hybrid retrieval
-        # - others: Standard hybrid search
         contexts = retrieve_contexts(
-            question=search_query,  # Use preprocessed query for retrieval
+            question=search_query,
             top_k=top_k,
-            collection_name=collection_name,
+            collection_name=resolved_collection,
             use_reranking=use_reranking,
             alpha=alpha,
-            preprocessed=preprocessed,  # Enables strategy-aware retrieval
+            preprocessed=preprocessed,
         )
         logger.info(f"  Retrieved {len(contexts)} contexts")
 
@@ -533,17 +668,37 @@ def run_evaluation(
         )
         logger.info(f"  Generated answer: {answer[:100]}...")
 
+        # Build RAGAS sample
         sample = {
             "user_input": question,
             "retrieved_contexts": contexts,
             "response": answer,
         }
-
-        # Add reference if available (needed for some metrics)
         if reference:
             sample["reference"] = reference
-
         samples.append(sample)
+
+        # Build question trace
+        question_trace = QuestionTrace(
+            question_id=question_id,
+            question=question,
+            difficulty=difficulty,
+            category=category,
+            reference=reference,
+            preprocessing_strategy=preprocessing_strategy,
+            search_query=search_query,
+            generated_queries=generated_queries,
+            retrieved_contexts=contexts,
+            retrieval_metadata={
+                "top_k": top_k,
+                "alpha": alpha,
+                "collection": resolved_collection,
+                "reranking": use_reranking,
+            },
+            generated_answer=answer,
+            generation_model=generation_model,
+        )
+        question_traces.append(question_trace)
 
     # Create RAGAS dataset
     dataset = EvaluationDataset.from_list(samples)
@@ -554,25 +709,26 @@ def run_evaluation(
         "relevancy": ResponseRelevancy(),
         "context_precision": LLMContextPrecisionWithoutReference(),
         "context_recall": LLMContextRecall(),
-        "factual_correctness": FactualCorrectness(),
         "answer_correctness": AnswerCorrectness(),
     }
 
     # Validate metrics
     selected_metrics = []
+    selected_metric_names = []
     for m in metrics:
         if m not in metric_map:
             logger.warning(f"Unknown metric: {m}, skipping")
             continue
 
         # Check if metric requires reference
-        if m in ["context_recall", "factual_correctness", "answer_correctness"]:
+        if m in ["context_recall", "answer_correctness"]:
             has_references = all(q.get("reference") for q in test_questions)
             if not has_references:
                 logger.warning(f"Metric {m} requires reference answers, skipping")
                 continue
 
         selected_metrics.append(metric_map[m])
+        selected_metric_names.append(m)
 
     if not selected_metrics:
         raise ValueError("No valid metrics selected")
@@ -583,12 +739,14 @@ def run_evaluation(
     evaluator_llm = create_evaluator_llm(model=evaluation_model)
     evaluator_embeddings = create_evaluator_embeddings()
 
-    # Run evaluation
-    results = evaluate(
+    # Run evaluation with retry logic
+    results = evaluate_with_retry(
         dataset=dataset,
         metrics=selected_metrics,
         llm=evaluator_llm,
         embeddings=evaluator_embeddings,
+        max_retries=ragas_max_retries,
+        backoff_base=ragas_backoff_base,
     )
 
     logger.info("Evaluation complete")
@@ -596,36 +754,57 @@ def run_evaluation(
     # Convert to DataFrame for analysis
     results_df = results.to_pandas()
 
-    # Map our metric names to RAGAS column names
-    metric_column_map = {
-        "faithfulness": "faithfulness",
-        "relevancy": "answer_relevancy",
-        "context_precision": "context_precision",
-        "context_recall": "context_recall",
-        "factual_correctness": "factual_correctness",
-        "answer_correctness": "answer_correctness",
-    }
-
     # Extract aggregate scores from DataFrame
     scores = {}
-    for metric_name in metrics:
-        col_name = metric_column_map.get(metric_name, metric_name)
+    for metric_name in selected_metric_names:
+        col_name = RAGAS_METRIC_COLUMN_MAP.get(metric_name, metric_name)
         if col_name in results_df.columns:
             scores[metric_name] = float(results_df[col_name].mean())
 
-    # Compute SQuAD-style F1 (non-LLM, instant, benchmark-comparable)
-    has_references = all(s.get("reference") for s in samples)
-    if has_references:
-        squad_f1_scores = [
-            compute_squad_f1(s["response"], s["reference"])
-            for s in samples
-        ]
-        scores["squad_f1"] = sum(squad_f1_scores) / len(squad_f1_scores)
-        results_df["squad_f1"] = squad_f1_scores
-        logger.info(f"SQuAD F1: {scores['squad_f1']:.3f}")
+    # Populate per-question scores into traces
+    for i, trace in enumerate(question_traces):
+        if i < len(results_df):
+            for metric_name in selected_metric_names:
+                col_name = RAGAS_METRIC_COLUMN_MAP.get(metric_name, metric_name)
+                if col_name in results_df.columns:
+                    value = results_df.iloc[i].get(col_name)
+                    if _is_valid_score(value):
+                        trace.scores[metric_name] = float(value)
+
+    # Compute difficulty breakdown
+    difficulty_breakdown = compute_difficulty_breakdown(
+        results_df=results_df,
+        test_questions=test_questions,
+        metrics=selected_metric_names,
+    )
+
+    # Build and save evaluation trace
+    saved_trace_path = None
+    if save_trace:
+        evaluation_trace = EvaluationTrace(
+            run_id=run_id,
+            timestamp=datetime.now().isoformat(),
+            config=config,
+            questions=question_traces,
+            aggregate_scores=scores,
+            difficulty_breakdown=difficulty_breakdown,
+            ragas_metrics_used=selected_metric_names,
+            evaluation_model=evaluation_model,
+        )
+
+        # Determine trace path
+        if trace_path:
+            saved_trace_path = trace_path
+        else:
+            saved_trace_path = EVAL_TRACES_DIR / f"trace_{run_id}.json"
+
+        evaluation_trace.save(saved_trace_path)
+        logger.info(f"Trace saved to: {saved_trace_path}")
 
     return {
         "scores": scores,
         "results": results_df,
         "samples": samples,
+        "difficulty_breakdown": difficulty_breakdown,
+        "trace_path": saved_trace_path,
     }

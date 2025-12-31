@@ -409,7 +409,7 @@ def generate_report(
     Generate evaluation report as JSON and summary.
 
     Args:
-        results: RAGAS evaluation results.
+        results: RAGAS evaluation results (includes difficulty_breakdown).
         questions: Original test questions.
         output_path: Path for output JSON file.
     """
@@ -421,6 +421,8 @@ def generate_report(
         "timestamp": datetime.now().isoformat(),
         "num_questions": len(questions),
         "aggregate_scores": results["scores"],
+        "difficulty_breakdown": results.get("difficulty_breakdown", {}),
+        "trace_path": str(results.get("trace_path", "")) if results.get("trace_path") else None,
         "per_question_results": [],
     }
 
@@ -456,6 +458,14 @@ def generate_report(
     for metric, score in results["scores"].items():
         print(f"  {metric}: {score:.4f}")
 
+    # Print difficulty breakdown
+    if results.get("difficulty_breakdown"):
+        print("\nScores by Question Difficulty:")
+        for difficulty, metrics in results["difficulty_breakdown"].items():
+            print(f"\n  {difficulty}:")
+            for metric, score in metrics.items():
+                print(f"    {metric}: {score:.4f}")
+
     print("\nPer-Question Results:")
     for qr in report["per_question_results"]:
         print(f"\n  [{qr['id']}] {qr['question'][:50]}...")
@@ -472,7 +482,7 @@ def generate_report(
 
 
 def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
-    """Run comprehensive evaluation across all VALID combinations.
+    """Run comprehensive evaluation across all VALID combinations with failure tracking.
 
     Tests: collections x alpha values x preprocessing strategies
     - Filters out invalid combinations (e.g., graphrag + semantic collection)
@@ -480,6 +490,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     - Uses curated 10-question subset
     - Generates enhanced leaderboard report with statistical analysis
     - Outputs article-ready summary with key findings
+    - Saves failed_combinations.json for later retry
     - No individual run logging to evaluation-history.md
 
     Args:
@@ -489,12 +500,16 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     from src.ui.services.search import list_collections, extract_strategy_from_collection
     from src.rag_pipeline.retrieval.preprocessing.strategies import list_strategies
     from src.config import get_valid_preprocessing_strategies
+    from src.evaluation.schemas import FailedCombinationsReport
 
     logger.info("Starting comprehensive evaluation mode...")
     start_time = time.time()
 
     # Load curated question subset
     questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
+    if not questions:
+        logger.error(f"No questions found in {COMPREHENSIVE_QUESTIONS_FILE}")
+        return
     logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
 
     # Get all collections, alphas, all strategies
@@ -544,9 +559,16 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     all_results = []
     count = 0
 
-    # Define checkpoint path for crash resilience
+    # Define checkpoint and failure tracking paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    comprehensive_run_id = f"comprehensive_{timestamp}"
     checkpoint_path = RESULTS_DIR / f"comprehensive_checkpoint_{timestamp}.json"
+
+    # Initialize failed combinations report
+    failed_report = FailedCombinationsReport(
+        comprehensive_run_id=comprehensive_run_id,
+        timestamp=datetime.now().isoformat(),
+    )
 
     for collection, alpha, strategy in valid_combinations:
         count += 1
@@ -567,14 +589,16 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 alpha=alpha,
                 preprocessing_strategy=strategy,
                 preprocessing_model=None,
+                save_trace=False,  # Skip traces in comprehensive mode (too many files)
             )
 
-            # Store configuration + scores
+            # Store configuration + scores + difficulty breakdown
             all_results.append({
                 "collection": collection,
                 "alpha": alpha,
                 "strategy": strategy,
                 "scores": results["scores"],
+                "difficulty_breakdown": results.get("difficulty_breakdown", {}),
                 "num_questions": len(questions),
             })
 
@@ -583,11 +607,33 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 f"  -> faith={scores.get('faithfulness', 0):.3f} "
                 f"relev={scores.get('relevancy', 0):.3f} "
                 f"ctx_prec={scores.get('context_precision', 0):.3f} "
-                f"ctx_rec={scores.get('context_recall', 0):.3f}"
+                f"ctx_rec={scores.get('context_recall', 0):.3f} "
+                f"ans_corr={scores.get('answer_correctness', 0):.3f}"
             )
 
         except Exception as e:
             logger.error(f"  -> FAILED: {e}")
+
+            # Determine failure stage from error type
+            error_type = type(e).__name__
+            if "preprocessing" in str(e).lower():
+                failed_at_stage = "preprocessing"
+            elif "retrieval" in str(e).lower() or "weaviate" in str(e).lower():
+                failed_at_stage = "retrieval"
+            elif "generation" in str(e).lower():
+                failed_at_stage = "generation"
+            else:
+                failed_at_stage = "ragas_evaluation"
+
+            # Add to failed report
+            failed_report.add_failure(
+                collection=collection,
+                alpha=alpha,
+                strategy=strategy,
+                error=e,
+                failed_at_stage=failed_at_stage,
+            )
+
             all_results.append({
                 "collection": collection,
                 "alpha": alpha,
@@ -595,6 +641,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
                 "num_questions": len(questions),
                 "error": str(e),
+                "error_type": error_type,
             })
 
         # Save checkpoint after every combination for crash resilience
@@ -633,7 +680,167 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         all_results, questions, output_path, duration_seconds, grid_params
     )
 
+    # Save failed combinations report if there were any failures
+    if failed_report.total_failed > 0:
+        failed_path = RESULTS_DIR / f"failed_combinations_{timestamp}.json"
+        failed_report.save(failed_path)
+        logger.info(f"Failed combinations saved to: {failed_path}")
+        logger.info(f"  To retry: {failed_report.cli_command}")
+
     logger.info("Comprehensive evaluation complete!")
+
+
+def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
+    """Re-run failed combinations from a previous comprehensive evaluation run.
+
+    Loads the failed_combinations file for the given run_id and re-runs each
+    failed combination. Generates a new report with the retry results.
+
+    Args:
+        run_id: The comprehensive run ID (e.g., "comprehensive_20251231_120000").
+        args: Command-line arguments (uses generation_model, evaluation_model).
+    """
+    import time
+    from src.evaluation.schemas import FailedCombinationsReport, FailedCombination
+
+    # Parse the timestamp from run_id if it contains it
+    if run_id.startswith("comprehensive_"):
+        timestamp_part = run_id.replace("comprehensive_", "")
+    else:
+        timestamp_part = run_id
+
+    # Try to find the failed combinations file
+    failed_path = RESULTS_DIR / f"failed_combinations_{timestamp_part}.json"
+    if not failed_path.exists():
+        # Also try with the full run_id as filename
+        failed_path = RESULTS_DIR / f"failed_combinations_{run_id}.json"
+
+    if not failed_path.exists():
+        logger.error(f"Failed combinations file not found: {failed_path}")
+        logger.info(f"Available files in {RESULTS_DIR}:")
+        for f in sorted(RESULTS_DIR.glob("failed_combinations_*.json")):
+            logger.info(f"  {f.name}")
+        return
+
+    logger.info(f"Loading failed combinations from: {failed_path}")
+
+    # Load the failed combinations report
+    failed_report = FailedCombinationsReport.load(failed_path)
+
+    if failed_report.total_failed == 0:
+        logger.info("No failed combinations to retry.")
+        return
+
+    logger.info(f"Found {failed_report.total_failed} failed combinations to retry")
+
+    # Load questions (use comprehensive questions for consistency)
+    questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
+    logger.info(f"Loaded {len(questions)} questions")
+
+    start_time = time.time()
+    retry_results = []
+    new_failures = FailedCombinationsReport(
+        comprehensive_run_id=f"retry_{run_id}",
+        timestamp=datetime.now().isoformat(),
+    )
+
+    for i, fc in enumerate(failed_report.failed_combinations):
+        logger.info(
+            f"\n[{i + 1}/{failed_report.total_failed}] Retrying: "
+            f"{fc.collection} | alpha={fc.alpha} | strategy={fc.strategy}"
+        )
+
+        try:
+            results = run_evaluation(
+                test_questions=questions,
+                metrics=EVAL_DEFAULT_METRICS,
+                top_k=getattr(args, 'top_k', DEFAULT_TOP_K),
+                generation_model=args.generation_model,
+                evaluation_model=args.evaluation_model,
+                collection_name=fc.collection,
+                use_reranking=False,
+                alpha=fc.alpha,
+                preprocessing_strategy=fc.strategy,
+                preprocessing_model=None,
+                save_trace=True,  # Save traces for retried runs (debugging)
+            )
+
+            retry_results.append({
+                "collection": fc.collection,
+                "alpha": fc.alpha,
+                "strategy": fc.strategy,
+                "scores": results["scores"],
+                "difficulty_breakdown": results.get("difficulty_breakdown", {}),
+                "num_questions": len(questions),
+                "retry_success": True,
+                "original_error": fc.error_message,
+            })
+
+            scores = results["scores"]
+            logger.info(
+                f"  -> SUCCESS: faith={scores.get('faithfulness', 0):.3f} "
+                f"relev={scores.get('relevancy', 0):.3f} "
+                f"ans_corr={scores.get('answer_correctness', 0):.3f}"
+            )
+
+        except Exception as e:
+            logger.error(f"  -> FAILED AGAIN: {e}")
+
+            # Track the new failure
+            new_failures.add_failure(
+                collection=fc.collection,
+                alpha=fc.alpha,
+                strategy=fc.strategy,
+                error=e,
+                failed_at_stage=fc.failed_at_stage,
+            )
+
+            retry_results.append({
+                "collection": fc.collection,
+                "alpha": fc.alpha,
+                "strategy": fc.strategy,
+                "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
+                "num_questions": len(questions),
+                "retry_success": False,
+                "error": str(e),
+                "original_error": fc.error_message,
+            })
+
+    # Calculate duration
+    duration_seconds = time.time() - start_time
+
+    # Generate report
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = RESULTS_DIR / f"retry_results_{timestamp}.json"
+
+    successful_retries = sum(1 for r in retry_results if r.get("retry_success"))
+    failed_retries = len(retry_results) - successful_retries
+
+    report = {
+        "metadata": {
+            "original_run_id": run_id,
+            "retry_timestamp": datetime.now().isoformat(),
+            "duration_seconds": round(duration_seconds, 1),
+            "total_retried": len(retry_results),
+            "successful_retries": successful_retries,
+            "failed_retries": failed_retries,
+        },
+        "retry_results": retry_results,
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    logger.info(f"\nRetry results saved to: {output_path}")
+    logger.info(f"  Successful: {successful_retries}/{len(retry_results)}")
+    logger.info(f"  Still failing: {failed_retries}/{len(retry_results)}")
+
+    # Save new failures if any remain
+    if new_failures.total_failed > 0:
+        new_failed_path = RESULTS_DIR / f"failed_combinations_retry_{timestamp}.json"
+        new_failures.save(new_failed_path)
+        logger.info(f"  Remaining failures saved to: {new_failed_path}")
 
 
 def compute_statistical_breakdown(
@@ -988,8 +1195,20 @@ def main():
         default=False,
         help="Run comprehensive evaluation across all collections, alphas (0.0-1.0), and strategies",
     )
+    parser.add_argument(
+        "--retry-failed",
+        type=str,
+        default=None,
+        metavar="RUN_ID",
+        help="Re-run failed combinations from a previous comprehensive run (e.g., comprehensive_20251231_120000)",
+    )
 
     args = parser.parse_args()
+
+    # Retry failed mode: re-run specific failed combinations
+    if args.retry_failed:
+        retry_failed_combinations(args.retry_failed, args)
+        return
 
     # Comprehensive mode: different execution path
     if args.comprehensive:

@@ -256,14 +256,15 @@ MAX_TOP_K = 20
 # EVALUATION SETTINGS (RAGAS)
 # ============================================================================
 
-# Model selection based on research (see memory-bank/model-selection.md)
-# Generation model: Fast, cost-effective for answer generation
-EVAL_GENERATION_MODEL = "google/gemini-3-flash-preview"
+# Model selection: GPT-5 Nano for consistency and cost-efficiency
+# $0.05/$0.40 per 1M tokens - cheapest paid option on OpenRouter (Aug 2025)
+# Using same model everywhere ensures fair comparisons in evaluation grid search
+# Research shows different LLMs disagree significantly as RAGAS judges
+EVAL_GENERATION_MODEL = "openai/gpt-5-nano"
 
-# Evaluation model: Cost-effective for LLM-as-judge (RAGAS metrics)
-# Claude 3 Haiku is 75% cheaper than Haiku 4.5 ($0.25/$1.25 vs $1/$5 per 1M tokens)
-# Sufficient for binary evaluation judgments (claim verification, relevance checks)
-EVAL_EVALUATION_MODEL = "anthropic/claude-3-haiku"
+# Evaluation model: Same as generation for consistency
+# Different LLMs give wildly different RAGAS scores (e.g., 0% vs 80% faithfulness)
+EVAL_EVALUATION_MODEL = "openai/gpt-5-nano"
 
 # Test questions file location
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"
@@ -292,16 +293,16 @@ EVAL_TRACES_DIR = DATA_DIR / "evaluation" / "traces"
 # ============================================================================
 
 # Model for query preprocessing (hyde, decomposition)
-# Using fast, cheap model since these are simple transformation tasks
-PREPROCESSING_MODEL = "deepseek/deepseek-v3.2"
+# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent with eval/generation
+PREPROCESSING_MODEL = "openai/gpt-5-nano"
 
 # Fallback models for preprocessing (used if dynamic fetch fails)
 # These are updated manually when OpenRouter availability changes
 AVAILABLE_PREPROCESSING_MODELS = [
-    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
-    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
-    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
-    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
+    ("openai/gpt-5-nano", "Budget: GPT-5 Nano"),
+    ("deepseek/deepseek-v3.2", "Value: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Quality: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Premium: Claude Haiku 4.5"),
 ]
 
 
@@ -309,15 +310,16 @@ AVAILABLE_PREPROCESSING_MODELS = [
 # ANSWER GENERATION SETTINGS
 # ============================================================================
 
-# Default model for answer generation (balanced quality/cost)
-GENERATION_MODEL = "google/gemini-3-flash-preview"
+# Default model for answer generation
+# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent with eval/preprocessing
+GENERATION_MODEL = "openai/gpt-5-nano"
 
 # Fallback models for generation (used if dynamic fetch fails)
 AVAILABLE_GENERATION_MODELS = [
-    ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
-    ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
-    ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
-    ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
+    ("openai/gpt-5-nano", "Budget: GPT-5 Nano"),
+    ("deepseek/deepseek-v3.2", "Value: DeepSeek V3.2"),
+    ("google/gemini-3-flash-preview", "Quality: Gemini 3 Flash"),
+    ("anthropic/claude-haiku-4.5", "Premium: Claude Haiku 4.5"),
 ]
 
 # Enable/disable answer generation globally (can be overridden in UI)
@@ -418,8 +420,9 @@ DEFAULT_CHUNKING_STRATEGY = "section"
 SEMANTIC_SIMILARITY_THRESHOLD = 0.4  # Default; test 0.3 for larger groups
 
 # Contextual chunking parameters (Anthropic-style)
-# Model for generating contextual snippets (fast, cheap model recommended)
-CONTEXTUAL_MODEL = "anthropic/claude-3-haiku"
+# Model for generating contextual snippets
+# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent across all tasks
+CONTEXTUAL_MODEL = "openai/gpt-5-nano"
 
 # Number of neighboring chunks to include as context for LLM
 CONTEXTUAL_NEIGHBOR_CHUNKS = 2  # chunks before + after current chunk
@@ -588,7 +591,7 @@ def get_embedding_folder_path(strategy: str) -> Path:
 # Builds a hierarchical tree of summaries enabling multi-level retrieval.
 
 # Model for generating cluster summaries (reuse contextual model for consistency)
-RAPTOR_SUMMARY_MODEL = CONTEXTUAL_MODEL  # "anthropic/claude-3-haiku"
+RAPTOR_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
 
 # Tree building constraints
 RAPTOR_MAX_LEVELS = 4  # Maximum tree depth (0=leaves, 1-4=summaries)
@@ -625,11 +628,11 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "raglab_graphrag")
 
 # Model for entity/relationship extraction
-# Using claude-3-haiku for consistency with RAPTOR and contextual
-GRAPHRAG_EXTRACTION_MODEL = CONTEXTUAL_MODEL  # "anthropic/claude-3-haiku"
+# Using GPT-5 Nano for consistency across all tasks
+GRAPHRAG_EXTRACTION_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
 
 # Model for community summarization (same as extraction for consistency)
-GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL
+GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
 
 # Entity extraction parameters
 GRAPHRAG_MAX_EXTRACTION_TOKENS = 4000  # Max tokens for extraction response

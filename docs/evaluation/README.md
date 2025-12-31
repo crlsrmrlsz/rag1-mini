@@ -4,34 +4,21 @@ RAGLab uses [RAGAS](https://docs.ragas.io/) (Retrieval-Augmented Generation Asse
 
 ## Metrics
 
-| Metric | What It Measures | Range |
-|--------|------------------|-------|
-| **Faithfulness** | Are claims in the answer supported by retrieved context? | 0-1 |
-| **Answer Relevancy** | Does the answer address the question? | 0-1 |
-| **Context Precision** | Are retrieved chunks actually relevant? | 0-1 |
-| **Answer Correctness** | F1 overlap with reference answer | 0-1 |
+| Metric | Category | What It Measures | Requires Reference |
+|--------|----------|------------------|-------------------|
+| **Faithfulness** | Generation | Are claims grounded in retrieved context? | No |
+| **Relevancy** | Generation | Does the answer address the question? | No |
+| **Context Precision** | Retrieval | Are retrieved chunks actually relevant? | No |
+| **Context Recall** | Retrieval | Did retrieval capture all needed info? | Yes |
+| **Answer Correctness** | End-to-end | Is the answer factually correct? | Yes |
 
 ### Metric Details
 
-**Faithfulness** (most important for avoiding hallucination):
-- Extracts claims from generated answer
-- Checks if each claim can be inferred from context
-- Low score = hallucination or unsupported statements
-
-**Answer Relevancy**:
-- Generates synthetic questions from answer
-- Compares to original question
-- Low score = off-topic or incomplete answer
-
-**Context Precision**:
-- Uses reference answer to judge context quality
-- High-ranked irrelevant chunks hurt score
-- Low score = retrieval returning wrong content
-
-**Answer Correctness**:
-- Token-level F1 with reference answer
-- Measures factual accuracy
-- Requires human-written reference answers
+- **Faithfulness**: Extracts claims from answer, verifies each is supported by context. Primary metric for hallucination detection.
+- **Relevancy**: Generates synthetic questions from answer, compares to original. Low = off-topic answer.
+- **Context Precision**: Measures if top-ranked chunks are relevant. Low = retrieval returning wrong content.
+- **Context Recall**: Compares retrieved contexts to reference answer. Measures completeness of retrieval.
+- **Answer Correctness**: Weighted combination of factual similarity (75%) and semantic similarity (25%).
 
 ## Test Dataset
 
@@ -47,70 +34,62 @@ Example:
 }
 ```
 
-## Evaluation Grid
+## Evaluation Grid (4D)
 
 ```
-                    CHUNKING STRATEGIES
-              section    contextual    raptor
-            ┌──────────┬────────────┬──────────┐
-    none    │          │            │          │
-            ├──────────┼────────────┼──────────┤
-    hyde    │   (12 combinations total)         │
-PREPROCESSING ├──────────┼────────────┼──────────┤
-    decomp  │          │            │          │
-            ├──────────┼────────────┼──────────┤
-    graphrag│          │            │          │
-            └──────────┴────────────┴──────────┘
+Collections × Alphas × Top-K × Strategies
+    │           │        │        │
+    │           │        │        └── [none, hyde, decomposition, graphrag]
+    │           │        └── [10, 20] chunks retrieved
+    │           └── [0.0, 0.3, 0.5, 0.7, 1.0] (BM25 ↔ vector balance)
+    └── [section, contextual, raptor] (chunking strategies)
 ```
 
-Plus alpha parameter (BM25/vector balance): 0.0, 0.3, 0.5, 0.7, 1.0
+**Typical grid**: 3 collections × 5 alphas × 2 top_k × 4 strategies = **~120 combinations**
 
-**Total configurations**: 3 chunking × 4 preprocessing × 5 alphas = **60 evaluations**
+Note: graphrag only compatible with section/contextual collections (requires matching chunk IDs).
 
 ## Running Evaluation
 
 ```bash
-# Single configuration
+# Single configuration (full 45 questions)
 python -m src.stages.run_stage_7_evaluation \
   --collection RAG_section_embed3large_v1 \
   --preprocessing hyde \
-  --alpha 0.7
+  --alpha 0.7 \
+  --top-k 15
 
-# Grid search (comprehensive)
+# Grid search (15-question curated subset)
 python -m src.stages.run_stage_7_evaluation --comprehensive
+
+# Retry failed combinations from previous run
+python -m src.stages.run_stage_7_evaluation --retry-failed comprehensive_20251231_120000
 ```
 
-The comprehensive mode uses a curated 10-question subset for faster iteration.
+Comprehensive mode uses 15 curated questions (5 single-concept + 10 cross-domain) for faster grid search.
 
 ## Output
 
-Results are appended to `memory-bank/evaluation-history.md`:
+### Standard Mode
+- **JSON report**: `data/evaluation/ragas_results/eval_{timestamp}.json`
+- **Trace file**: `data/evaluation/traces/trace_{run_id}.json` (enables metric recalculation)
 
-```markdown
-## Run: 2025-12-28 14:30
-
-**Config:** section + hyde, alpha=0.7
-**Questions:** 10 (comprehensive subset)
-
-| Metric | Score |
-|--------|-------|
-| Faithfulness | 0.82 |
-| Answer Relevancy | 0.78 |
-| Context Precision | 0.71 |
-| Answer Correctness | 0.65 |
-```
+### Comprehensive Mode
+- **Leaderboard JSON**: `data/evaluation/ragas_results/comprehensive_{timestamp}.json`
+- **Checkpoint**: `comprehensive_checkpoint_{timestamp}.json` (crash recovery)
+- **Failed runs**: `failed_combinations_{timestamp}.json` (for retry)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/evaluation/ragas_evaluator.py` | RAGAS wrapper |
-| `src/evaluation/dataset.py` | Question loading |
-| `src/stages/run_stage_7_evaluation.py` | CLI runner |
-| `data/evaluation/questions.json` | Full 45-question set |
-| `data/evaluation/comprehensive_questions.json` | 10-question subset |
-| `memory-bank/evaluation-history.md` | Run history |
+| `src/evaluation/ragas_evaluator.py` | RAGAS metrics + strategy-aware retrieval |
+| `src/evaluation/schemas.py` | QuestionTrace, EvaluationTrace, FailedCombination |
+| `src/stages/run_stage_7_evaluation.py` | CLI runner + comprehensive grid search |
+| `src/evaluation/test_questions.json` | Full 45-question test set |
+| `src/evaluation/comprehensive_questions.json` | 15-question curated subset |
+| `data/evaluation/traces/` | Per-run trace files (JSON) |
 
-## Results
+## Architecture
 
-See [Results](results.md) for detailed metrics across all configurations.
+See [evaluation-workflow.md](../../memory-bank/evaluation-workflow.md) for strategy diagrams and design decisions.

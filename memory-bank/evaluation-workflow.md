@@ -30,25 +30,25 @@ Preprocessing strategies transform queries before retrieval. They work with any 
 ## Comprehensive Evaluation Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    COMPREHENSIVE EVALUATION FLOW                            │
-│                    (run_stage_7_evaluation.py --comprehensive)              │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  FOR EACH COMBINATION:                                                      │
-│  ┌──────────────┐  ┌────────────────┐  ┌─────────────────┐                 │
-│  │ Collections  │  │    Alphas      │  │   Strategies    │                 │
-│  │ (dynamic)    │  │ [0.0-1.0]     │  │ [none,hyde,     │                 │
-│  │              │  │                │  │  decomp,graph]  │                 │
-│  └──────────────┘  └────────────────┘  └─────────────────┘                 │
-│        │                   │                    │                           │
-│        └───────────────────┴────────────────────┘                           │
-│                            │                                                │
-│                            ▼                                                │
-│                   Total combinations = N_collections * 5 * 4                │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│            COMPREHENSIVE EVALUATION (4D Grid Search)                  │
+│            run_stage_7_evaluation.py --comprehensive                  │
+└───────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌───────────────────────────────────────────────────────────────────────┐
+│  FOR EACH COMBINATION:                                                │
+│                                                                       │
+│  Collections × Alphas × Top-K × Strategies                            │
+│       │          │        │         │                                 │
+│       │          │        │         └── [none, hyde, decomp, graph]   │
+│       │          │        └── [10, 20]                                │
+│       │          └── [0.0, 0.3, 0.5, 0.7, 1.0]                        │
+│       └── [section, contextual, raptor, ...]                          │
+│                                                                       │
+│  Total: ~85-120 valid combinations (after compatibility filtering)    │
+│  Questions: 15 curated (5 single-concept + 10 cross-domain)           │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Strategy-Specific Retrieval Paths
@@ -229,134 +229,21 @@ Routing logic:
 
 ### File: `src/stages/run_stage_7_evaluation.py`
 
-Comprehensive mode iterates through all combinations:
+Comprehensive mode iterates through all combinations (4D grid):
 
 ```python
-for collection in collections:        # Chunking strategies
-    for alpha in [0.0, 0.3, 0.5, 0.7, 1.0]:  # Hybrid balance
-        for strategy in strategies:    # Preprocessing strategies
-            run_evaluation(...)
+for collection in collections:                    # Chunking strategies
+    for alpha in [0.0, 0.3, 0.5, 0.7, 1.0]:       # Hybrid balance
+        for strategy in strategies:               # Preprocessing strategies
+            for top_k in [10, 20]:                # Retrieval depth (innermost for caching)
+                run_evaluation(...)
 ```
 
-## Historical Context
+Note: `top_k` is innermost loop to maximize retrieval cache hits (see Design Decisions).
 
-The comprehensive evaluation mode was developed in Phase 5 (Alpha Tuning) before RAPTOR and GraphRAG were implemented. The original implementation only tested `none` and `hyde` strategies, both of which use single-query retrieval.
+## Output
 
-The strategy-aware retrieval was added to properly support:
-- **decomposition**: Multi-query with RRF merge (Phase 4)
-- **graphrag**: Neo4j hybrid retrieval (Phase 8)
-
-## Running Comprehensive Evaluation
-
-```bash
-# Full grid search
-python -m src.stages.run_stage_7_evaluation --comprehensive
-
-# Single strategy test
-python -m src.stages.run_stage_7_evaluation --preprocessing decomposition --questions 5
-
-# With specific collection
-python -m src.stages.run_stage_7_evaluation \
-    --collection RAG_raptor_embed3large_v1 \
-    --preprocessing graphrag
-```
-
-## Metrics
-
-The evaluation uses RAGAS metrics:
-
-| Metric | Description | Requires Reference |
-|--------|-------------|-------------------|
-| faithfulness | Is the answer grounded in context? | No |
-| relevancy | Does the answer address the question? | No |
-| context_precision | Are retrieved chunks relevant? | No |
-| context_recall | Did retrieval capture needed info? | Yes |
-| factual_correctness | Is the answer correct? | Yes |
-| answer_correctness | Weighted F1 + semantic similarity | Yes |
-| squad_f1 | Token-level F1 (benchmark comparison) | Yes |
-
-## Results Output Structure
-
-### Three Output Destinations (Standard Mode)
-
-Standard evaluations (`python -m src.stages.run_stage_7_evaluation`) produce three outputs:
-
-1. **JSON Report**: `data/evaluation/ragas_results/eval_TIMESTAMP.json`
-   - Aggregate scores + per-question breakdown
-   - Machine-readable for analysis scripts
-   - Contains: timestamp, num_questions, aggregate_scores, per_question_results
-
-2. **Markdown History**: `memory-bank/evaluation-history.md`
-   - Auto-appended run summaries with run number (auto-incremented)
-   - Human-readable with category breakdowns
-   - Includes "Key Learning" placeholder for manual notes
-   - Contains: configuration table, scores table, failure count
-
-3. **Tracking JSON**: `data/evaluation/evaluation_runs.json`
-   - Full configuration + metrics for programmatic analysis
-   - Category breakdown with failure tracking
-   - Created on first run, appended on subsequent runs
-
-### Comprehensive Mode Output
-
-Comprehensive mode (`--comprehensive`) produces a single enhanced JSON file with statistical analysis:
-
-**File**: `data/evaluation/results/comprehensive_TIMESTAMP.json`
-
-Contains:
-- `experiment_metadata`: timestamp, duration, success/failure counts
-- `grid_parameters`: collections, alphas, strategies tested
-- `leaderboard`: All results sorted by composite score
-- `statistical_analysis`: Mean, std, min, max by strategy/alpha/collection
-- `best_configurations`: Best overall and per-metric configurations
-- `failed_runs`: Details on any failures
-
-### Console Output Formats
-
-#### Standard Mode Console
-```
-================================
-RAGAS EVALUATION RESULTS
-================================
-Questions evaluated: 23
-Aggregate Scores:
-  faithfulness: 0.9270
-  relevancy: 0.7869
-  context_precision: 0.8534
-Per-Question Results:
-  [neuro_behave_01] What structural...
-    faithfulness: 0.0000
-    answer_relevancy: 0.7994
-```
-
-#### Comprehensive Mode Console
-```
-====================================
-COMPREHENSIVE EVALUATION LEADERBOARD
-====================================
-Tested 60 combinations on 10 questions
-Duration: 47 minutes 30 seconds
-Successful: 58 | Failed: 2
-
-Rank  Collection  Alpha  Strategy  Faith  Relev  CtxPrec  Avg
-1     RAG_raptor  0.7    decomp    0.945  0.823  0.891    0.886
-...
-
-BREAKDOWN BY PREPROCESSING STRATEGY
-DECOMPOSITION (n=15):
-  Mean:  0.851  +/-  0.033
-  Range: [0.810, 0.910]
-...
-
-ARTICLE SUMMARY
-BEST CONFIGURATIONS
-  Overall: RAG_raptor + alpha=0.7 + decomposition (avg: 0.886)
-
-STRATEGY IMPROVEMENT VS BASELINE (none=0.780)
-  NONE            0.780 +/- 0.052  (baseline)
-  HYDE            0.832 +/- 0.041  [+6.7% vs baseline]
-  DECOMPOSITION   0.851 +/- 0.033  [+9.1% vs baseline]
-```
+See [docs/evaluation/README.md](../docs/evaluation/README.md) for output file locations and metrics reference.
 
 ## Data Flow Diagram
 
@@ -364,48 +251,43 @@ STRATEGY IMPROVEMENT VS BASELINE (none=0.780)
 Test Questions (JSON)
       │
       ▼
-┌─────────────────────────────────────────────────────┐
-│              run_stage_7_evaluation.py              │
-│                                                     │
-│  ┌─────────────┐         ┌────────────────────┐    │
-│  │  STANDARD   │         │   COMPREHENSIVE    │    │
-│  │   MODE      │         │      MODE          │    │
-│  │             │         │                    │    │
-│  │ Single      │         │ For each combo:    │    │
-│  │ collection  │         │ collections x      │    │
-│  │ + alpha     │         │ alphas x           │    │
-│  │ + strategy  │         │ strategies         │    │
-│  └─────────────┘         └────────────────────┘    │
-└─────────────────────────────────────────────────────┘
-      │                              │
-      ▼                              ▼
-┌─────────────────┐       ┌─────────────────────────┐
-│ run_evaluation()│       │ Collect all results     │
-│ (ragas_eval.py) │       │ into leaderboard        │
-└─────────────────┘       └─────────────────────────┘
-      │                              │
-      ▼                              ▼
-┌─────────────────────────┐   ┌─────────────────────┐
-│ 3 OUTPUT FILES:         │   │ 1 OUTPUT FILE:      │
-│ - eval_*.json           │   │ comprehensive_*.json│
-│ - evaluation-history.md │   │ with:               │
-│ - evaluation_runs.json  │   │ - statistical       │
-└─────────────────────────┘   │   analysis          │
-                              │ - best configs      │
-                              │ - article summary   │
-                              └─────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                   run_stage_7_evaluation.py                 │
+│                                                             │
+│  STANDARD MODE              COMPREHENSIVE MODE (4D Grid)    │
+│  ─────────────              ─────────────────────────────   │
+│  Single config              For each combination:           │
+│  → eval_*.json              collections × alphas ×          │
+│  → trace_*.json             top_k × strategies              │
+│                             → comprehensive_*.json          │
+│                             → checkpoint (crash recovery)   │
+│                             → failed_combinations.json      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Code Organization
+## Design Decisions
 
-The evaluation system consists of:
+### 4D Evaluation Grid (Dec 2024)
+Added `top_k [10, 20]` as 4th dimension. Retrieval depth significantly affects precision/recall tradeoff - more chunks increase recall but may dilute precision.
 
-| File | Purpose |
-|------|---------|
-| `src/stages/run_stage_7_evaluation.py` | CLI interface, comprehensive mode, report generation |
-| `src/evaluation/ragas_evaluator.py` | RAGAS evaluation, strategy-aware retrieval |
-| `src/evaluation/__init__.py` | Exports `run_evaluation` function |
-| `src/rag_pipeline/retrieval/reranking_utils.py` | Shared reranking helper (DRY) |
+### Trace Persistence (Dec 2024)
+Save `QuestionTrace` to JSON for each question. Enables:
+- Metric recalculation without re-running expensive retrieval/generation
+- Debugging specific question failures
+- Historical comparison across runs
+
+### Retrieval Caching (Dec 2024)
+Cache key: `(question, collection, alpha, strategy)` - excludes `top_k`.
+Retrieve once at `max(top_k)`, slice for smaller values. Halves API calls during grid search.
+
+### Retry with Exponential Backoff (Dec 2024)
+Max 3 retries, base delay 2.0s. RAGAS metrics use LLM calls that hit rate limits during 85+ combination grid search.
+
+### Metrics Selection (Dec 2024)
+Use 5 native RAGAS metrics only:
+- Removed `composite_score` (not a RAGAS metric, hid individual weaknesses)
+- Removed `squad_f1` (token-based, no semantic understanding)
+- Added `context_recall` (measures if retrieval missed relevant info)
 
 ## References
 

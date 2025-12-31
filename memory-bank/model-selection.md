@@ -88,6 +88,34 @@ Assuming ~3K input tokens (context + prompt) and ~500 output tokens per answer:
 
 ---
 
+## Current RAGLab Configuration (Dec 31, 2025)
+
+### Hybrid Model Strategy
+
+Based on [RAGAS research "Evaluating the Evaluators"](https://blog.ragas.io/evaluating-the-evaluators):
+
+> "Anthropic models were the most stable. Their performance improved in ways that aligned with intuition, making them easier to work with."
+
+**Key findings:**
+- Claude Opus saw gains up to **+10 F1 points** with optimization strategies
+- Smaller models (GPT-4o-mini, Gemini Flash-Lite) showed **unpredictable behavior**
+- Anthropic models provided **consistent, intuitive** evaluation results
+
+### Final Configuration
+
+| Task | Model | Price | Rationale |
+|------|-------|-------|-----------|
+| **RAGAS Evaluation** | Claude 3 Haiku | $0.25/$1.25 | Most stable LLM-as-judge |
+| Generation | GPT-5 Nano | $0.05/$0.40 | Cheapest for answer synthesis |
+| Preprocessing | GPT-5 Nano | $0.05/$0.40 | HyDE, decomposition |
+| Contextual/RAPTOR/GraphRAG | GPT-5 Nano | $0.05/$0.40 | Chunking, summarization |
+
+### Cost per Comprehensive Run
+
+~$0.25 for 15 questions x 20 configurations (vs ~$1.20 with original mixed models)
+
+---
+
 ## Sources
 
 - [OpenRouter Models](https://openrouter.ai/models)

@@ -10,7 +10,7 @@ Purpose:
     - Track configurations in tracking.json for reproducibility
 
 Usage Examples:
-    # Run with defaults (hybrid search, alpha=0.5, reranking enabled)
+    # Run with defaults (hybrid search, alpha=0.5, reranking disabled)
     python -m src.stages.run_stage_7_evaluation
 
     # Test a specific collection (e.g., contextual embeddings)
@@ -20,8 +20,8 @@ Usage Examples:
     python -m src.stages.run_stage_7_evaluation --alpha 0.3  # Keyword-heavy (philosophy)
     python -m src.stages.run_stage_7_evaluation --alpha 0.7  # Vector-heavy (conceptual)
 
-    # Disable reranking for speed comparison
-    python -m src.stages.run_stage_7_evaluation --no-reranking
+    # Enable reranking for higher accuracy (slower)
+    python -m src.stages.run_stage_7_evaluation --reranking
 
     # Run on subset of questions
     python -m src.stages.run_stage_7_evaluation --questions 5
@@ -44,7 +44,7 @@ Arguments:
     -k, --top-k K             Chunks to retrieve per question (default: 10)
     -a, --alpha ALPHA         Hybrid search balance: 0.0=keyword, 0.5=balanced, 1.0=vector
     --collection NAME         Weaviate collection to evaluate (default: from config)
-    --reranking/--no-reranking  Enable/disable cross-encoder reranking (default: enabled)
+    --reranking/--no-reranking  Enable/disable cross-encoder reranking (default: disabled)
     --generation-model MODEL  Answer generation model (default: openai/gpt-5-mini)
     --evaluation-model MODEL  RAGAS judge model (default: anthropic/claude-haiku-4.5)
     -o, --output PATH         Output JSON file path (default: results/eval_TIMESTAMP.json)
@@ -71,7 +71,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.config import (
     DEFAULT_TOP_K,
@@ -93,6 +93,11 @@ from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_ar
 COMPREHENSIVE_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "comprehensive_questions.json"
 
 logger = setup_logging(__name__)
+
+# Type alias for retrieval cache (used in comprehensive mode)
+# Cache key: (question_id, collection, alpha, strategy) - top_k is NOT in key
+RetrievalCacheKey = Tuple[str, str, float, str]
+RetrievalCache = Dict[RetrievalCacheKey, List[str]]  # Maps cache key -> context strings
 
 
 # ============================================================================
@@ -538,25 +543,29 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         logger.error("No RAG collections found in Weaviate. Run stage 6 first.")
         return
 
-    # Build valid combinations list (filter out invalid ones like graphrag + semantic)
-    valid_combinations = []
+    # Build base combinations (collection, alpha, strategy) - without top_k for caching optimization
+    # top_k will be the innermost loop so we can cache retrievals and slice for smaller top_k values
+    base_combinations = []
     for collection in collections:
         collection_strategy = extract_strategy_from_collection(collection)
         valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
         for alpha in alphas:
-            for top_k in top_k_values:
-                for strategy in all_strategies:
-                    if strategy in valid_preprocessing:
-                        valid_combinations.append((collection, alpha, top_k, strategy))
+            for strategy in all_strategies:
+                if strategy in valid_preprocessing:
+                    base_combinations.append((collection, alpha, strategy))
+
+    # Calculate total combinations (base * top_k values)
+    total_combinations = len(base_combinations) * len(top_k_values)
+    total_possible = len(collections) * len(alphas) * len(top_k_values) * len(all_strategies)
+    skipped = total_possible - total_combinations
 
     # Log what we're testing
-    total_possible = len(collections) * len(alphas) * len(top_k_values) * len(all_strategies)
-    skipped = total_possible - len(valid_combinations)
-    logger.info(f"Testing {len(valid_combinations)} valid combinations ({skipped} invalid skipped):")
+    logger.info(f"Testing {total_combinations} valid combinations ({skipped} invalid skipped):")
     logger.info(f"  Collections ({len(collections)}): {collections}")
     logger.info(f"  Alphas ({len(alphas)}): {alphas}")
     logger.info(f"  Top-K values ({len(top_k_values)}): {top_k_values}")
     logger.info(f"  Strategies ({len(all_strategies)}): {all_strategies}")
+    logger.info(f"  Base combinations: {len(base_combinations)} (top_k is innermost loop for caching)")
     logger.info(f"  Note: graphrag only valid with section/contextual collections")
 
     # Run all valid combinations
@@ -574,100 +583,112 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         timestamp=datetime.now().isoformat(),
     )
 
-    for collection, alpha, top_k, strategy in valid_combinations:
-        count += 1
-        logger.info(
-            f"\n[{count}/{len(valid_combinations)}] "
-            f"{collection} | alpha={alpha} | top_k={top_k} | strategy={strategy}"
-        )
+    # Initialize retrieval cache (scoped to this comprehensive run)
+    # Cache key: (question_id, collection, alpha, strategy) - top_k NOT in key
+    # This allows us to retrieve once with max(top_k) and slice for smaller values
+    retrieval_cache: RetrievalCache = {}
+    max_retrieval_k = max(top_k_values)
 
-        try:
-            results = run_evaluation(
-                test_questions=questions,
-                metrics=EVAL_DEFAULT_METRICS,
-                top_k=top_k,
-                generation_model=args.generation_model,
-                evaluation_model=args.evaluation_model,
-                collection_name=collection,
-                use_reranking=False,  # Always disabled for speed
-                alpha=alpha,
-                preprocessing_strategy=strategy,
-                preprocessing_model=None,
-                save_trace=False,  # Skip traces in comprehensive mode (too many files)
-            )
-
-            # Store configuration + scores + difficulty breakdown
-            all_results.append({
-                "collection": collection,
-                "alpha": alpha,
-                "top_k": top_k,
-                "strategy": strategy,
-                "scores": results["scores"],
-                "difficulty_breakdown": results.get("difficulty_breakdown", {}),
-                "num_questions": len(questions),
-            })
-
-            scores = results["scores"]
+    # Iterate with top_k as INNERMOST loop for caching optimization
+    # First top_k (10): cache miss, retrieves 20, caches
+    # Second top_k (20): cache hit, uses cached 20
+    for collection, alpha, strategy in base_combinations:
+        for top_k in top_k_values:
+            count += 1
             logger.info(
-                f"  -> faith={scores.get('faithfulness', 0):.3f} "
-                f"relev={scores.get('relevancy', 0):.3f} "
-                f"ctx_prec={scores.get('context_precision', 0):.3f} "
-                f"ctx_rec={scores.get('context_recall', 0):.3f} "
-                f"ans_corr={scores.get('answer_correctness', 0):.3f}"
+                f"\n[{count}/{total_combinations}] "
+                f"{collection} | alpha={alpha} | top_k={top_k} | strategy={strategy}"
             )
 
-        except Exception as e:
-            logger.error(f"  -> FAILED: {e}")
+            try:
+                results = run_evaluation(
+                    test_questions=questions,
+                    metrics=EVAL_DEFAULT_METRICS,
+                    top_k=top_k,
+                    generation_model=args.generation_model,
+                    evaluation_model=args.evaluation_model,
+                    collection_name=collection,
+                    use_reranking=False,  # Always disabled for speed
+                    alpha=alpha,
+                    preprocessing_strategy=strategy,
+                    preprocessing_model=None,
+                    save_trace=False,  # Skip traces in comprehensive mode (too many files)
+                    retrieval_cache=retrieval_cache,  # Caching for top_k optimization
+                    max_retrieval_k=max_retrieval_k,  # Always retrieve max, slice for smaller
+                )
 
-            # Determine failure stage from error type
-            error_type = type(e).__name__
-            if "preprocessing" in str(e).lower():
-                failed_at_stage = "preprocessing"
-            elif "retrieval" in str(e).lower() or "weaviate" in str(e).lower():
-                failed_at_stage = "retrieval"
-            elif "generation" in str(e).lower():
-                failed_at_stage = "generation"
-            else:
-                failed_at_stage = "ragas_evaluation"
+                # Store configuration + scores + difficulty breakdown
+                all_results.append({
+                    "collection": collection,
+                    "alpha": alpha,
+                    "top_k": top_k,
+                    "strategy": strategy,
+                    "scores": results["scores"],
+                    "difficulty_breakdown": results.get("difficulty_breakdown", {}),
+                    "num_questions": len(questions),
+                })
 
-            # Add to failed report
-            failed_report.add_failure(
-                collection=collection,
-                alpha=alpha,
-                top_k=top_k,
-                strategy=strategy,
-                error=e,
-                failed_at_stage=failed_at_stage,
-            )
+                scores = results["scores"]
+                logger.info(
+                    f"  -> faith={scores.get('faithfulness', 0):.3f} "
+                    f"relev={scores.get('relevancy', 0):.3f} "
+                    f"ctx_prec={scores.get('context_precision', 0):.3f} "
+                    f"ctx_rec={scores.get('context_recall', 0):.3f} "
+                    f"ans_corr={scores.get('answer_correctness', 0):.3f}"
+                )
 
-            all_results.append({
-                "collection": collection,
-                "alpha": alpha,
-                "top_k": top_k,
-                "strategy": strategy,
-                "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
-                "num_questions": len(questions),
-                "error": str(e),
-                "error_type": error_type,
-            })
+            except Exception as e:
+                logger.error(f"  -> FAILED: {e}")
 
-        # Save checkpoint after every combination for crash resilience
-        checkpoint_data = {
-            "timestamp": datetime.now().isoformat(),
-            "completed": count,
-            "total": len(valid_combinations),
-            "progress_pct": round(count / len(valid_combinations) * 100, 1),
-            "results": all_results,
-            "grid_params": {
-                "collections": collections,
-                "alphas": alphas,
-                "top_k_values": top_k_values,
-                "strategies": all_strategies,
-            },
-        }
-        with open(checkpoint_path, "w") as f:
-            json.dump(checkpoint_data, f, indent=2)
-        logger.info(f"  Checkpoint saved: {count}/{len(valid_combinations)} ({checkpoint_data['progress_pct']}%)")
+                # Determine failure stage from error type
+                error_type = type(e).__name__
+                if "preprocessing" in str(e).lower():
+                    failed_at_stage = "preprocessing"
+                elif "retrieval" in str(e).lower() or "weaviate" in str(e).lower():
+                    failed_at_stage = "retrieval"
+                elif "generation" in str(e).lower():
+                    failed_at_stage = "generation"
+                else:
+                    failed_at_stage = "ragas_evaluation"
+
+                # Add to failed report
+                failed_report.add_failure(
+                    collection=collection,
+                    alpha=alpha,
+                    top_k=top_k,
+                    strategy=strategy,
+                    error=e,
+                    failed_at_stage=failed_at_stage,
+                )
+
+                all_results.append({
+                    "collection": collection,
+                    "alpha": alpha,
+                    "top_k": top_k,
+                    "strategy": strategy,
+                    "scores": {m: 0 for m in EVAL_DEFAULT_METRICS},
+                    "num_questions": len(questions),
+                    "error": str(e),
+                    "error_type": error_type,
+                })
+
+            # Save checkpoint after every combination for crash resilience
+            checkpoint_data = {
+                "timestamp": datetime.now().isoformat(),
+                "completed": count,
+                "total": total_combinations,
+                "progress_pct": round(count / total_combinations * 100, 1),
+                "results": all_results,
+                "grid_params": {
+                    "collections": collections,
+                    "alphas": alphas,
+                    "top_k_values": top_k_values,
+                    "strategies": all_strategies,
+                },
+            }
+            with open(checkpoint_path, "w") as f:
+                json.dump(checkpoint_data, f, indent=2)
+            logger.info(f"  Checkpoint saved: {count}/{total_combinations} ({checkpoint_data['progress_pct']}%)")
 
     # Calculate total duration
     duration_seconds = time.time() - start_time
@@ -681,7 +702,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         "alphas": alphas,
         "top_k_values": top_k_values,
         "strategies": all_strategies,
-        "valid_combinations_count": len(valid_combinations),
+        "valid_combinations_count": total_combinations,
         "skipped_count": skipped,
     }
 
@@ -1166,13 +1187,13 @@ def main():
         "--reranking",
         action="store_true",
         default=False,
-        help="Enable cross-encoder reranking",
+        help="Enable cross-encoder reranking (disabled by default for speed)",
     )
     parser.add_argument(
         "--no-reranking",
         dest="reranking",
         action="store_false",
-        help="Disable cross-encoder reranking (default)",
+        help="Disable cross-encoder reranking (this is the default)",
     )
     parser.add_argument(
         "--collection",

@@ -526,6 +526,72 @@ Answer:"""
 
 
 # ============================================================================
+# RETRIEVAL CACHING (for comprehensive mode top_k optimization)
+# ============================================================================
+
+
+def retrieve_contexts_with_cache(
+    question: str,
+    top_k: int,
+    retrieval_k: int,
+    collection_name: str,
+    use_reranking: bool,
+    alpha: float,
+    preprocessed: Optional[PreprocessedQuery],
+    cache: Optional[Dict] = None,
+    cache_key: Optional[tuple] = None,
+) -> List[str]:
+    """Retrieve contexts with optional caching for comprehensive mode.
+
+    When caching is enabled (cache and cache_key provided), this function:
+    - On cache HIT: slices cached results to top_k and returns
+    - On cache MISS: retrieves retrieval_k results, caches them, slices to top_k
+
+    This optimization halves Weaviate calls when testing multiple top_k values,
+    since we retrieve max(top_k) once and slice for smaller values.
+
+    Args:
+        question: The search query (may be preprocessed).
+        top_k: Number of contexts to return.
+        retrieval_k: Number to actually retrieve from Weaviate (>= top_k).
+        collection_name: Weaviate collection name.
+        use_reranking: Whether to apply cross-encoder reranking.
+        alpha: Hybrid search balance.
+        preprocessed: Optional PreprocessedQuery for strategy-aware retrieval.
+        cache: Optional cache dict (keys are cache_key tuples).
+        cache_key: Optional tuple (question_id, collection, alpha, strategy).
+
+    Returns:
+        List of context text strings (length = top_k).
+    """
+    # Check cache first
+    if cache is not None and cache_key is not None:
+        if cache_key in cache:
+            cached_contexts = cache[cache_key]
+            sliced = cached_contexts[:top_k]
+            logger.debug(f"  [cache] HIT for {cache_key[0]}, sliced {len(cached_contexts)} -> {len(sliced)}")
+            return sliced
+
+    # Cache miss - do full retrieval with retrieval_k
+    full_contexts = retrieve_contexts(
+        question=question,
+        top_k=retrieval_k,  # Retrieve the larger count
+        collection_name=collection_name,
+        use_reranking=use_reranking,
+        alpha=alpha,
+        preprocessed=preprocessed,
+    )
+
+    # Store in cache before slicing
+    if cache is not None and cache_key is not None:
+        cache[cache_key] = full_contexts
+        logger.debug(f"  [cache] STORED {len(full_contexts)} contexts for {cache_key[0]}")
+
+    # Slice to top_k for return
+    return full_contexts[:top_k]
+
+
+# ============================================================================
 # RAGAS EVALUATION
 # ============================================================================
 
@@ -545,6 +611,9 @@ def run_evaluation(
     trace_path: Optional[Path] = None,
     ragas_max_retries: int = 3,
     ragas_backoff_base: float = 2.0,
+    # Caching parameters for comprehensive mode (halves Weaviate calls for top_k dimension)
+    retrieval_cache: Optional[Dict] = None,
+    max_retrieval_k: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Run RAGAS evaluation on test questions with traceability and resilience.
@@ -578,6 +647,11 @@ def run_evaluation(
         trace_path: Custom path for trace file. If None, auto-generates path.
         ragas_max_retries: Maximum retries for RAGAS evaluation API calls.
         ragas_backoff_base: Exponential backoff base for RAGAS retries.
+        retrieval_cache: Optional cache dict for comprehensive mode. When provided,
+                        retrieval results are cached by (question_id, collection, alpha, strategy).
+                        Enables top_k slicing optimization (retrieve max_retrieval_k once, slice for smaller top_k).
+        max_retrieval_k: When caching, retrieve this many results and cache them.
+                        Smaller top_k values are sliced from the cached results.
 
     Returns:
         Dict with:
@@ -649,14 +723,25 @@ def run_evaluation(
                 search_query = question
                 preprocessed = None
 
-        # Retrieve contexts with strategy-aware routing
-        contexts = retrieve_contexts(
+        # Retrieve contexts with strategy-aware routing (with optional caching for comprehensive mode)
+        # Build cache key if caching is enabled
+        cache_key = None
+        if retrieval_cache is not None:
+            cache_key = (question_id, resolved_collection, alpha, preprocessing_strategy)
+
+        # Determine actual retrieval count (may be larger for caching)
+        retrieval_k = max_retrieval_k if max_retrieval_k else top_k
+
+        contexts = retrieve_contexts_with_cache(
             question=search_query,
             top_k=top_k,
+            retrieval_k=retrieval_k,
             collection_name=resolved_collection,
             use_reranking=use_reranking,
             alpha=alpha,
             preprocessed=preprocessed,
+            cache=retrieval_cache,
+            cache_key=cache_key,
         )
         logger.info(f"  Retrieved {len(contexts)} contexts")
 

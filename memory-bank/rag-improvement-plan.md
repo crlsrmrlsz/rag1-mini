@@ -465,9 +465,12 @@ Return JSON array of sub-questions:
     return result  # List[str]
 ```
 
-### 5.2 Multi-Query Retrieval
+### 5.2 Multi-Query Retrieval (ARCHIVED - Dec 23)
+
+> **Note:** This section is archived. Multi-query was subsumed by the Query Decomposition strategy, which uses RRF merging for sub-queries. See Phase 4 for the implemented version.
 
 ```python
+# ARCHIVED CODE - for historical reference only
 def retrieve_multi_hop(query: str, sub_queries: List[str], top_k: int) -> List[SearchResult]:
     """Retrieve for each sub-query, merge with RRF."""
     all_results = {}

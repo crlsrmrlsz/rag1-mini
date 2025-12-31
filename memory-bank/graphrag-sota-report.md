@@ -1,5 +1,10 @@
 # GraphRAG State-of-the-Art: December 2025
 
+> **Related Docs:**
+> - [Quick Reference](graphrag.md) — RAGLab implementation status and troubleshooting
+> - [Deep Tutorial](graphrag-tutorial.md) — Step-by-step implementation guide
+> - [Public Docs](../docs/preprocessing/graphrag.md) — User-facing documentation
+
 ## Overview & Evolution
 
 GraphRAG has matured from Microsoft Research's foundational April 2024 paper into a production-ready ecosystem. The field exploded after the release of ["From Local to Global: A Graph RAG Approach to Query-Focused Summarization"](https://arxiv.org/abs/2404.16130) by Edge et al., which introduced community-based hierarchical search achieving **70-80% win rates** over naive RAG on comprehensiveness metrics. By December 2025, implementations have accumulated massive adoption: **Microsoft GraphRAG (~29,200 ⭐)**, **LightRAG (~26,800 ⭐)**, and **KAG (~7,500 ⭐)**.

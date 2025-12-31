@@ -4,6 +4,11 @@
 **Status:** All Phases Complete
 **Paper:** [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) (Microsoft Research, April 2024)
 
+> **Related Docs:**
+> - [Public documentation](../docs/preprocessing/graphrag.md) — User-facing implementation guide with crash-proof design
+> - [2025 SOTA Report](graphrag-sota-report.md) — Implementation landscape and benchmarks
+> - [Deep Tutorial](graphrag-tutorial.md) — Comprehensive step-by-step guide
+
 ---
 
 ## Quick Reference

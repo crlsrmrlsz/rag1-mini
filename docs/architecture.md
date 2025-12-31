@@ -39,13 +39,15 @@ PDF Documents
      |
      v
 +-----------------------+
-|  Stage 7: Search UI   |  Streamlit interface
+|  Stage 7: Retrieve    |  Preprocessing + hybrid search
 +-----------------------+
      |
      v
 +-----------------------+
-|  Stage 8: Evaluate    |  RAGAS quality metrics
+|  Stage 8: Generate    |  LLM answer synthesis
 +-----------------------+
+
+(Evaluation via RAGAS runs separately: python -m src.stages.run_stage_7_evaluation)
 ```
 
 ## Evaluation Architecture

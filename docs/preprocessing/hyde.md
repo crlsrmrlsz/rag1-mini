@@ -4,7 +4,7 @@
 
 Generates hypothetical answers to the query, then searches for real documents similar to these answers. Bridges the semantic gap between question embeddings and document embeddings.
 
-**December 2024 Update:** Now implements K=5 multi-hypothetical generation with embedding averaging (paper recommendation for robust retrieval).
+**December 2024 Update:** Implements K=2 multi-hypothetical generation with embedding averaging (configurable via `HYDE_K` in config.py).
 
 ## TL;DR
 
@@ -63,11 +63,11 @@ The fixed-dimension embedding is a "bottleneck" that compresses to essence.
 # src/rag_pipeline/retrieval/preprocessing/strategies.py
 
 def hyde_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
-    """HyDE: Generate K=5 hypotheticals, average embeddings for retrieval."""
+    """HyDE: Generate K hypotheticals, average embeddings for retrieval."""
     model = model or PREPROCESSING_MODEL
 
-    # Generate K=5 hypothetical answers (paper recommendation)
-    hyde_passages = hyde_prompt(query, model=model, k=5)
+    # Generate K hypothetical answers (configurable in config.py)
+    hyde_passages = hyde_prompt(query, model=model, k=HYDE_K)
 
     return PreprocessedQuery(
         original_query=query,
@@ -98,10 +98,10 @@ Passage:"""
 - **Covers all 10 philosophy books** in the corpus
 - Paper finding: Over-specification causes template bias, but domain-specific hints improve retrieval
 
-### K=5 Multi-Hypothetical Generation (Paper Recommendation)
+### Multi-Hypothetical Generation (Configurable K)
 
 ```python
-def hyde_prompt(query: str, model: str, k: int = 5) -> List[str]:
+def hyde_prompt(query: str, model: str, k: int = HYDE_K) -> List[str]:
     """Generate k hypothetical documents for query.
 
     Multiple hypotheticals improve retrieval robustness by covering
@@ -127,10 +127,11 @@ At retrieval time:
 3. Use averaged vector for hybrid search
 4. Original query still used for BM25 keyword matching
 
-**Why K=5?**
+**Why multiple hypotheticals?**
 - Paper finding: Multiple hypotheticals improve retrieval robustness
 - Different passages capture different phrasings/perspectives
 - Averaging creates a more centered representation in embedding space
+- RAGLab uses K=2 by default (configurable via `HYDE_K` in config.py)
 
 ### Design Decisions
 
@@ -180,16 +181,16 @@ resources are depleted, making it harder to override impulses...
 
 ## Cost Analysis
 
-With K=5 hypotheticals:
+With K=2 hypotheticals (default):
 
 - **Model**: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output)
-- **Per query**: 5 x (~50 input tokens + ~150 output tokens) = ~1000 tokens
-- **LLM cost per query**: ~$0.0005 (5x single hypothetical)
-- **Embedding cost**: 5 passages embedded instead of 1
+- **Per query**: 2 x (~50 input tokens + ~150 output tokens) = ~400 tokens
+- **LLM cost per query**: ~$0.0002
+- **Embedding cost**: 2 passages embedded instead of 1
 
-**Total per query**: ~$0.001 (still negligible for evaluation)
+**Total per query**: ~$0.0004 (negligible for evaluation)
 
-Trade-off: 5x latency for LLM calls, but more robust retrieval.
+Trade-off: 2x latency for LLM calls, but more robust retrieval. Increase `HYDE_K` in config.py for better robustness at higher cost.
 
 ## Results
 

@@ -6,7 +6,7 @@ Builds a knowledge graph from entities and relationships in the corpus, then use
 
 ## TL;DR
 
-GraphRAG extracts entities (people, concepts, brain regions) and relationships from each chunk, builds a knowledge graph in Neo4j, runs Leiden community detection to find clusters of related entities, and generates LLM summaries for each community. At query time, it combines vector search with community-based retrieval via RRF.
+GraphRAG extracts entities (people, concepts, brain regions) and relationships from each chunk, builds a knowledge graph in Neo4j, runs Leiden community detection to find clusters of related entities, and generates LLM summaries for each community. At query time, it combines vector search with graph traversal using a boost-and-reorder strategy.
 
 ## Key Results (Paper)
 
@@ -61,14 +61,12 @@ No single chunk contains this answer. Traditional RAG would retrieve random chun
         │
         ▼
 ┌───────────────────────────────────────────────────────────┐
-│ PARALLEL RETRIEVAL                                        │
+│ HYBRID RETRIEVAL                                          │
 │                                                           │
-│  Vector Search → top-k chunks by embedding similarity     │
-│  Community Search → relevant communities by entity match  │
+│  1. Vector Search → top-k chunks by embedding similarity  │
+│  2. Graph Traversal → chunk IDs from entity neighbors     │
+│  3. Boost & Reorder → graph-matched chunks ranked higher  │
 └───────────────────────────────────────────────────────────┘
-        │
-        ▼
-[RRF Merge]
         │
         ▼
 [Generation with mixed context: chunks + community summaries]
@@ -218,7 +216,7 @@ def hybrid_graph_retrieval(
     preprocessed: PreprocessedQuery,
     weaviate_client,
     neo4j_driver,
-) -> RRFResult:
+) -> Tuple[List[Dict], Dict]:
     """Combine vector search with graph-based retrieval."""
 
     # 1. Vector search (standard)
@@ -227,18 +225,22 @@ def hybrid_graph_retrieval(
     # 2. Extract entities from query
     query_entities = extract_query_entities(query, neo4j_driver)
 
-    # 3. Find relevant communities
-    communities = find_communities_for_entities(query_entities, neo4j_driver)
+    # 3. Graph traversal: find chunk IDs connected to query entities
+    graph_chunk_ids = traverse_entity_neighbors(query_entities, neo4j_driver)
 
     # 4. Get community summaries as additional context
-    community_context = [c.summary for c in communities]
+    community_context = get_community_summaries(query_entities, neo4j_driver)
 
-    # 5. RRF merge
-    return reciprocal_rank_fusion(
-        [vector_results, community_results],
-        ["vector", "community"],
-    )
+    # 5. Boost & reorder: graph-matched chunks first
+    enriched = enrich_results_with_graph(vector_results, graph_chunk_ids, community_context)
+    boosted = [r for r in enriched if r.get("graph_boost")]
+    non_boosted = [r for r in enriched if not r.get("graph_boost")]
+    merged = boosted + non_boosted  # Boosted first, then by original score
+
+    return merged, {"community_context": community_context}
 ```
+
+**Note:** This is a simple boost strategy. RRF merging could provide more sophisticated ranking but adds complexity.
 
 ### Design Decisions
 
@@ -468,4 +470,8 @@ python -m src.stages.run_stage_6b_neo4j --upload-only
 
 - [RAPTOR](../chunking/raptor.md) — Alternative hierarchy via clustering
 - [Query Decomposition](query-decomposition.md) — Alternative for complex queries
-- [Auto-Tuning](../../memory-bank/graphrag-improvements.md) — Entity type discovery
+
+**Internal Documentation (memory-bank/):**
+- [Quick Reference](../../memory-bank/graphrag.md) — Operational guide, crash recovery, troubleshooting
+- [Deep Tutorial](../../memory-bank/graphrag-tutorial.md) — Comprehensive 25k+ line implementation guide
+- [2025 SOTA Report](../../memory-bank/graphrag-sota-report.md) — Implementation landscape and benchmarks

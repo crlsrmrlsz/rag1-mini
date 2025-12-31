@@ -2,6 +2,11 @@
 
 A comprehensive tutorial covering the theory, implementation, configuration, data structures, algorithms, and execution of GraphRAG in this project.
 
+> **Related Docs:**
+> - [Quick Reference](graphrag.md) — Operational guide, crash recovery, Neo4j queries
+> - [2025 SOTA Report](graphrag-sota-report.md) — Implementation landscape and benchmarks
+> - [Public Docs](../docs/preprocessing/graphrag.md) — User-facing documentation
+
 ---
 
 ## Table of Contents

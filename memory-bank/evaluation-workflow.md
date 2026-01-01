@@ -16,14 +16,23 @@ Chunking strategies determine how documents are split and stored in Weaviate. Ea
 | **contextual** | `RAG_contextual_*` | LLM-generated context prepended to chunks | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) |
 | **raptor** | `RAG_raptor_*` | Hierarchical tree with GMM clustering + summaries | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) |
 
-### 2. Preprocessing Strategies (Evaluation Time - Query Time)
+### 2. Search Types (Weaviate Query Method)
 
-Preprocessing strategies transform queries before retrieval. They work with any chunking collection.
+Search types determine HOW chunks are retrieved from Weaviate. Orthogonal to preprocessing.
+
+| Search Type | Method | Alpha | Description |
+|-------------|--------|-------|-------------|
+| **keyword** | BM25 only | N/A | Pure keyword matching, no embeddings |
+| **hybrid** | Vector + BM25 | 0.5, 1.0 | Combines semantic similarity with keyword matching |
+
+### 3. Preprocessing Strategies (Query Transformation)
+
+Preprocessing strategies transform queries before retrieval. They work with any search type.
 
 | Strategy | Transform | Retrieval | Research |
 |----------|-----------|-----------|----------|
-| **none** | Query unchanged | Single hybrid search | Baseline |
-| **hyde** | Hypothetical answer | Single search with HyDE passage | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
+| **none** | Query unchanged | Single search | Baseline |
+| **hyde** | Hypothetical answer | Search with HyDE passage | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) |
 | **decomposition** | 3-4 sub-questions | Multi-query + RRF merge | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) |
 | **graphrag** | Entity extraction | Vector + Neo4j graph hybrid | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) |
 
@@ -31,7 +40,7 @@ Preprocessing strategies transform queries before retrieval. They work with any 
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
-│            COMPREHENSIVE EVALUATION (4D Grid Search)                  │
+│            COMPREHENSIVE EVALUATION (5D Grid Search)                  │
 │            run_stage_7_evaluation.py --comprehensive                  │
 └───────────────────────────────────────────────────────────────────────┘
                                  │
@@ -39,15 +48,20 @@ Preprocessing strategies transform queries before retrieval. They work with any 
 ┌───────────────────────────────────────────────────────────────────────┐
 │  FOR EACH COMBINATION:                                                │
 │                                                                       │
-│  Collections × Alphas × Top-K × Strategies                            │
-│       │          │        │         │                                 │
-│       │          │        │         └── [none, hyde, decomp, graph]   │
-│       │          │        └── [10, 20]                                │
-│       │          └── [0.0, 0.3, 0.5, 0.7, 1.0]                        │
-│       └── [section, contextual, raptor, ...]                          │
+│  Collections × Search Types × Alphas × Strategies × Top-K             │
+│       │             │           │          │           │              │
+│       │             │           │          │           └── [10, 20]   │
+│       │             │           │          └── [none, hyde, decomp,   │
+│       │             │           │               graphrag]             │
+│       │             │           └── [0.5, 1.0] (hybrid only)          │
+│       │             └── [keyword, hybrid]                             │
+│       └── [section, contextual, semantic, raptor]                     │
 │                                                                       │
-│  Total: ~85-120 valid combinations (after compatibility filtering)    │
+│  Total: ~102 valid combinations (after compatibility filtering)       │
 │  Questions: 15 curated (5 single-concept + 10 cross-domain)           │
+│                                                                       │
+│  Note: For keyword search, alpha is N/A (pure BM25)                   │
+│        For hybrid search, alpha values [0.5, 1.0] are tested          │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -209,7 +223,7 @@ RAPTOR collections are tested via the collection axis (e.g., `RAG_raptor_embed3l
 
 ### File: `src/evaluation/ragas_evaluator.py`
 
-The `retrieve_contexts()` function implements strategy-aware retrieval:
+The `retrieve_contexts()` function implements strategy-aware retrieval with search type:
 
 ```python
 def retrieve_contexts(
@@ -219,24 +233,31 @@ def retrieve_contexts(
     use_reranking: bool = True,
     alpha: float = 0.5,
     preprocessed: Optional[PreprocessedQuery] = None,  # Strategy-aware
+    search_type: str = "hybrid",  # "keyword" or "hybrid"
 ) -> List[str]:
 ```
 
 Routing logic:
-1. If `preprocessed.strategy_used == "decomposition"`: Execute multi-query RRF
-2. If `preprocessed.strategy_used == "graphrag"`: Execute Neo4j hybrid retrieval
-3. Otherwise: Standard hybrid search
+1. **search_type** determines Weaviate query method (BM25 vs hybrid)
+2. If `preprocessed.strategy_used == "decomposition"`: Execute multi-query RRF
+3. If `preprocessed.strategy_used == "graphrag"`: Execute Neo4j hybrid retrieval
+4. Otherwise: Standard search with configured search_type
 
 ### File: `src/stages/run_stage_7_evaluation.py`
 
-Comprehensive mode iterates through all combinations (4D grid):
+Comprehensive mode iterates through all combinations (5D grid):
 
 ```python
 for collection in collections:                    # Chunking strategies
-    for alpha in [0.0, 0.3, 0.5, 0.7, 1.0]:       # Hybrid balance
-        for strategy in strategies:               # Preprocessing strategies
-            for top_k in [10, 20]:                # Retrieval depth (innermost for caching)
-                run_evaluation(...)
+    for search_type in ["keyword", "hybrid"]:     # Search method
+        if search_type == "keyword":
+            alphas = [0.0]                        # Placeholder (ignored for BM25)
+        else:
+            alphas = [0.5, 1.0]                   # Hybrid balance values
+        for alpha in alphas:
+            for strategy in strategies:           # Preprocessing strategies
+                for top_k in [10, 20]:            # Retrieval depth (innermost for caching)
+                    run_evaluation(..., search_type=search_type)
 ```
 
 Note: `top_k` is innermost loop to maximize retrieval cache hits (see Design Decisions).
@@ -267,6 +288,13 @@ Test Questions (JSON)
 
 ## Design Decisions
 
+### 5D Evaluation Grid with search_type (Jan 2025)
+Added `search_type` as a separate dimension from preprocessing strategies:
+- **search_type**: How Weaviate queries ("keyword" BM25 or "hybrid" vector+BM25)
+- **preprocessing**: Query transformation (none, hyde, decomposition, graphrag)
+
+This provides clearer architecture: preprocessing transforms queries, search_type determines retrieval method. Any preprocessing strategy can work with any search type.
+
 ### 4D Evaluation Grid (Dec 2024)
 Added `top_k [10, 20]` as 4th dimension. Retrieval depth significantly affects precision/recall tradeoff - more chunks increase recall but may dilute precision.
 
@@ -277,11 +305,11 @@ Save `QuestionTrace` to JSON for each question. Enables:
 - Historical comparison across runs
 
 ### Retrieval Caching (Dec 2024)
-Cache key: `(question, collection, alpha, strategy)` - excludes `top_k`.
+Cache key: `(question, collection, search_type, alpha, strategy)` - excludes `top_k`.
 Retrieve once at `max(top_k)`, slice for smaller values. Halves API calls during grid search.
 
 ### Retry with Exponential Backoff (Dec 2024)
-Max 3 retries, base delay 2.0s. RAGAS metrics use LLM calls that hit rate limits during 85+ combination grid search.
+Max 3 retries, base delay 2.0s. RAGAS metrics use LLM calls that hit rate limits during 100+ combination grid search.
 
 ### Metrics Selection (Dec 2024)
 Use 5 native RAGAS metrics only:

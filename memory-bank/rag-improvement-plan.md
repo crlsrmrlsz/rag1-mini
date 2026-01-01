@@ -530,10 +530,20 @@ Update `evaluation-history.md` with results after each run.
 
 **Preprocessing Strategies Testing Workflow**:
 ```bash
-# Test each strategy
+# Test each strategy with default hybrid search
 python -m src.stages.run_stage_7_evaluation --preprocessing none          # No transformation
 python -m src.stages.run_stage_7_evaluation --preprocessing hyde          # HyDE (hypothetical answer)
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition # Sub-questions + RRF merge
+
+# Test with keyword (BM25) search
+python -m src.stages.run_stage_7_evaluation --search-type keyword --preprocessing hyde
+
+# Test different alpha values with hybrid search
+python -m src.stages.run_stage_7_evaluation --search-type hybrid --alpha 0.5 --preprocessing hyde
+python -m src.stages.run_stage_7_evaluation --search-type hybrid --alpha 1.0 --preprocessing hyde
+
+# Comprehensive grid search (all combinations)
+python -m src.stages.run_stage_7_evaluation --comprehensive
 
 # Compare results in memory-bank/evaluation-history.md
 ```
@@ -581,14 +591,18 @@ See `memory-bank/graphrag-quickstart.md` for a 1-page quick reference.
 
 **Valid Combinations for Evaluation:**
 
-| Collection | none | hyde | decomposition | graphrag | Total |
-|------------|------|------|---------------|----------|-------|
-| section | ✅ | ✅ | ✅ | ✅ | 4 |
-| contextual | ✅ | ✅ | ✅ | ✅ | 4 |
-| semantic | ✅ | ✅ | ✅ | ❌ | 3 |
-| raptor | ✅ | ✅ | ✅ | ❌ | 3 |
+The evaluation grid now has 5 dimensions: Collections × Search Types × Alphas × Strategies × Top-K
 
-With 5 alpha values: 42 valid combinations (6 invalid skipped).
+| Collection | Search Types | Alphas (hybrid only) | Strategies | GraphRAG? |
+|------------|--------------|---------------------|------------|-----------|
+| section | keyword, hybrid | 0.5, 1.0 | none, hyde, decomposition, graphrag | ✅ Yes |
+| contextual | keyword, hybrid | 0.5, 1.0 | none, hyde, decomposition, graphrag | ✅ Yes |
+| semantic | keyword, hybrid | 0.5, 1.0 | none, hyde, decomposition | ❌ No |
+| raptor | keyword, hybrid | 0.5, 1.0 | none, hyde, decomposition | ❌ No |
+
+**Total combinations:** ~102 valid (51 base × 2 top_k values)
+- Keyword search: 17 base combinations (1 alpha placeholder per collection)
+- Hybrid search: 34 base combinations (2 alpha values per collection)
 
 ---
 

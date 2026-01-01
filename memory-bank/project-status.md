@@ -1,6 +1,6 @@
 # RAGLab Project Status
 
-**Last Updated:** December 26, 2025
+**Last Updated:** January 1, 2026
 
 ## Overview
 
@@ -102,8 +102,24 @@ The pipeline includes RAGAS-based evaluation metrics:
 | 7 | RAPTOR (hierarchical summarization, Dec 25) | COMPLETE |
 | 8 | GraphRAG (Neo4j integration, Dec 25) | COMPLETE |
 | 8.1 | GraphRAG Auto-Tuning (per-book resume, Dec 26) | COMPLETE |
+| 9 | Codebase Cleanup (Jan 1, 2026) | COMPLETE |
 
 See `memory-bank/rag-improvement-plan.md` for detailed implementation plans.
+
+## Codebase Cleanup (Phase 9, Jan 2026)
+
+Comprehensive code revision for publishing:
+
+| Change | Description |
+|--------|-------------|
+| Dead code removal | Removed unused `_group_by_pattern()`, orphaned `count_tokens` import |
+| Model IDs fixed | Replaced invalid `gpt-5-nano` with `gpt-4o-mini` |
+| Type hints modernized | All files use Python 3.9+ style (`list[x]` instead of `List[x]`) |
+| Logger naming standardized | All stages use `setup_logging(__name__)` |
+| Import patterns unified | All use `from src.shared.files import ...` |
+| Return types added | All `main()` functions have `-> None` |
+| Prompts extracted | Created `src/prompts.py` for all LLM templates |
+| Unused imports removed | Cleaned up 6+ files with orphaned imports |
 
 ## GraphRAG Auto-Tuning (Phase 8.1)
 
@@ -273,6 +289,8 @@ python -m src.stages.run_stage_7_evaluation --comprehensive  # Grid search all c
 See `CLAUDE.md` for complete standards:
 - Function-based design (classes only for state)
 - Absolute imports (`from src.module import ...`)
+- Modern Python 3.9+ type hints (`list`, `dict`, `tuple` instead of `List`, `Dict`, `Tuple`)
 - Fail-fast error handling
 - Logger only (no print, no emoji)
 - Google-style docstrings
+- All LLM prompts in `src/prompts.py` (imported by config.py for backward compatibility)

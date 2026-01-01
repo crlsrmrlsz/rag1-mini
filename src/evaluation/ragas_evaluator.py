@@ -27,6 +27,7 @@ from ragas.metrics import (
 )
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.run_config import RunConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src.config import (
@@ -53,7 +54,7 @@ DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
 RAGAS_METRIC_COLUMN_MAP = {
     "faithfulness": "faithfulness",
     "relevancy": "answer_relevancy",
-    "context_precision": "context_precision",
+    "context_precision": "llm_context_precision_without_reference",
     "context_recall": "context_recall",
     "answer_correctness": "answer_correctness",
 }
@@ -136,6 +137,7 @@ def evaluate_with_retry(
     embeddings: LangchainEmbeddingsWrapper,
     max_retries: int = 3,
     backoff_base: float = 2.0,
+    run_config: Optional[RunConfig] = None,
 ) -> Any:
     """Run RAGAS evaluation with exponential backoff retry.
 
@@ -149,6 +151,8 @@ def evaluate_with_retry(
         embeddings: Wrapped embeddings for evaluation.
         max_retries: Maximum retry attempts.
         backoff_base: Exponential backoff base.
+        run_config: RAGAS RunConfig for controlling concurrency, timeouts, and retries.
+                   If None, uses RAGAS defaults (max_workers=16).
 
     Returns:
         RAGAS evaluation results.
@@ -165,6 +169,7 @@ def evaluate_with_retry(
                 metrics=metrics,
                 llm=llm,
                 embeddings=embeddings,
+                run_config=run_config,
             )
             return results
 
@@ -824,6 +829,10 @@ def run_evaluation(
     # Caching parameters for comprehensive mode (halves Weaviate calls for top_k dimension)
     retrieval_cache: Optional[Dict] = None,
     max_retrieval_k: Optional[int] = None,
+    # RAGAS concurrency control (prevents rate limiting)
+    ragas_max_workers: int = 4,
+    ragas_max_wait: int = 90,
+    ragas_log_tenacity: bool = True,
 ) -> Dict[str, Any]:
     """
     Run RAGAS evaluation on test questions with traceability and resilience.
@@ -862,6 +871,10 @@ def run_evaluation(
                         Enables top_k slicing optimization (retrieve max_retrieval_k once, slice for smaller top_k).
         max_retrieval_k: When caching, retrieve this many results and cache them.
                         Smaller top_k values are sliced from the cached results.
+        ragas_max_workers: Maximum concurrent API calls for RAGAS evaluation.
+                          Default 4 (vs RAGAS default 16) to prevent rate limiting.
+        ragas_max_wait: Maximum wait time (seconds) between RAGAS retries. Default 90.
+        ragas_log_tenacity: If True, log RAGAS retry attempts for visibility.
 
     Returns:
         Dict with:
@@ -997,6 +1010,15 @@ def run_evaluation(
     evaluator_llm = create_evaluator_llm(model=evaluation_model)
     evaluator_embeddings = create_evaluator_embeddings()
 
+    # Create RunConfig for rate limiting control
+    ragas_run_config = RunConfig(
+        max_workers=ragas_max_workers,
+        max_retries=ragas_max_retries,
+        max_wait=ragas_max_wait,
+        log_tenacity=ragas_log_tenacity,
+    )
+    logger.info(f"RAGAS RunConfig: max_workers={ragas_max_workers}, max_retries={ragas_max_retries}")
+
     # Run evaluation with retry logic
     results = evaluate_with_retry(
         dataset=dataset,
@@ -1005,6 +1027,7 @@ def run_evaluation(
         embeddings=evaluator_embeddings,
         max_retries=ragas_max_retries,
         backoff_base=ragas_backoff_base,
+        run_config=ragas_run_config,
     )
 
     logger.info("Evaluation complete")
@@ -1019,7 +1042,7 @@ def run_evaluation(
         if col_name in results_df.columns:
             scores[metric_name] = float(results_df[col_name].mean())
 
-    # Populate per-question scores into traces
+    # Populate per-question scores into traces (and track failed metrics)
     for i, trace in enumerate(question_traces):
         if i < len(results_df):
             for metric_name in selected_metric_names:
@@ -1028,6 +1051,17 @@ def run_evaluation(
                     value = results_df.iloc[i].get(col_name)
                     if _is_valid_score(value):
                         trace.scores[metric_name] = float(value)
+                    else:
+                        # Track failed metric (RAGAS returned NaN)
+                        trace.failed_metrics[metric_name] = "RAGAS returned NaN (rate limit or parse error)"
+
+    # Log failed metrics summary
+    total_failed = sum(len(t.failed_metrics) for t in question_traces)
+    if total_failed > 0:
+        logger.warning(f"Total failed metrics across all questions: {total_failed}")
+        for trace in question_traces:
+            if trace.failed_metrics:
+                logger.warning(f"  {trace.question_id}: {list(trace.failed_metrics.keys())}")
 
     # Compute difficulty breakdown (using successfully processed questions only)
     # Build list matching results_df indices from question_traces

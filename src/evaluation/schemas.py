@@ -36,6 +36,8 @@ class QuestionTrace:
         generated_answer: The LLM-generated answer.
         generation_model: Model used for answer generation.
         scores: RAGAS metric scores (populated after evaluation).
+        failed_metrics: Dict of metric_name -> error_message for metrics that returned NaN.
+                       Enables retry of just failed metrics without re-running the full pipeline.
     """
 
     question_id: str
@@ -59,6 +61,9 @@ class QuestionTrace:
 
     # RAGAS scores (filled after evaluation)
     scores: Dict[str, float] = field(default_factory=dict)
+
+    # Failed metrics (RAGAS returned NaN - enables retry of just failed metrics)
+    failed_metrics: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""

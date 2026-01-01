@@ -25,7 +25,7 @@ Pydantic schemas ensure structured LLM outputs.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional
 
 import requests
 from pydantic import ValidationError as PydanticValidationError
@@ -64,8 +64,8 @@ class PreprocessedQuery:
     # HyDE strategy fields
     hyde_passage: Optional[str] = None
     # Decomposition strategy fields (generated_queries used for RRF)
-    generated_queries: List[Dict[str, str]] = field(default_factory=list)
-    sub_queries: List[str] = field(default_factory=list)
+    generated_queries: list[dict[str, str]] = field(default_factory=list)
+    sub_queries: list[str] = field(default_factory=list)
     decomposition_response: Optional[str] = None
 
 
@@ -74,7 +74,7 @@ class PreprocessedQuery:
 # =============================================================================
 
 
-def hyde_prompt(query: str, model: Optional[str] = None, k: int = HYDE_K) -> List[str]:
+def hyde_prompt(query: str, model: Optional[str] = None, k: int = HYDE_K) -> list[str]:
     """Generate k hypothetical answers for HyDE retrieval.
 
     HyDE (Hypothetical Document Embeddings) generates plausible answers
@@ -140,7 +140,7 @@ def hyde_prompt(query: str, model: Optional[str] = None, k: int = HYDE_K) -> Lis
 # =============================================================================
 
 
-def decompose_query(query: str, model: Optional[str] = None) -> Tuple[List[str], str]:
+def decompose_query(query: str, model: Optional[str] = None) -> tuple[list[str], str]:
     """Decompose a complex query into sub-questions for parallel retrieval.
 
     Breaks complex comparison or multi-aspect questions into simpler

@@ -6,7 +6,6 @@ Includes automatic batching to prevent API timeouts with large inputs.
 
 import time
 import requests
-from typing import List
 
 from src.config import (
     OPENROUTER_API_KEY,
@@ -24,10 +23,10 @@ logger = setup_logging(__name__)
 # --------------------------------------------------------------------------------
 
 def call_openrouter_embeddings_api(
-    inputs: List[str],
+    inputs: list[str],
     max_retries: int = 3,
     backoff_base: float = 1.5
-) -> List[List[float]]:
+) -> list[list[float]]:
     """
     Calls the OpenRouter embeddings API.
 
@@ -84,7 +83,7 @@ def call_openrouter_embeddings_api(
             continue
 
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
+def embed_texts(texts: list[str]) -> list[list[float]]:
     """
     Embed texts with automatic batching to prevent API timeouts.
 
@@ -123,9 +122,9 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 
 def _batch_texts_by_tokens(
-    texts: List[str],
+    texts: list[str],
     max_tokens: int,
-) -> List[List[str]]:
+) -> list[list[str]]:
     """
     Group texts into batches that stay under max_tokens.
 

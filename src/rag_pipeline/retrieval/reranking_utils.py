@@ -25,18 +25,18 @@ This module consolidates reranking logic used across evaluation and UI
 to ensure consistent behavior and reduce code duplication.
 """
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from src.rag_pipeline.indexing.weaviate_query import SearchResult
 from src.rag_pipeline.retrieval.reranking import rerank, RerankResult
 
 
 def apply_reranking_if_enabled(
-    results: List[SearchResult],
+    results: list[SearchResult],
     question: str,
     top_k: int,
     use_reranking: bool,
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """Apply cross-encoder reranking if enabled and results exist.
 
     This is the simple interface for evaluation code that only needs
@@ -69,11 +69,11 @@ def apply_reranking_if_enabled(
 
 
 def apply_reranking_with_metadata(
-    results: List[SearchResult],
+    results: list[SearchResult],
     question: str,
     top_k: int,
     use_reranking: bool,
-) -> Tuple[List[SearchResult], Optional[RerankResult]]:
+) -> tuple[list[SearchResult], Optional[RerankResult]]:
     """Apply cross-encoder reranking and return both results and metadata.
 
     This is the interface for UI code that needs reranking metadata

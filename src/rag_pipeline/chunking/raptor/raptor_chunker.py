@@ -25,7 +25,7 @@ abstraction for improved thematic retrieval.
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 from src.config import (
     DIR_FINAL_CHUNKS,
@@ -48,7 +48,7 @@ def run_raptor_chunking(
     min_cluster_size: int = RAPTOR_MIN_CLUSTER_SIZE,
     summary_model: str = RAPTOR_SUMMARY_MODEL,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, TreeMetadata]:
+) -> dict[str, TreeMetadata]:
     """Build RAPTOR trees for all section chunks.
 
     Main entry point for RAPTOR strategy. Loads section chunks and builds

@@ -26,8 +26,6 @@ Uses Pydantic v2 BaseModel with:
 4. Calling code accesses fields with full type safety
 """
 
-from typing import List
-
 from pydantic import BaseModel, Field
 
 
@@ -53,7 +51,7 @@ class DecompositionResult(BaseModel):
         }
     """
 
-    sub_questions: List[str] = Field(
+    sub_questions: list[str] = Field(
         description="Self-contained sub-questions for independent retrieval"
     )
     reasoning: str = Field(

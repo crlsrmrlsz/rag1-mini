@@ -28,7 +28,6 @@ RAPTOR builds tree levels by summarizing clusters of similar chunks:
 4. Output: Summary text (100-150 tokens typical)
 """
 
-from typing import List
 
 from src.config import (
     RAPTOR_SUMMARY_MODEL,
@@ -45,7 +44,7 @@ logger = setup_logging(__name__)
 
 
 def generate_cluster_summary(
-    nodes: List[RaptorNode],
+    nodes: list[RaptorNode],
     model: str = RAPTOR_SUMMARY_MODEL,
     max_context_tokens: int = RAPTOR_MAX_CONTEXT_TOKENS,
     max_summary_tokens: int = RAPTOR_MAX_SUMMARY_TOKENS,
@@ -121,7 +120,7 @@ def generate_cluster_summary(
 
 
 def create_summary_context(
-    nodes: List[RaptorNode],
+    nodes: list[RaptorNode],
     level: int,
     cluster_id: int,
 ) -> str:

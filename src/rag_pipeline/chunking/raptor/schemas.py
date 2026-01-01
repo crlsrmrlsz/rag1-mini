@@ -23,7 +23,7 @@ Uses Python dataclasses for:
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any
 
 
 @dataclass
@@ -61,12 +61,12 @@ class RaptorNode:
     token_count: int
     tree_level: int
     is_summary: bool
-    parent_ids: List[str] = field(default_factory=list)
-    child_ids: List[str] = field(default_factory=list)
+    parent_ids: list[str] = field(default_factory=list)
+    child_ids: list[str] = field(default_factory=list)
     cluster_id: str = ""
-    source_chunk_ids: Optional[List[str]] = None
+    source_chunk_ids: Optional[list[str]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization.
 
         Returns:
@@ -90,7 +90,7 @@ class RaptorNode:
         }
 
     @classmethod
-    def from_chunk(cls, chunk: Dict[str, Any], book_id: str) -> "RaptorNode":
+    def from_chunk(cls, chunk: dict[str, Any], book_id: str) -> "RaptorNode":
         """Create a leaf node from a section chunk dict.
 
         Args:
@@ -132,10 +132,10 @@ class ClusterResult:
     """
 
     n_clusters: int
-    cluster_assignments: List[int]
-    cluster_probabilities: List[List[float]]
+    cluster_assignments: list[int]
+    cluster_probabilities: list[list[float]]
     bic_score: float
-    nodes_per_cluster: List[int] = field(default_factory=list)
+    nodes_per_cluster: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -162,11 +162,11 @@ class TreeMetadata:
     summary_count: int
     max_level: int
     build_time_seconds: float
-    levels: Dict[int, int] = field(default_factory=dict)
-    umap_params: Dict[str, Any] = field(default_factory=dict)
-    gmm_params: Dict[str, Any] = field(default_factory=dict)
+    levels: dict[int, int] = field(default_factory=dict)
+    umap_params: dict[str, Any] = field(default_factory=dict)
+    gmm_params: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return {
             "book_id": self.book_id,

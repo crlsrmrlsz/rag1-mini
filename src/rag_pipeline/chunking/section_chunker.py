@@ -6,7 +6,7 @@ Includes configurable overlap between consecutive chunks within same section.
 
 import json
 from pathlib import Path
-from typing import List, Dict, Deque
+from typing import Deque
 from collections import deque
 
 from src.config import (
@@ -28,7 +28,7 @@ logger = setup_logging(__name__)
 # HELPER FUNCTIONS
 # ============================================================================
 
-def split_oversized_sentence(sentence: str, max_tokens: int) -> List[str]:
+def split_oversized_sentence(sentence: str, max_tokens: int) -> list[str]:
     """
     Split a sentence that exceeds token limit.
     
@@ -87,7 +87,7 @@ def split_oversized_sentence(sentence: str, max_tokens: int) -> List[str]:
     return split_by_words(sentence, max_tokens)
 
 
-def split_by_words(text: str, max_tokens: int) -> List[str]:
+def split_by_words(text: str, max_tokens: int) -> list[str]:
     """
     Split text at word boundaries to respect token limit.
     Last resort when punctuation splitting fails.
@@ -156,11 +156,11 @@ def parse_section_name(context: str) -> str:
 # ============================================================================
 
 def create_chunks_from_paragraphs(
-    paragraphs: List[Dict], 
-    book_name: str, 
+    paragraphs: list[dict],
+    book_name: str,
     max_tokens: int = MAX_CHUNK_TOKENS,
     overlap_sentences: int = OVERLAP_SENTENCES
-) -> List[Dict]:
+) -> list[dict]:
     """
     Process paragraphs sequentially to create chunks with overlap.
     
@@ -336,7 +336,7 @@ def create_chunks_from_paragraphs(
     return chunks
 
 
-def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -> Dict:
+def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -> dict:
     """
     Create standardized chunk dictionary.
     
@@ -408,7 +408,7 @@ def process_single_file(
 
 def run_section_chunking(
     overwrite_context: OverwriteContext = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Process all JSON files in DIR_NLP_CHUNKS directory.
 
     Args:

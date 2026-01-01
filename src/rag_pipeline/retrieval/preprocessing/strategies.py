@@ -32,7 +32,7 @@ wrapped in strategy functions that conform to a common signature.
 """
 
 import time
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Optional
 
 from src.config import PREPROCESSING_MODEL, HYDE_K
 from src.rag_pipeline.retrieval.preprocessing.query_preprocessing import (
@@ -223,7 +223,7 @@ def graphrag_strategy(query: str, model: Optional[str] = None) -> PreprocessedQu
 # Maps strategy ID to strategy function
 # Note: keyword is NOT a preprocessing strategy - it's a search_type
 # Preprocessing strategies transform the query; search_type determines HOW to search
-STRATEGIES: Dict[str, StrategyFunction] = {
+STRATEGIES: dict[str, StrategyFunction] = {
     "none": none_strategy,
     "hyde": hyde_strategy,
     "decomposition": decomposition_strategy,
@@ -255,7 +255,7 @@ def get_strategy(strategy_id: str) -> StrategyFunction:
     return STRATEGIES[strategy_id]
 
 
-def list_strategies() -> List[str]:
+def list_strategies() -> list[str]:
     """List all registered strategy IDs.
 
     Returns:

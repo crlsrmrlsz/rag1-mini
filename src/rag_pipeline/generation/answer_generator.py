@@ -28,7 +28,7 @@ A single unified prompt handles all query types effectively.
 import re
 import time
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 
 from src.config import GENERATION_MODEL, GENERATION_SYSTEM_PROMPT
 from src.shared.files import setup_logging
@@ -51,14 +51,14 @@ class GeneratedAnswer:
     """
 
     answer: str
-    sources_used: List[int] = field(default_factory=list)
+    sources_used: list[int] = field(default_factory=list)
     model: str = ""
     generation_time_ms: float = 0.0
     system_prompt_used: Optional[str] = None
     user_prompt_used: Optional[str] = None
 
 
-def _format_context(chunks: List[Dict[str, Any]]) -> str:
+def _format_context(chunks: list[dict[str, Any]]) -> str:
     """Format retrieved chunks as numbered context for the LLM.
 
     Args:
@@ -83,7 +83,7 @@ def _format_context(chunks: List[Dict[str, Any]]) -> str:
     return "\n\n---\n\n".join(context_parts)
 
 
-def _extract_source_citations(answer: str, num_chunks: int) -> List[int]:
+def _extract_source_citations(answer: str, num_chunks: int) -> list[int]:
     """Extract source citation numbers from the answer text.
 
     Args:
@@ -110,7 +110,7 @@ def _extract_source_citations(answer: str, num_chunks: int) -> List[int]:
 
 def generate_answer(
     query: str,
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     model: Optional[str] = None,
     temperature: float = 0.3,
 ) -> GeneratedAnswer:

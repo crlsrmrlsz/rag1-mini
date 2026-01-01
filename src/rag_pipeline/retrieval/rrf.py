@@ -29,7 +29,7 @@ Works with SearchResult dataclass from vector_db.
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import List, Dict, Any
+from typing import Any
 
 from src.rag_pipeline.indexing.weaviate_query import SearchResult
 from src.shared.files import setup_logging
@@ -52,14 +52,14 @@ class RRFResult:
         merge_time_ms: Time taken for merge operation.
     """
 
-    results: List[SearchResult]
-    query_contributions: Dict[str, List[str]] = field(default_factory=dict)
+    results: list[SearchResult]
+    query_contributions: dict[str, list[str]] = field(default_factory=dict)
     merge_time_ms: float = 0.0
 
 
 def reciprocal_rank_fusion(
-    result_lists: List[List[SearchResult]],
-    query_types: List[str],
+    result_lists: list[list[SearchResult]],
+    query_types: list[str],
     k: int = RRF_K,
     top_k: int = 10,
 ) -> RRFResult:
@@ -93,9 +93,9 @@ def reciprocal_rank_fusion(
     start_time = time.time()
 
     # Track scores and contributions
-    scores: Dict[str, float] = defaultdict(float)
-    results_by_id: Dict[str, SearchResult] = {}
-    contributions: Dict[str, List[str]] = defaultdict(list)
+    scores: dict[str, float] = defaultdict(float)
+    results_by_id: dict[str, SearchResult] = {}
+    contributions: dict[str, list[str]] = defaultdict(list)
 
     for query_idx, results in enumerate(result_lists):
         query_type = (

@@ -35,7 +35,7 @@ up to 67% with BM25 hybrid + reranking.
 
 import json
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Optional
 
 from src.config import (
     DIR_FINAL_CHUNKS,
@@ -64,7 +64,7 @@ CONTEXTUAL_FOLDER = "contextual"
 
 
 def gather_document_context(
-    chunks: List[Dict],
+    chunks: list[dict],
     current_index: int,
     neighbor_count: int = CONTEXTUAL_NEIGHBOR_CHUNKS,
     max_context_tokens: int = 2000,
@@ -112,7 +112,7 @@ def gather_document_context(
 
 
 def generate_contextual_snippet(
-    chunk: Dict,
+    chunk: dict,
     document_context: str,
     model: str = CONTEXTUAL_MODEL,
     max_tokens: int = CONTEXTUAL_MAX_SNIPPET_TOKENS,
@@ -170,9 +170,9 @@ def generate_contextual_snippet(
 
 
 def contextualize_chunk(
-    chunk: Dict,
+    chunk: dict,
     contextual_snippet: str,
-) -> Dict:
+) -> dict:
     """Create a contextualized version of a chunk.
 
     Prepends the contextual snippet to the chunk text and updates
@@ -281,7 +281,7 @@ def process_single_file(
 def run_contextual_chunking(
     model: str = CONTEXTUAL_MODEL,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Process all section chunks with contextual enrichment.
 
     Main entry point for contextual chunking strategy. Reads section chunks

@@ -31,7 +31,7 @@ RAPTOR uses a two-stage clustering approach:
 """
 
 import numpy as np
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from src.config import (
     RAPTOR_UMAP_N_NEIGHBORS,
@@ -128,7 +128,7 @@ def find_optimal_clusters(
     min_k: int = RAPTOR_MIN_CLUSTERS,
     max_k: int = RAPTOR_MAX_CLUSTERS,
     random_state: int = 42,
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     """Find optimal cluster count using Bayesian Information Criterion (BIC).
 
     Tests GMM with different K values and selects the one with lowest BIC.
@@ -259,7 +259,7 @@ def get_cluster_members(
     cluster_result: ClusterResult,
     cluster_id: int,
     probability_threshold: Optional[float] = None,
-) -> List[int]:
+) -> list[int]:
     """Get indices of nodes belonging to a cluster.
 
     With hard assignment (default), returns nodes assigned to this cluster.

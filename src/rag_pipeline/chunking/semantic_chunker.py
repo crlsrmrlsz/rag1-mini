@@ -35,7 +35,7 @@ using semantic boundaries vs fixed-size chunks.
 import json
 import numpy as np
 from pathlib import Path
-from typing import List, Dict, Deque
+from typing import Deque
 from collections import deque
 
 from src.config import (
@@ -65,9 +65,9 @@ logger = setup_logging(__name__)
 
 
 def compute_similarity_breakpoints(
-    sentences: List[str],
+    sentences: list[str],
     threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
-) -> List[int]:
+) -> list[int]:
     """Find semantic breakpoints by embedding similarity.
 
     Computes cosine similarity between adjacent sentences and identifies
@@ -136,7 +136,7 @@ def _create_chunk_dict(
     context: str,
     book_name: str,
     chunk_id: int,
-) -> Dict:
+) -> dict:
     """Create standardized chunk dictionary with semantic strategy marker.
 
     Args:
@@ -160,12 +160,12 @@ def _create_chunk_dict(
 
 
 def create_semantic_chunks(
-    paragraphs: List[Dict],
+    paragraphs: list[dict],
     book_name: str,
     max_tokens: int = MAX_CHUNK_TOKENS,
     overlap_sentences: int = OVERLAP_SENTENCES,
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
-) -> List[Dict]:
+) -> list[dict]:
     """Create chunks using semantic similarity breakpoints.
 
     Algorithm:
@@ -187,7 +187,7 @@ def create_semantic_chunks(
     chunks = []
     chunk_id = 0
     current_context = None
-    current_chunk_sentences: List[str] = []
+    current_chunk_sentences: list[str] = []
     num_overlap_sentences = 0
 
     # Overlap buffer for continuity between chunks
@@ -213,7 +213,7 @@ def create_semantic_chunks(
 
             num_overlap_sentences = 0
 
-    def _start_new_chunk_with_overlap() -> List[str]:
+    def _start_new_chunk_with_overlap() -> list[str]:
         """Initialize new chunk with overlap from previous."""
         nonlocal num_overlap_sentences
         if overlap_sentences > 0 and len(overlap_buffer) > 0:
@@ -355,7 +355,7 @@ def process_single_file(
 def run_semantic_chunking(
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
     overwrite_context: OverwriteContext = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Process all files with semantic chunking.
 
     Main entry point for semantic chunking strategy. Reads paragraph files

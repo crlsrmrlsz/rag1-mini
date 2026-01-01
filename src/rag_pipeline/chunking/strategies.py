@@ -27,7 +27,7 @@ in a common interface for the stage runner to invoke.
 """
 
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Optional
 
 from src.config import (
     MAX_CHUNK_TOKENS,
@@ -45,8 +45,8 @@ logger = setup_logging(__name__)
 
 # Type alias for strategy functions
 # Input: None (reads from DIR_NLP_CHUNKS)
-# Output: Dict[book_name, chunk_count]
-ChunkingStrategyFunction = Callable[[], Dict[str, int]]
+# Output: dict[book_name, chunk_count]
+ChunkingStrategyFunction = Callable[[], dict[str, int]]
 
 
 # ============================================================================
@@ -56,7 +56,7 @@ ChunkingStrategyFunction = Callable[[], Dict[str, int]]
 
 def section_strategy(
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Sequential chunking with sentence overlap (baseline).
 
     Algorithm:
@@ -84,7 +84,7 @@ def section_strategy(
 def semantic_strategy(
     similarity_threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Semantic similarity-based chunking.
 
     Algorithm:
@@ -120,7 +120,7 @@ def semantic_strategy(
 def contextual_strategy(
     model: str = CONTEXTUAL_MODEL,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Contextual chunking (Anthropic-style).
 
     Algorithm:
@@ -160,7 +160,7 @@ def raptor_strategy(
     min_cluster_size: int = RAPTOR_MIN_CLUSTER_SIZE,
     summary_model: str = RAPTOR_SUMMARY_MODEL,
     overwrite_context: Optional[OverwriteContext] = None,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """RAPTOR hierarchical summarization tree.
 
     Algorithm:
@@ -203,7 +203,7 @@ def raptor_strategy(
 # ============================================================================
 
 
-STRATEGIES: Dict[str, ChunkingStrategyFunction] = {
+STRATEGIES: dict[str, ChunkingStrategyFunction] = {
     "section": section_strategy,
     "semantic": semantic_strategy,
     "contextual": contextual_strategy,
@@ -246,7 +246,7 @@ def get_strategy(strategy_id: str, **kwargs: Any) -> ChunkingStrategyFunction:
     return strategy_fn
 
 
-def list_strategies() -> List[str]:
+def list_strategies() -> list[str]:
     """List all registered strategy IDs.
 
     Returns:

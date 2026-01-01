@@ -47,7 +47,7 @@ Reference: arXiv:2401.18059, Section 2.3
 """
 
 import time
-from typing import List, Dict, Tuple, Any, Optional
+from typing import Any, Optional
 import numpy as np
 
 from src.config import (
@@ -82,12 +82,12 @@ logger = setup_logging(__name__)
 
 
 def build_raptor_tree(
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     book_id: str,
     max_levels: int = RAPTOR_MAX_LEVELS,
     min_cluster_size: int = RAPTOR_MIN_CLUSTER_SIZE,
     summary_model: str = RAPTOR_SUMMARY_MODEL,
-) -> Tuple[List[RaptorNode], TreeMetadata]:
+) -> tuple[list[RaptorNode], TreeMetadata]:
     """Build hierarchical RAPTOR tree from section chunks.
 
     Main entry point for tree construction. Takes section chunks and builds
@@ -121,7 +121,7 @@ def build_raptor_tree(
     all_nodes = list(leaf_nodes)  # Copy to accumulate all nodes
 
     # Track level statistics
-    levels: Dict[int, int] = {0: len(leaf_nodes)}
+    levels: dict[int, int] = {0: len(leaf_nodes)}
 
     # Step 2: Recursive tree building
     current_level_nodes = leaf_nodes
@@ -200,9 +200,9 @@ def build_raptor_tree(
 
 
 def _create_leaf_nodes(
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     book_id: str,
-) -> List[RaptorNode]:
+) -> list[RaptorNode]:
     """Convert section chunks to leaf RaptorNodes.
 
     Args:
@@ -216,7 +216,7 @@ def _create_leaf_nodes(
 
 
 def _can_continue_clustering(
-    nodes: List[RaptorNode],
+    nodes: list[RaptorNode],
     current_level: int,
     max_levels: int,
     min_cluster_size: int,
@@ -255,7 +255,7 @@ def _can_continue_clustering(
     return True
 
 
-def _embed_nodes(nodes: List[RaptorNode]) -> np.ndarray:
+def _embed_nodes(nodes: list[RaptorNode]) -> np.ndarray:
     """Embed node texts using the embedding API.
 
     Args:
@@ -290,12 +290,12 @@ def _embed_nodes(nodes: List[RaptorNode]) -> np.ndarray:
 
 
 def _create_summary_nodes(
-    parent_nodes: List[RaptorNode],
+    parent_nodes: list[RaptorNode],
     cluster_result: ClusterResult,
     book_id: str,
     level: int,
     summary_model: str,
-) -> List[RaptorNode]:
+) -> list[RaptorNode]:
     """Create summary nodes for each cluster.
 
     For each cluster:
@@ -376,7 +376,7 @@ def _create_summary_nodes(
     return summary_nodes
 
 
-def _collect_source_chunks(nodes: List[RaptorNode]) -> List[str]:
+def _collect_source_chunks(nodes: list[RaptorNode]) -> list[str]:
     """Collect all source leaf chunk IDs from a subtree.
 
     For leaf nodes: returns their chunk_id
@@ -400,9 +400,9 @@ def _collect_source_chunks(nodes: List[RaptorNode]) -> List[str]:
 
 
 def _build_metadata(
-    all_nodes: List[RaptorNode],
+    all_nodes: list[RaptorNode],
     book_id: str,
-    levels: Dict[int, int],
+    levels: dict[int, int],
     build_time: float,
 ) -> TreeMetadata:
     """Build tree metadata summary.

@@ -47,7 +47,7 @@ We use MixedBread AI's `mxbai-rerank-large-v1` model:
 """
 
 import time
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any
 from dataclasses import dataclass, replace, field
 
 from sentence_transformers import CrossEncoder
@@ -70,8 +70,8 @@ class RerankResult:
         model: The reranking model used.
     """
 
-    results: List[SearchResult]
-    order_changes: List[Dict[str, Any]] = field(default_factory=list)
+    results: list[SearchResult]
+    order_changes: list[dict[str, Any]] = field(default_factory=list)
     rerank_time_ms: float = 0.0
     model: str = ""
 
@@ -143,7 +143,7 @@ def get_reranker() -> CrossEncoder:
 
 def rerank(
     query: str,
-    documents: List[SearchResult],
+    documents: list[SearchResult],
     top_k: int = 10,
     return_details: bool = False,
 ) -> RerankResult:

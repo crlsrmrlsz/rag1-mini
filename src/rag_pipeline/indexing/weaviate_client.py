@@ -8,7 +8,7 @@ Provides functions for:
 Uses Weaviate Python client v4 (requires gRPC).
 """
 
-from typing import List, Dict, Any
+from typing import Any
 import uuid
 
 import weaviate
@@ -160,7 +160,7 @@ def _generate_uuid_from_chunk_id(chunk_id: str) -> str:
 def upload_embeddings(
     client: weaviate.WeaviateClient,
     collection_name: str,
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     batch_size: int = WEAVIATE_BATCH_SIZE,
     is_raptor: bool = False,
 ) -> int:
@@ -295,7 +295,7 @@ def upload_community(
     collection_name: str,
     community_id: str,
     summary: str,
-    embedding: List[float],
+    embedding: list[float],
     member_count: int,
     relationship_count: int = 0,
     level: int = 0,
@@ -361,9 +361,9 @@ def get_existing_community_ids(
 def query_communities_by_vector(
     client: weaviate.WeaviateClient,
     collection_name: str,
-    query_embedding: List[float],
+    query_embedding: list[float],
     top_k: int = 3,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Query communities by vector similarity.
 
     Replaces the in-memory cosine similarity loop with Weaviate HNSW search.

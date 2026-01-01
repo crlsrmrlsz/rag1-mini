@@ -9,7 +9,7 @@ Uses Weaviate Python client v4 query API.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import weaviate
 from weaviate.classes.query import MetadataQuery, Filter
@@ -49,7 +49,7 @@ class SearchResult:
 
 
 def _build_book_filter(
-    book_ids: Optional[Union[str, List[str]]]
+    book_ids: Optional[Union[str, list[str]]]
 ) -> Optional[Filter]:
     """
     Build a Weaviate filter for book_id(s).
@@ -81,7 +81,7 @@ def _build_book_filter(
 def _parse_results(
     response_objects: list,
     use_distance: bool = True,
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """
     Convert Weaviate response objects to SearchResult dataclasses.
 
@@ -128,9 +128,9 @@ def query_similar(
     client: weaviate.WeaviateClient,
     query_text: str,
     top_k: int = 5,
-    book_ids: Optional[Union[str, List[str]]] = None,
+    book_ids: Optional[Union[str, list[str]]] = None,
     collection_name: Optional[str] = None,
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """
     Search for chunks semantically similar to the query text.
 
@@ -197,10 +197,10 @@ def query_hybrid(
     query_text: str,
     top_k: int = 5,
     alpha: float = 0.5,
-    book_ids: Optional[Union[str, List[str]]] = None,
+    book_ids: Optional[Union[str, list[str]]] = None,
     collection_name: Optional[str] = None,
-    precomputed_embedding: Optional[List[float]] = None,
-) -> List[SearchResult]:
+    precomputed_embedding: Optional[list[float]] = None,
+) -> list[SearchResult]:
     """
     Perform hybrid search combining vector similarity and keyword matching.
 
@@ -271,9 +271,9 @@ def query_bm25(
     client: weaviate.WeaviateClient,
     query_text: str,
     top_k: int = 5,
-    book_ids: Optional[Union[str, List[str]]] = None,
+    book_ids: Optional[Union[str, list[str]]] = None,
     collection_name: Optional[str] = None,
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """
     Perform pure BM25 keyword search without vector similarity.
 
@@ -330,7 +330,7 @@ def query_bm25(
 def list_available_books(
     client: weaviate.WeaviateClient,
     collection_name: Optional[str] = None,
-) -> List[str]:
+) -> list[str]:
     """
     Get list of unique book_ids in the collection.
 

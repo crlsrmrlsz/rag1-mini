@@ -347,10 +347,16 @@ def call_structured_completion(
                     raise
 
             # Check for schema mode unsupported error (400 with specific message)
+            # OpenRouter may return generic "Provider returned error" for schema issues
             if response.status_code == 400 and not use_fallback:
                 try:
                     error_msg = response.json().get("error", {}).get("message", "")
-                    if "response_format" in error_msg.lower() or "schema" in error_msg.lower():
+                    fallback_triggers = [
+                        "response_format",
+                        "schema",
+                        "provider returned error",  # Generic OpenRouter wrapper error
+                    ]
+                    if any(trigger in error_msg.lower() for trigger in fallback_triggers):
                         logger.warning(
                             f"JSON Schema mode not supported by {model}, falling back to json_object"
                         )

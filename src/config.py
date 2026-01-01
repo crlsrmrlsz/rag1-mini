@@ -10,7 +10,6 @@ Contains:
 """
 import re
 from pathlib import Path
-from typing import List, Tuple
 
 from dotenv import load_dotenv
 import os
@@ -43,7 +42,7 @@ CLEANING_LOG_FILE = DIR_CLEANING_LOGS / "cleaning_report.log"
 # Pattern format: (regex_pattern, pattern_name)
 # All patterns use explicit case matching in regex (no re.IGNORECASE needed)
 
-LINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
+LINE_REMOVAL_PATTERNS: list[tuple[str, str]] = [
     # Figure/Table captions: "Figure 2. Model diagram", "Table 1-3: Flow Chart"
     # Matches: Figure/Fig/Table/Tab + number/identifier + UPPERCASE start
     # Preserves: "Figure 2 shows..." (lowercase after number)
@@ -72,7 +71,7 @@ LINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
 ]
 
 
-INLINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
+INLINE_REMOVAL_PATTERNS: list[tuple[str, str]] = [
     # Figure/table references in parentheses: "(Figure 2)", "(TABLE 1-3)"
     (
         r'\(\s*([Ff][Ii][Gg]([Uu][Rr][Ee])?|[Tt][Aa][Bb]([Ll][Ee])?)\.?\s*[\d\.\-]+[a-zA-Z]?\s*\)',
@@ -94,7 +93,7 @@ INLINE_REMOVAL_PATTERNS: List[Tuple[str, str]] = [
 ]
 
 
-CHARACTER_SUBSTITUTIONS: List[Tuple[str, str, str]] = [
+CHARACTER_SUBSTITUTIONS: list[tuple[str, str, str]] = [
     # Format: (old_string, new_string, substitution_name)
     ('/u2014.d', '--', 'EM_DASH_WITH_SUFFIX'),
     ('/u2014', '--', 'EM_DASH'),
@@ -314,12 +313,12 @@ AVAILABLE_PREPROCESSING_MODELS = [
 # ============================================================================
 
 # Default model for answer generation
-# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent with eval/preprocessing
-GENERATION_MODEL = "openai/gpt-5-nano"
+# GPT-4o-mini: $0.15/$0.60 per 1M tokens - consistent with eval/preprocessing
+GENERATION_MODEL = "openai/gpt-4o-mini"
 
 # Fallback models for generation (used if dynamic fetch fails)
 AVAILABLE_GENERATION_MODELS = [
-    ("openai/gpt-5-nano", "Budget: GPT-5 Nano"),
+    ("openai/gpt-4o-mini", "Budget: GPT-4o-mini"),
     ("deepseek/deepseek-v3.2", "Value: DeepSeek V3.2"),
     ("google/gemini-3-flash-preview", "Quality: Gemini 3 Flash"),
     ("anthropic/claude-haiku-4.5", "Premium: Claude Haiku 4.5"),
@@ -450,8 +449,8 @@ SEMANTIC_SIMILARITY_THRESHOLD = 0.4  # Default; test 0.3 for larger groups
 
 # Contextual chunking parameters (Anthropic-style)
 # Model for generating contextual snippets
-# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent across all tasks
-CONTEXTUAL_MODEL = "openai/gpt-5-nano"
+# GPT-4o-mini: $0.15/$0.60 per 1M tokens - consistent across all tasks
+CONTEXTUAL_MODEL = "openai/gpt-4o-mini"
 
 # Number of neighboring chunks to include as context for LLM
 CONTEXTUAL_NEIGHBOR_CHUNKS = 2  # chunks before + after current chunk
@@ -512,7 +511,7 @@ def get_semantic_folder_name(threshold: float = SEMANTIC_SIMILARITY_THRESHOLD) -
 # - Collection discovery and enrichment
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 
 
 @dataclass
@@ -530,7 +529,7 @@ class StrategyMetadata:
 
 
 # Registry of known chunking strategies with their metadata
-STRATEGY_REGISTRY: Dict[str, StrategyMetadata] = {
+STRATEGY_REGISTRY: dict[str, StrategyMetadata] = {
     "section": StrategyMetadata(
         key="section",
         display_name="Section-Based Chunking",
@@ -620,7 +619,7 @@ def get_embedding_folder_path(strategy: str) -> Path:
 # Builds a hierarchical tree of summaries enabling multi-level retrieval.
 
 # Model for generating cluster summaries (reuse contextual model for consistency)
-RAPTOR_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
+RAPTOR_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-4o-mini
 
 # Tree building constraints
 RAPTOR_MAX_LEVELS = 4  # Maximum tree depth (0=leaves, 1-4=summaries)
@@ -658,11 +657,11 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "raglab_graphrag")
 
 # Model for entity/relationship extraction
 # Claude 3 Haiku for reliable structured output (JSON Schema)
-# GPT-5 Nano produced 400 errors with structured output
+# GPT-4o-mini produced 400 errors with structured output
 GRAPHRAG_EXTRACTION_MODEL = "anthropic/claude-3-haiku"
 
 # Model for community summarization (same as extraction for consistency)
-GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-5-nano
+GRAPHRAG_SUMMARY_MODEL = CONTEXTUAL_MODEL  # -> openai/gpt-4o-mini
 
 # Entity extraction parameters
 GRAPHRAG_MAX_EXTRACTION_TOKENS = 4000  # Max tokens for extraction response

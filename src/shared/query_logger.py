@@ -10,7 +10,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Optional
 
 from src.config import PROJECT_ROOT
 
@@ -20,8 +20,8 @@ QUERY_LOG_FILE = PROJECT_ROOT / "data" / "evaluation" / "ui_query_traces.json"
 def log_query(
     query: str,
     preprocessed: Optional[Any],
-    retrieval_settings: Dict,
-    search_results: List[Dict],
+    retrieval_settings: dict,
+    search_results: list[dict],
     rerank_data: Optional[Any],
     generated_answer: Optional[Any],
     collection_name: str = "",
@@ -68,7 +68,7 @@ def log_query(
     return record["id"]
 
 
-def _build_preprocessing(prep) -> Dict:
+def _build_preprocessing(prep) -> dict:
     """Build preprocessing section from PreprocessedQuery."""
     if not prep:
         return {"enabled": False}
@@ -99,7 +99,7 @@ def _build_preprocessing(prep) -> Dict:
     return result
 
 
-def _build_retrieval(settings: Dict, results: List[Dict], collection: str) -> Dict:
+def _build_retrieval(settings: dict, results: list[dict], collection: str) -> dict:
     """Build retrieval section from settings and search results."""
     return {
         "search_type": settings.get("search_type", ""),
@@ -120,7 +120,7 @@ def _build_retrieval(settings: Dict, results: List[Dict], collection: str) -> Di
     }
 
 
-def _build_reranking(rerank) -> Dict:
+def _build_reranking(rerank) -> dict:
     """Build reranking section from RerankResult."""
     if not rerank:
         return {"enabled": False}
@@ -132,7 +132,7 @@ def _build_reranking(rerank) -> Dict:
     }
 
 
-def _build_rrf(rrf_data) -> Dict:
+def _build_rrf(rrf_data) -> dict:
     """Build RRF merging section from RRFResult."""
     if not rrf_data:
         return {"enabled": False}
@@ -150,7 +150,7 @@ def _build_rrf(rrf_data) -> Dict:
     }
 
 
-def _build_generation(ans) -> Dict:
+def _build_generation(ans) -> dict:
     """Build generation section from GeneratedAnswer."""
     if not ans:
         return {"enabled": False}

@@ -26,7 +26,7 @@ exponential backoff, which is essential for handling:
 
 import os
 import time
-from typing import Dict, List, Optional, Any, Type, TypeVar
+from typing import Optional, Any, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError as PydanticValidationError
 
@@ -59,7 +59,7 @@ class APIError(OpenRouterError):
 
 
 def call_chat_completion(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     model: str,
     temperature: float = 0.3,
     max_tokens: int = 1024,
@@ -113,7 +113,7 @@ def call_chat_completion(
         "Content-Type": "application/json",
     }
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
@@ -230,7 +230,7 @@ def call_simple_prompt(
 
 
 def call_structured_completion(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     model: str,
     response_model: Type[T],
     temperature: float = 0.0,
@@ -294,7 +294,7 @@ def call_structured_completion(
     }
 
     # Build payload with JSON Schema enforcement
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,

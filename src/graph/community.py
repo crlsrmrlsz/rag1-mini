@@ -25,7 +25,7 @@ Uses Neo4j GDS (Graph Data Science) for Leiden:
 4. Store summaries in Neo4j and/or JSON for retrieval
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional
 from pathlib import Path
 import json
 
@@ -109,7 +109,7 @@ def run_leiden(
     max_levels: int = GRAPHRAG_LEIDEN_MAX_LEVELS,
     seed: int = GRAPHRAG_LEIDEN_SEED,
     concurrency: int = GRAPHRAG_LEIDEN_CONCURRENCY,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run Leiden community detection algorithm.
 
     Leiden improves on Louvain by guaranteeing well-connected communities.
@@ -182,7 +182,7 @@ def run_leiden(
 
 
 def save_leiden_checkpoint(
-    leiden_result: Dict[str, Any],
+    leiden_result: dict[str, Any],
     output_name: str = "leiden_checkpoint.json",
 ) -> Path:
     """Save Leiden result to checkpoint file for crash recovery.
@@ -225,7 +225,7 @@ def save_leiden_checkpoint(
 
 def load_leiden_checkpoint(
     input_name: str = "leiden_checkpoint.json",
-) -> Optional[Dict[str, Any]]:
+) -> Optional[dict[str, Any]]:
     """Load Leiden checkpoint from file.
 
     Args:
@@ -257,8 +257,8 @@ def load_leiden_checkpoint(
 
 
 def verify_leiden_checkpoint(
-    leiden_result: Dict[str, Any],
-    checkpoint: Dict[str, Any],
+    leiden_result: dict[str, Any],
+    checkpoint: dict[str, Any],
 ) -> bool:
     """Verify that Leiden result matches checkpoint.
 
@@ -294,7 +294,7 @@ def verify_leiden_checkpoint(
 
 def write_communities_to_neo4j(
     driver: Driver,
-    node_communities: List[Dict[str, Any]],
+    node_communities: list[dict[str, Any]],
 ) -> int:
     """Write community assignments back to Neo4j nodes.
 
@@ -326,7 +326,7 @@ def write_communities_to_neo4j(
 def get_community_members(
     driver: Driver,
     community_id: int,
-) -> List[CommunityMember]:
+) -> list[CommunityMember]:
     """Get all entities belonging to a specific community.
 
     Args:
@@ -365,7 +365,7 @@ def get_community_members(
 def get_community_relationships(
     driver: Driver,
     community_id: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get relationships within a community.
 
     Args:
@@ -389,8 +389,8 @@ def get_community_relationships(
 
 
 def build_community_context(
-    members: List[CommunityMember],
-    relationships: List[Dict[str, Any]],
+    members: list[CommunityMember],
+    relationships: list[dict[str, Any]],
     max_tokens: int = GRAPHRAG_MAX_CONTEXT_TOKENS,
 ) -> str:
     """Build context string for community summarization.
@@ -433,10 +433,10 @@ def build_community_context(
 
 
 def summarize_community(
-    members: List[CommunityMember],
-    relationships: List[Dict[str, Any]],
+    members: list[CommunityMember],
+    relationships: list[dict[str, Any]],
     model: str = GRAPHRAG_SUMMARY_MODEL,
-) -> Tuple[str, Optional[List[float]]]:
+) -> tuple[str, Optional[list[float]]]:
     """Generate LLM summary AND embedding for a community.
 
     Uses community entities and relationships to generate
@@ -508,7 +508,7 @@ def detect_and_summarize_communities(
     model: str = GRAPHRAG_SUMMARY_MODEL,
     resume: bool = False,
     skip_leiden: bool = False,
-) -> List[Community]:
+) -> list[Community]:
     """Run full community detection and summarization pipeline.
 
     Main entry point for community processing with crash-proof design:
@@ -667,7 +667,7 @@ def detect_and_summarize_communities(
 
 
 def save_communities(
-    communities: List[Community],
+    communities: list[Community],
     output_name: str = "communities.json",
 ) -> Path:
     """Save community data to JSON file.
@@ -699,7 +699,7 @@ def save_communities(
 
 def load_communities(
     input_name: str = "communities.json",
-) -> List[Community]:
+) -> list[Community]:
     """Load communities from JSON file.
 
     Args:

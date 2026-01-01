@@ -10,7 +10,7 @@ Provides:
 import time
 import math
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -132,7 +132,7 @@ class RAGASEvaluationError(Exception):
 
 def evaluate_with_retry(
     dataset: EvaluationDataset,
-    metrics: List,
+    metrics: list,
     llm: LangchainLLMWrapper,
     embeddings: LangchainEmbeddingsWrapper,
     max_retries: int = 3,
@@ -208,9 +208,9 @@ def evaluate_with_retry(
 
 def compute_difficulty_breakdown(
     results_df: Any,
-    test_questions: List[Dict[str, Any]],
-    metrics: List[str],
-) -> Dict[str, Dict[str, float]]:
+    test_questions: list[dict[str, Any]],
+    metrics: list[str],
+) -> dict[str, dict[str, float]]:
     """Compute per-difficulty metric averages.
 
     Groups questions by difficulty field ("single_concept" or "cross_domain")
@@ -228,7 +228,7 @@ def compute_difficulty_breakdown(
             "cross_domain": {"faithfulness": 0.82, "relevancy": 0.75}
         }
     """
-    breakdown: Dict[str, Dict[str, List[float]]] = {}
+    breakdown: dict[str, dict[str, list[float]]] = {}
 
     for i, q in enumerate(test_questions):
         if i >= len(results_df):
@@ -271,7 +271,7 @@ def retrieve_contexts(
     alpha: float = 0.5,
     preprocessed: Optional[PreprocessedQuery] = None,
     search_type: str = "hybrid",
-) -> List[str]:
+) -> list[str]:
     """
     Retrieve relevant contexts from Weaviate for a question.
 
@@ -540,7 +540,7 @@ def retrieve_contexts(
 
 def generate_answer(
     question: str,
-    contexts: List[str],
+    contexts: list[str],
     model: str = DEFAULT_CHAT_MODEL,
 ) -> str:
     """
@@ -583,10 +583,10 @@ def retrieve_contexts_with_cache(
     use_reranking: bool,
     alpha: float,
     preprocessed: Optional[PreprocessedQuery],
-    cache: Optional[Dict] = None,
+    cache: Optional[dict] = None,
     cache_key: Optional[tuple] = None,
     search_type: str = "hybrid",
-) -> List[str]:
+) -> list[str]:
     """Retrieve contexts with optional caching for comprehensive mode.
 
     When caching is enabled (cache and cache_key provided), this function:
@@ -657,14 +657,14 @@ class QuestionProcessingResult:
     """
 
     success: bool
-    sample: Optional[Dict[str, Any]] = None
+    sample: Optional[dict[str, Any]] = None
     trace: Optional[QuestionTrace] = None
     error: Optional[str] = None
     failed_at_stage: Optional[str] = None
 
 
 def process_single_question(
-    question_data: Dict[str, Any],
+    question_data: dict[str, Any],
     question_index: int,
     preprocessing_strategy: str,
     preprocessing_model: Optional[str],
@@ -673,7 +673,7 @@ def process_single_question(
     use_reranking: bool,
     alpha: float,
     generation_model: str,
-    retrieval_cache: Optional[Dict] = None,
+    retrieval_cache: Optional[dict] = None,
     max_retrieval_k: Optional[int] = None,
     max_retries: int = 3,
     backoff_base: float = 2.0,
@@ -854,8 +854,8 @@ def process_single_question(
 
 
 def run_evaluation(
-    test_questions: List[Dict[str, Any]],
-    metrics: Optional[List[str]] = None,
+    test_questions: list[dict[str, Any]],
+    metrics: Optional[list[str]] = None,
     top_k: int = DEFAULT_TOP_K,
     generation_model: str = DEFAULT_CHAT_MODEL,
     evaluation_model: str = "openai/gpt-4o-mini",
@@ -869,7 +869,7 @@ def run_evaluation(
     ragas_max_retries: int = 3,
     ragas_backoff_base: float = 2.0,
     # Caching parameters for comprehensive mode (halves Weaviate calls for top_k dimension)
-    retrieval_cache: Optional[Dict] = None,
+    retrieval_cache: Optional[dict] = None,
     max_retrieval_k: Optional[int] = None,
     # RAGAS concurrency control (prevents rate limiting)
     ragas_max_workers: int = 4,
@@ -877,7 +877,7 @@ def run_evaluation(
     ragas_log_tenacity: bool = True,
     # Search type dimension (orthogonal to preprocessing)
     search_type: str = "hybrid",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Run RAGAS evaluation on test questions with traceability and resilience.
 

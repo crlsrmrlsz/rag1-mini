@@ -4,7 +4,7 @@ Removes artifacts, consolidates paragraphs, and standardizes formatting.
 """
 import re
 import logging
-from typing import List, Tuple, Optional
+from typing import Optional
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -29,10 +29,10 @@ class CleaningLog:
     """Tracks all cleaning operations for comprehensive reporting."""
     
     book_name: str
-    lines_removed: List[Tuple[str, str]] = field(default_factory=list)
-    inline_removals: List[Tuple[str, str]] = field(default_factory=list)
+    lines_removed: list[tuple[str, str]] = field(default_factory=list)
+    inline_removals: list[tuple[str, str]] = field(default_factory=list)
     paragraphs_merged: int = 0
-    substitutions: List[Tuple[str, int]] = field(default_factory=list)
+    substitutions: list[tuple[str, int]] = field(default_factory=list)
     list_markers_removed: int = 0
 
     def log_line_removal(self, pattern_name: str, line: str):
@@ -150,21 +150,6 @@ def setup_cleaning_logger(log_file: Optional[Path] = None) -> logging.Logger:
 # HELPER FUNCTIONS
 # ============================================================================
 
-def _group_by_pattern(items: List[Tuple[str, str]]) -> dict:
-    """Group items by pattern name.
-
-    Args:
-        items: List of (pattern_name, text) tuples.
-
-    Returns:
-        Dictionary mapping pattern names to lists of texts.
-    """
-    groups = {}
-    for pattern_name, text in items:
-        groups.setdefault(pattern_name, []).append(text)
-    return groups
-
-
 def _should_merge_paragraphs(ends_terminal: bool, starts_lower: bool, ends_connector: bool) -> bool:
     """Determine if consecutive paragraphs should be merged.
 
@@ -264,7 +249,7 @@ def clean_inline_content(text: str, log: Optional[CleaningLog] = None) -> str:
     return text.strip()
 
 
-def consolidate_paragraphs(paragraphs: List[str], log: Optional[CleaningLog] = None) -> List[str]:
+def consolidate_paragraphs(paragraphs: list[str], log: Optional[CleaningLog] = None) -> list[str]:
     """
     Merge paragraphs that were incorrectly split by formatting errors.
     
@@ -313,7 +298,7 @@ def run_structural_cleaning(
     md_content: str,
     book_name: str = "Unknown",
     enable_logging: bool = True
-) -> Tuple[str, Optional[CleaningLog]]:
+) -> tuple[str, Optional[CleaningLog]]:
     """
     Complete markdown cleaning pipeline.
     

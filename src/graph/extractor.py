@@ -26,7 +26,7 @@ Uses call_structured_completion() from openrouter_client.py:
 4. Aggregate results for Neo4j upload
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from pathlib import Path
 import json
 
@@ -47,7 +47,7 @@ logger = setup_logging(__name__)
 
 
 def extract_from_chunk(
-    chunk: Dict[str, Any],
+    chunk: dict[str, Any],
     model: str = GRAPHRAG_EXTRACTION_MODEL,
 ) -> ExtractionResult:
     """Extract entities and relationships from a single chunk.
@@ -101,10 +101,10 @@ def extract_from_chunk(
 
 
 def extract_from_chunks(
-    chunks: List[Dict[str, Any]],
+    chunks: list[dict[str, Any]],
     model: str = GRAPHRAG_EXTRACTION_MODEL,
     max_chunks: Optional[int] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract entities and relationships from multiple chunks.
 
     Processes chunks sequentially (LLM calls are the bottleneck).
@@ -129,8 +129,8 @@ def extract_from_chunks(
     if max_chunks:
         chunks = chunks[:max_chunks]
 
-    all_entities: List[GraphEntity] = []
-    all_relationships: List[GraphRelationship] = []
+    all_entities: list[GraphEntity] = []
+    all_relationships: list[GraphRelationship] = []
     failed_chunks = 0
 
     logger.info(f"Extracting entities from {len(chunks)} chunks...")
@@ -173,8 +173,8 @@ def extract_from_chunks(
 
 def load_chunks_for_extraction(
     strategy: str = "section",
-    book_ids: Optional[List[str]] = None,
-) -> List[Dict[str, Any]]:
+    book_ids: Optional[list[str]] = None,
+) -> list[dict[str, Any]]:
     """Load chunks from Stage 4 for entity extraction.
 
     Reads chunk files from DIR_FINAL_CHUNKS/{strategy}/ directory.
@@ -220,7 +220,7 @@ def load_chunks_for_extraction(
 
 
 def save_extraction_results(
-    results: Dict[str, Any],
+    results: dict[str, Any],
     output_name: str = "extraction_results.json",
 ) -> Path:
     """Save extraction results to JSON file.
@@ -248,10 +248,10 @@ def save_extraction_results(
 
 def run_extraction(
     strategy: str = "section",
-    book_ids: Optional[List[str]] = None,
+    book_ids: Optional[list[str]] = None,
     max_chunks: Optional[int] = None,
     model: str = GRAPHRAG_EXTRACTION_MODEL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run full entity extraction pipeline.
 
     Main entry point for Stage 4.6 (graph extraction).

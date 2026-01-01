@@ -26,7 +26,7 @@ Uses existing infrastructure:
 4. RRF merge both result sets → Return top-k chunks
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Set
+from typing import Any, Optional
 import re
 import json
 
@@ -60,7 +60,7 @@ logger = setup_logging(__name__)
 # LLM-based Query Entity Extraction
 # ============================================================================
 
-def _get_entity_types() -> List[str]:
+def _get_entity_types() -> list[str]:
     """Get entity types, preferring discovered types if available.
 
     Returns:
@@ -80,7 +80,7 @@ def _get_entity_types() -> List[str]:
 def extract_query_entities_llm(
     query: str,
     model: str = GRAPHRAG_EXTRACTION_MODEL,
-) -> List[str]:
+) -> list[str]:
     """Extract entities from query using LLM.
 
     Uses structured output to identify entity mentions in the query,
@@ -131,7 +131,7 @@ def extract_query_entities(
     query: str,
     driver: Optional[Driver] = None,
     use_llm: bool = True,
-) -> List[str]:
+) -> list[str]:
     """Extract entity mentions from query using LLM + Neo4j validation.
 
     Primary method: LLM-based extraction (handles conceptual terms)
@@ -190,7 +190,7 @@ def retrieve_graph_context(
     driver: Driver,
     max_hops: int = GRAPHRAG_TRAVERSE_DEPTH,
     limit: int = 20,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Retrieve context from knowledge graph based on query.
 
     Extracts entities from query, traverses graph, returns
@@ -237,8 +237,8 @@ def retrieve_graph_context(
 
 
 def get_chunk_ids_from_graph(
-    graph_context: List[Dict[str, Any]],
-) -> List[str]:
+    graph_context: list[dict[str, Any]],
+) -> list[str]:
     """Extract unique chunk IDs from graph context.
 
     Used to fetch full chunk content from Weaviate or files.
@@ -256,7 +256,7 @@ def get_chunk_ids_from_graph(
     return list(chunk_ids)
 
 
-def cosine_similarity(a: List[float], b: List[float]) -> float:
+def cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two vectors.
 
     Args:
@@ -276,9 +276,9 @@ def cosine_similarity(a: List[float], b: List[float]) -> float:
 
 def retrieve_community_context(
     query: str,
-    communities: Optional[List[Community]] = None,
+    communities: Optional[list[Community]] = None,
     top_k: int = GRAPHRAG_TOP_COMMUNITIES,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Retrieve relevant community summaries using embedding similarity.
 
     Tries Weaviate first for efficient HNSW search, then falls back to
@@ -387,7 +387,7 @@ def retrieve_community_context(
 def get_graph_chunk_ids(
     query: str,
     driver: Driver,
-) -> Tuple[List[str], Dict[str, Any]]:
+) -> tuple[list[str], dict[str, Any]]:
     """Get chunk IDs from graph traversal for a query.
 
     Extracts entities from query, traverses graph, and returns
@@ -451,10 +451,10 @@ def get_graph_chunk_ids(
 
 
 def enrich_results_with_graph(
-    vector_results: List[Dict[str, Any]],
-    graph_chunk_ids: List[str],
-    community_context: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], Set[str]]:
+    vector_results: list[dict[str, Any]],
+    graph_chunk_ids: list[str],
+    community_context: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], set[str]]:
     """Enrich vector results with graph-derived chunk IDs.
 
     Adds graph_boost flag to vector results that also appear in graph traversal.
@@ -495,9 +495,9 @@ def enrich_results_with_graph(
 def hybrid_graph_retrieval(
     query: str,
     driver: Driver,
-    vector_results: List[Dict[str, Any]],
+    vector_results: list[dict[str, Any]],
     top_k: int = 10,
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Merge vector search results with graph traversal.
 
     Enhances vector search with knowledge graph context:
@@ -566,7 +566,7 @@ def hybrid_graph_retrieval(
 
 
 def format_graph_context_for_generation(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     max_chars: int = 2000,
 ) -> str:
     """Format graph metadata as additional context for answer generation.

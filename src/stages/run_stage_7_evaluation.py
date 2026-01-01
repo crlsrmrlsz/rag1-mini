@@ -71,7 +71,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional
 
 from src.config import (
     DEFAULT_TOP_K,
@@ -88,7 +88,7 @@ from src.config import (
     get_collection_name,
 )
 from src.evaluation import run_evaluation
-from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg, OverwriteMode
+from src.shared.files import setup_logging, OverwriteContext, parse_overwrite_arg
 
 # Comprehensive evaluation imports (lazy-loaded in function)
 COMPREHENSIVE_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "comprehensive_questions.json"
@@ -137,8 +137,8 @@ def setup_file_logging(timestamp: str) -> Path:
 
 # Type alias for retrieval cache (used in comprehensive mode)
 # Cache key: (question_id, collection, search_type, alpha, strategy) - top_k is NOT in key
-RetrievalCacheKey = Tuple[str, str, str, float, str]
-RetrievalCache = Dict[RetrievalCacheKey, List[str]]  # Maps cache key -> context strings
+RetrievalCacheKey = tuple[str, str, str, float, str]
+RetrievalCache = dict[RetrievalCacheKey, list[str]]  # Maps cache key -> context strings
 
 
 # ============================================================================
@@ -158,7 +158,7 @@ EVALUATION_HISTORY_FILE = PROJECT_ROOT / "memory-bank" / "evaluation-history.md"
 def load_test_questions(
     filepath: Path = TEST_QUESTIONS_FILE,
     limit: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Load test questions from JSON file.
 
@@ -221,10 +221,10 @@ def get_next_run_number() -> int:
 
 
 def append_to_evaluation_history(
-    results: Dict[str, Any],
-    config: Dict[str, Any],
+    results: dict[str, Any],
+    config: dict[str, Any],
     output_path: Path,
-    questions: List[Dict[str, Any]],
+    questions: list[dict[str, Any]],
 ) -> None:
     """
     Append evaluation run summary to memory-bank/evaluation-history.md.
@@ -338,8 +338,8 @@ def append_to_evaluation_history(
 
 
 def generate_report(
-    results: Dict[str, Any],
-    questions: List[Dict[str, Any]],
+    results: dict[str, Any],
+    questions: list[dict[str, Any]],
     output_path: Path,
 ) -> None:
     """
@@ -539,7 +539,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     # Initialize retrieval cache (scoped to this comprehensive run)
     # Cache key: (question_id, collection, search_type, alpha, strategy) - top_k NOT in key
     # This allows us to retrieve once with max(top_k) and slice for smaller values
-    retrieval_cache: RetrievalCache = {}
+    retrieval_cache: dict[tuple[str, str, str, float, str], list[str]] = {}
     max_retrieval_k = max(top_k_values)
 
     # Iterate with top_k as INNERMOST loop for caching optimization
@@ -846,9 +846,9 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
 
 
 def compute_statistical_breakdown(
-    results: List[Dict[str, Any]],
+    results: list[dict[str, Any]],
     group_key: str,
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     """Compute statistical analysis (mean, std, min, max) for each group.
 
     Args:
@@ -861,7 +861,7 @@ def compute_statistical_breakdown(
     import statistics
     from collections import defaultdict
 
-    groups: Dict[str, List[float]] = defaultdict(list)
+    groups: dict[str, list[float]] = defaultdict(list)
     for r in results:
         if "error" not in r:
             groups[str(r[group_key])].append(r["scores"].get("faithfulness") or 0)
@@ -879,9 +879,9 @@ def compute_statistical_breakdown(
 
 
 def find_best_configurations(
-    sorted_results: List[Dict[str, Any]],
-    successful_runs: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    sorted_results: list[dict[str, Any]],
+    successful_runs: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
     """Find best configurations per metric.
 
     Args:
@@ -914,11 +914,11 @@ def find_best_configurations(
 
 
 def generate_comprehensive_report(
-    all_results: List[Dict[str, Any]],
-    questions: List[Dict[str, Any]],
+    all_results: list[dict[str, Any]],
+    questions: list[dict[str, Any]],
     output_path: Path,
     duration_seconds: float = 0.0,
-    grid_params: Optional[Dict[str, Any]] = None,
+    grid_params: Optional[dict[str, Any]] = None,
     log_path: Optional[Path] = None,
 ) -> None:
     """Generate enhanced leaderboard and statistical analysis for articles.
@@ -1039,7 +1039,7 @@ def generate_comprehensive_report(
     # =========================================================================
     # CONSOLE OUTPUT: Statistical Breakdowns
     # =========================================================================
-    def _print_breakdown(title: str, analysis: Dict[str, Dict[str, float]], format_label=str):
+    def _print_breakdown(title: str, analysis: dict[str, dict[str, float]], format_label=str):
         print("\n" + "=" * 100)
         print(title)
         print("=" * 100)
@@ -1103,7 +1103,7 @@ def generate_comprehensive_report(
 # ============================================================================
 
 
-def main():
+def main() -> None:
     """Run RAGAS evaluation on test questions."""
     parser = argparse.ArgumentParser(
         description="Run RAGAS evaluation on test questions"

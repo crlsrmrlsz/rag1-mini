@@ -14,7 +14,7 @@
 - **global**: Original algorithm, ranks by total count across all books.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional
 from pathlib import Path
 from collections import Counter
 import json
@@ -64,14 +64,14 @@ class OpenRelationship(BaseModel):
 
 class OpenExtractionResult(BaseModel):
     """Result of open-ended entity/relationship extraction."""
-    entities: List[OpenEntity] = Field(default_factory=list)
-    relationships: List[OpenRelationship] = Field(default_factory=list)
+    entities: list[OpenEntity] = Field(default_factory=list)
+    relationships: list[OpenRelationship] = Field(default_factory=list)
 
 
 class ConsolidatedTypes(BaseModel):
     """LLM-consolidated entity and relationship types."""
-    entity_types: List[str] = Field(...)
-    relationship_types: List[str] = Field(...)
+    entity_types: list[str] = Field(...)
+    relationship_types: list[str] = Field(...)
     rationale: str = Field(default="")
 
 
@@ -80,7 +80,7 @@ class ConsolidatedTypes(BaseModel):
 # ============================================================================
 
 def extract_chunk(
-    chunk: Dict[str, Any],
+    chunk: dict[str, Any],
     model: str = GRAPHRAG_EXTRACTION_MODEL,
 ) -> OpenExtractionResult:
     """Extract entities/relationships from a single chunk."""
@@ -101,7 +101,7 @@ def extract_chunk(
 def extract_book(
     book_path: Path,
     model: str = GRAPHRAG_EXTRACTION_MODEL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Extract entities/relationships from all chunks in a book.
 
     Args:
@@ -118,8 +118,8 @@ def extract_book(
         data = json.load(f)
     chunks = data if isinstance(data, list) else data.get("chunks", [])
 
-    all_entities: List[Dict[str, Any]] = []
-    all_relationships: List[Dict[str, Any]] = []
+    all_entities: list[dict[str, Any]] = []
+    all_relationships: list[dict[str, Any]] = []
     entity_type_counter: Counter = Counter()
     relationship_type_counter: Counter = Counter()
     failed_chunks = 0
@@ -178,8 +178,8 @@ def extract_book(
 # ============================================================================
 
 def consolidate_global(
-    entity_type_counts: Dict[str, int],
-    relationship_type_counts: Dict[str, int],
+    entity_type_counts: dict[str, int],
+    relationship_type_counts: dict[str, int],
     model: str = GRAPHRAG_EXTRACTION_MODEL,
 ) -> ConsolidatedTypes:
     """Consolidate types using global frequency ranking."""
@@ -207,7 +207,7 @@ def consolidate_global(
 
 def consolidate_stratified(
     extractions_dir: Path,
-    relationship_type_counts: Dict[str, int],
+    relationship_type_counts: dict[str, int],
     model: str = GRAPHRAG_EXTRACTION_MODEL,
 ) -> ConsolidatedTypes:
     """Consolidate types with balanced representation from each corpus.
@@ -223,8 +223,8 @@ def consolidate_stratified(
     }
 
     # Aggregate entity types per corpus
-    corpus_counts: Dict[str, Counter] = {c: Counter() for c in CORPUS_BOOK_MAPPING}
-    corpus_totals: Dict[str, int] = {c: 0 for c in CORPUS_BOOK_MAPPING}
+    corpus_counts: dict[str, Counter] = {c: Counter() for c in CORPUS_BOOK_MAPPING}
+    corpus_totals: dict[str, int] = {c: 0 for c in CORPUS_BOOK_MAPPING}
 
     for extraction_file in extractions_dir.glob("*.json"):
         corpus = book_to_corpus.get(extraction_file.stem)
@@ -240,7 +240,7 @@ def consolidate_stratified(
             corpus_totals[corpus] += count
 
     # Select top-K types per corpus
-    corpus_top: Dict[str, List[Tuple[str, float]]] = {}
+    corpus_top: dict[str, list[tuple[str, float]]] = {}
     for corpus, counter in corpus_counts.items():
         total = corpus_totals[corpus]
         if total == 0:
@@ -301,7 +301,7 @@ def consolidate_stratified(
 # File I/O Functions
 # ============================================================================
 
-def load_book_files(strategy: str = "section") -> List[Path]:
+def load_book_files(strategy: str = "section") -> list[Path]:
     """Get list of book chunk files."""
     chunk_dir = DIR_FINAL_CHUNKS / strategy
     if not chunk_dir.exists():
@@ -309,10 +309,10 @@ def load_book_files(strategy: str = "section") -> List[Path]:
     return sorted(chunk_dir.glob("*.json"))
 
 
-def merge_extractions(extractions_dir: Path) -> Dict[str, Any]:
+def merge_extractions(extractions_dir: Path) -> dict[str, Any]:
     """Merge all per-book extraction files into aggregated results."""
-    all_entities: List[Dict[str, Any]] = []
-    all_relationships: List[Dict[str, Any]] = []
+    all_entities: list[dict[str, Any]] = []
+    all_relationships: list[dict[str, Any]] = []
     entity_counter: Counter = Counter()
     relationship_counter: Counter = Counter()
     stats = {"total_books": 0, "processed_chunks": 0, "failed_chunks": 0}
@@ -347,8 +347,8 @@ def merge_extractions(extractions_dir: Path) -> Dict[str, Any]:
 
 def save_discovered_types(
     consolidated: ConsolidatedTypes,
-    raw_entity_counts: Dict[str, int],
-    raw_relationship_counts: Dict[str, int],
+    raw_entity_counts: dict[str, int],
+    raw_relationship_counts: dict[str, int],
     consolidation_method: str = "stratified",
 ) -> Path:
     """Save discovered types to JSON file."""
@@ -369,7 +369,7 @@ def save_discovered_types(
     return output_path
 
 
-def load_discovered_types(file_path: Optional[Path] = None) -> Dict[str, List[str]]:
+def load_discovered_types(file_path: Optional[Path] = None) -> dict[str, list[str]]:
     """Load previously discovered types from JSON file."""
     if file_path is None:
         file_path = DIR_GRAPH_DATA / "discovered_types.json"
@@ -396,7 +396,7 @@ def run_auto_tuning(
     overwrite_context: Optional[OverwriteContext] = None,
     model: str = GRAPHRAG_EXTRACTION_MODEL,
     skip_consolidation: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run auto-tuning with per-book extraction and configurable consolidation.
 
     Args:
@@ -490,7 +490,7 @@ def run_auto_tuning(
 def reconsolidate(
     strategy: str = "stratified",
     model: str = GRAPHRAG_EXTRACTION_MODEL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Re-run consolidation on existing extractions without re-extracting.
 
     Args:

@@ -27,7 +27,7 @@ Uses the official neo4j Python driver (v6):
 3. Query time: Match entities → Traverse → Return subgraph
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional
 from contextlib import contextmanager
 
 from neo4j import GraphDatabase, Driver, Session
@@ -190,7 +190,7 @@ def clear_graph(driver: Driver) -> int:
 
 def upload_entities(
     driver: Driver,
-    entities: List[Dict[str, Any]],
+    entities: list[dict[str, Any]],
     batch_size: int = 100,
 ) -> int:
     """Upload entities to Neo4j with Python-computed normalization.
@@ -258,7 +258,7 @@ def upload_entities(
 
 def upload_relationships(
     driver: Driver,
-    relationships: List[Dict[str, Any]],
+    relationships: list[dict[str, Any]],
     batch_size: int = 100,
 ) -> int:
     """Upload relationships to Neo4j with Python-computed normalization.
@@ -317,8 +317,8 @@ def upload_relationships(
 
 def upload_extraction_results(
     driver: Driver,
-    results: Dict[str, Any],
-) -> Dict[str, int]:
+    results: dict[str, Any],
+) -> dict[str, int]:
     """Upload extraction results (entities + relationships) to Neo4j.
 
     Main entry point for graph construction. Creates indexes first,
@@ -352,7 +352,7 @@ def upload_extraction_results(
     }
 
 
-def get_graph_stats(driver: Driver) -> Dict[str, Any]:
+def get_graph_stats(driver: Driver) -> dict[str, Any]:
     """Get statistics about the knowledge graph.
 
     Args:
@@ -398,7 +398,7 @@ def find_entity_neighbors(
     entity_name: str,
     max_hops: int = 2,
     limit: int = 50,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Find entities connected to a given entity within N hops.
 
     Used for local graph retrieval during query processing.
@@ -437,8 +437,8 @@ def find_entity_neighbors(
 
 def find_entities_by_names(
     driver: Driver,
-    entity_names: List[str],
-) -> List[Dict[str, Any]]:
+    entity_names: list[str],
+) -> list[dict[str, Any]]:
     """Find entities by a list of names.
 
     Used to locate entities mentioned in a query.

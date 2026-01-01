@@ -20,7 +20,7 @@ Pydantic v2 features used:
 - Field(description=...): Self-documenting schemas for LLM guidance
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Optional, Any
 import unicodedata
 import re
 
@@ -100,7 +100,7 @@ class GraphEntity(BaseModel):
         # Normalize whitespace
         return ' '.join(name.split())
 
-    def to_neo4j_properties(self) -> Dict[str, Any]:
+    def to_neo4j_properties(self) -> dict[str, Any]:
         """Convert to Neo4j node properties dict."""
         return {
             "name": self.name,
@@ -160,7 +160,7 @@ class GraphRelationship(BaseModel):
         description="Chunk ID where this relationship was extracted from",
     )
 
-    def to_neo4j_properties(self) -> Dict[str, Any]:
+    def to_neo4j_properties(self) -> dict[str, Any]:
         """Convert to Neo4j relationship properties dict."""
         return {
             "description": self.description,
@@ -190,11 +190,11 @@ class ExtractionResult(BaseModel):
         ... )
     """
 
-    entities: List[GraphEntity] = Field(
+    entities: list[GraphEntity] = Field(
         default_factory=list,
         description="List of entities extracted from the text",
     )
-    relationships: List[GraphRelationship] = Field(
+    relationships: list[GraphRelationship] = Field(
         default_factory=list,
         description="List of relationships between entities",
     )
@@ -242,7 +242,7 @@ class QueryEntities(BaseModel):
         ... ])
     """
 
-    entities: List[QueryEntity] = Field(
+    entities: list[QueryEntity] = Field(
         default_factory=list,
         description="Entities mentioned or implied in the query",
     )
@@ -296,7 +296,7 @@ class Community(BaseModel):
 
     community_id: str = Field(..., description="Unique community identifier")
     level: int = Field(default=0, description="Hierarchy level (0 = finest)")
-    members: List[CommunityMember] = Field(
+    members: list[CommunityMember] = Field(
         default_factory=list,
         description="Entities in this community",
     )
@@ -306,12 +306,12 @@ class Community(BaseModel):
         description="Relationships within community",
     )
     summary: str = Field(default="", description="LLM-generated community summary")
-    embedding: Optional[List[float]] = Field(
+    embedding: Optional[list[float]] = Field(
         default=None,
         description="Vector embedding of summary",
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return {
             "community_id": self.community_id,

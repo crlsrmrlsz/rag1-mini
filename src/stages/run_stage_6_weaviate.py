@@ -19,7 +19,6 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-from typing import List, Dict
 
 from src.config import (
     get_collection_name,
@@ -46,14 +45,14 @@ from src.rag_pipeline.chunking.strategies import list_strategies
 # CONFIGURATION
 # ---------------------------------------------------------------------------
 
-logger = setup_logging("Stage6_Weaviate")
+logger = setup_logging(__name__)
 
 
 # ---------------------------------------------------------------------------
 # CORE LOGIC
 # ---------------------------------------------------------------------------
 
-def load_embedding_file(file_path: Path) -> List[Dict]:
+def load_embedding_file(file_path: Path) -> list[dict]:
     """
     Load embedded chunks from a JSON file.
 
@@ -101,8 +100,8 @@ def upload_book(
 # ENTRY POINT
 # ---------------------------------------------------------------------------
 
-def main():
-    """Main entry point for Stage 6."""
+def main() -> None:
+    """Upload embeddings to Weaviate vector database."""
     parser = argparse.ArgumentParser(
         description="Stage 6: Upload embeddings to Weaviate"
     )

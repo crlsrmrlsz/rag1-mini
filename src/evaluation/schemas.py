@@ -9,7 +9,7 @@ Trace files are stored at: data/evaluation/traces/trace_{run_id}.json
 """
 
 from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from datetime import datetime
 import json
 from pathlib import Path
@@ -49,28 +49,28 @@ class QuestionTrace:
     # Preprocessing
     preprocessing_strategy: str
     search_query: str
-    generated_queries: Optional[List[Dict[str, str]]] = None
+    generated_queries: Optional[list[dict[str, str]]] = None
 
     # Retrieval
-    retrieved_contexts: List[str] = field(default_factory=list)
-    retrieval_metadata: Dict[str, Any] = field(default_factory=dict)
+    retrieved_contexts: list[str] = field(default_factory=list)
+    retrieval_metadata: dict[str, Any] = field(default_factory=dict)
 
     # Generation
     generated_answer: str = ""
     generation_model: str = ""
 
     # RAGAS scores (filled after evaluation)
-    scores: Dict[str, float] = field(default_factory=dict)
+    scores: dict[str, float] = field(default_factory=dict)
 
     # Failed metrics (RAGAS returned NaN - enables retry of just failed metrics)
-    failed_metrics: Dict[str, str] = field(default_factory=dict)
+    failed_metrics: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QuestionTrace":
+    def from_dict(cls, data: dict[str, Any]) -> "QuestionTrace":
         """Create from dict (for loading from JSON)."""
         return cls(**data)
 
@@ -97,15 +97,15 @@ class EvaluationTrace:
 
     run_id: str
     timestamp: str
-    config: Dict[str, Any]
-    questions: List[QuestionTrace] = field(default_factory=list)
-    aggregate_scores: Dict[str, float] = field(default_factory=dict)
-    difficulty_breakdown: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    ragas_metrics_used: List[str] = field(default_factory=list)
+    config: dict[str, Any]
+    questions: list[QuestionTrace] = field(default_factory=list)
+    aggregate_scores: dict[str, float] = field(default_factory=dict)
+    difficulty_breakdown: dict[str, dict[str, float]] = field(default_factory=dict)
+    ragas_metrics_used: list[str] = field(default_factory=list)
     evaluation_model: str = ""
     error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "run_id": self.run_id,
@@ -120,7 +120,7 @@ class EvaluationTrace:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvaluationTrace":
+    def from_dict(cls, data: dict[str, Any]) -> "EvaluationTrace":
         """Create from dict (for loading from JSON)."""
         questions = [QuestionTrace.from_dict(q) for q in data.get("questions", [])]
         return cls(
@@ -189,12 +189,12 @@ class FailedCombination:
     attempt_count: int = 1
     last_attempt_timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FailedCombination":
+    def from_dict(cls, data: dict[str, Any]) -> "FailedCombination":
         """Create from dict (for loading from JSON)."""
         return cls(**data)
 
@@ -211,7 +211,7 @@ class FailedCombinationsReport:
 
     comprehensive_run_id: str
     timestamp: str
-    failed_combinations: List[FailedCombination] = field(default_factory=list)
+    failed_combinations: list[FailedCombination] = field(default_factory=list)
 
     @property
     def total_failed(self) -> int:
@@ -223,7 +223,7 @@ class FailedCombinationsReport:
         """Generate CLI command to retry failed combinations."""
         return f"python -m src.stages.run_stage_7_evaluation --retry-failed {self.comprehensive_run_id}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to JSON-serializable dict."""
         return {
             "metadata": {
@@ -236,7 +236,7 @@ class FailedCombinationsReport:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FailedCombinationsReport":
+    def from_dict(cls, data: dict[str, Any]) -> "FailedCombinationsReport":
         """Create from dict (for loading from JSON)."""
         metadata = data.get("metadata", {})
         failed = [FailedCombination.from_dict(fc) for fc in data.get("failed_combinations", [])]

@@ -20,7 +20,6 @@ Usage:
 import argparse
 import json
 from pathlib import Path
-from typing import List, Dict
 
 from src.config import (
     DIR_FINAL_CHUNKS,
@@ -39,13 +38,13 @@ from src.rag_pipeline.chunking.strategies import list_strategies
 # CONFIGURATION
 # ---------------------------------------------------------------------------
 
-logger = setup_logging("Stage5_Embedding")
+logger = setup_logging(__name__)
 
 # ---------------------------------------------------------------------------
 # CORE LOGIC
 # ---------------------------------------------------------------------------
 
-def load_chunks(file_path: Path) -> List[Dict]:
+def load_chunks(file_path: Path) -> list[dict]:
     """Load chunk list from a JSON file.
 
     Handles both flat list format (section/contextual) and nested format (raptor).
@@ -113,7 +112,8 @@ def embed_book(file_path: Path, output_dir: Path):
 # ENTRY POINT
 # ---------------------------------------------------------------------------
 
-def main():
+def main() -> None:
+    """Embed chunks from specified chunking strategy."""
     parser = argparse.ArgumentParser(
         description="Stage 5: Embed chunks from specified chunking strategy"
     )

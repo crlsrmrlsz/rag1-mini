@@ -9,7 +9,7 @@ Each task (preprocessing, generation) gets 4-5 curated options:
 """
 
 import os
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Optional, Any
 
 import requests
 from dotenv import load_dotenv
@@ -28,7 +28,7 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 # Each category has a list of model IDs in order of preference.
 # The first available model in each category is selected.
 
-PREPROCESSING_CURATED: Dict[str, List[str]] = {
+PREPROCESSING_CURATED: dict[str, list[str]] = {
     # Simple tasks: hyde, decomposition
     # Prioritize speed and cost over deep reasoning
     "Budget": [
@@ -53,7 +53,7 @@ PREPROCESSING_CURATED: Dict[str, List[str]] = {
     ],
 }
 
-GENERATION_CURATED: Dict[str, List[str]] = {
+GENERATION_CURATED: dict[str, list[str]] = {
     # Complex tasks: answer synthesis, reasoning across sources
     # Quality matters more than speed
     "Budget": [
@@ -83,14 +83,14 @@ GENERATION_CURATED: Dict[str, List[str]] = {
 # FALLBACK MODELS (used if API fetch fails)
 # =============================================================================
 
-FALLBACK_PREPROCESSING_MODELS: List[Tuple[str, str]] = [
+FALLBACK_PREPROCESSING_MODELS: list[tuple[str, str]] = [
     ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
     ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
     ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
     ("anthropic/claude-opus-4.5", "Premium: Claude Opus 4.5"),
 ]
 
-FALLBACK_GENERATION_MODELS: List[Tuple[str, str]] = [
+FALLBACK_GENERATION_MODELS: list[tuple[str, str]] = [
     ("deepseek/deepseek-v3.2", "Budget: DeepSeek V3.2"),
     ("google/gemini-3-flash-preview", "Value: Gemini 3 Flash"),
     ("anthropic/claude-haiku-4.5", "Quality: Claude Haiku 4.5"),
@@ -103,7 +103,7 @@ FALLBACK_GENERATION_MODELS: List[Tuple[str, str]] = [
 # =============================================================================
 
 
-def fetch_available_models() -> Optional[List[Dict[str, Any]]]:
+def fetch_available_models() -> Optional[list[dict[str, Any]]]:
     """Fetch all available models from OpenRouter API.
 
     Returns:
@@ -140,7 +140,7 @@ def _format_price(price_per_token: float) -> str:
         return f"${price_per_million:.1f}"
 
 
-def _format_curated_label(category: str, model: Dict[str, Any]) -> str:
+def _format_curated_label(category: str, model: dict[str, Any]) -> str:
     """Create a curated label: 'Category: Name ($in/$out)'."""
     name = model.get("name", model["id"].split("/")[-1])
     pricing = model.get("pricing", {})
@@ -155,9 +155,9 @@ def _format_curated_label(category: str, model: Dict[str, Any]) -> str:
 
 
 def _get_curated_models(
-    all_models: List[Dict[str, Any]],
-    curated_priorities: Dict[str, List[str]],
-) -> List[Tuple[str, str]]:
+    all_models: list[dict[str, Any]],
+    curated_priorities: dict[str, list[str]],
+) -> list[tuple[str, str]]:
     """Select one model per category from curated priorities.
 
     For each category (Budget, Value, Quality, Premium), finds the first
@@ -191,8 +191,8 @@ def _get_curated_models(
 
 
 def get_preprocessing_models(
-    cached_models: Optional[List[Dict[str, Any]]] = None
-) -> List[Tuple[str, str]]:
+    cached_models: Optional[list[dict[str, Any]]] = None
+) -> list[tuple[str, str]]:
     """Get curated models for preprocessing (hyde, decomposition).
 
     Returns 4 options: Budget, Value, Quality, Premium.
@@ -214,8 +214,8 @@ def get_preprocessing_models(
 
 
 def get_generation_models(
-    cached_models: Optional[List[Dict[str, Any]]] = None
-) -> List[Tuple[str, str]]:
+    cached_models: Optional[list[dict[str, Any]]] = None
+) -> list[tuple[str, str]]:
     """Get curated models for answer generation.
 
     Returns 4 options: Budget, Value, Quality, Premium.

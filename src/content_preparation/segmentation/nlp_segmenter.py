@@ -5,7 +5,7 @@ sentence-level granularity and context tracking.
 """
 
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import Optional
 
 import spacy
 
@@ -47,7 +47,7 @@ def _get_nlp():
     return _nlp
 
 
-def _get_sentences(text: str) -> List[str]:
+def _get_sentences(text: str) -> list[str]:
     """Split text into sentences using spaCy.
 
     Args:
@@ -61,7 +61,7 @@ def _get_sentences(text: str) -> List[str]:
     return [sent.text.strip() for sent in doc.sents]
 
 
-def _filter_sentences(sentences: List[str]) -> Tuple[List[str], List[str]]:
+def _filter_sentences(sentences: list[str]) -> tuple[list[str], list[str]]:
     """Filter out noise sentences (fragments, lowercase starts).
 
     Args:
@@ -107,7 +107,7 @@ def _build_context_string(book_name: str, chapter: str, section: str = "") -> st
     return CONTEXT_SEPARATOR.join(parts)
 
 
-def segment_document(clean_text: str, book_name: str) -> List[Dict]:
+def segment_document(clean_text: str, book_name: str) -> list[dict]:
     """Segment document into structured chunks with context.
 
     Splits text by headers, extracts sentences per paragraph,

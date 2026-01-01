@@ -23,7 +23,7 @@ Two-Stage Retrieval:
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional
 
 import streamlit as st
 
@@ -55,19 +55,19 @@ class SearchOutput:
         rrf_data: If RRF merging was used, contains RRFResult for logging.
         graph_metadata: If GraphRAG was used, contains entity/community info.
     """
-    results: List[Dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)
     rerank_data: Optional[Any] = None  # RerankResult when reranking is used
     rrf_data: Optional[Any] = None  # RRFResult when multi-query is used
-    graph_metadata: Optional[Dict[str, Any]] = None  # GraphRAG metadata
+    graph_metadata: Optional[dict[str, Any]] = None  # GraphRAG metadata
 
 
 def search_multi_query(
-    queries: List[Dict[str, str]],
+    queries: list[dict[str, str]],
     top_k: int = DEFAULT_TOP_K,
     search_type: str = "hybrid",
     alpha: float = 0.5,
     collection_name: Optional[str] = None,
-) -> Tuple[List[SearchResult], RRFResult]:
+) -> tuple[list[SearchResult], RRFResult]:
     """Execute multiple queries and merge with Reciprocal Rank Fusion.
 
     Each query is executed independently, then results are merged using RRF
@@ -139,7 +139,7 @@ def search_chunks(
     alpha: float = 0.5,
     collection_name: Optional[str] = None,
     use_reranking: bool = False,
-    multi_queries: Optional[List[Dict[str, str]]] = None,
+    multi_queries: Optional[list[dict[str, str]]] = None,
     strategy: Optional[str] = None,
 ) -> SearchOutput:
     """
@@ -211,7 +211,7 @@ def search_chunks(
 
             # Execute search based on type
             if search_type == "hybrid":
-                results: List[SearchResult] = query_hybrid(
+                results: list[SearchResult] = query_hybrid(
                     client=client,
                     query_text=query,
                     top_k=initial_k,
@@ -219,7 +219,7 @@ def search_chunks(
                     collection_name=collection_name,
                 )
             else:
-                results: List[SearchResult] = query_similar(
+                results: list[SearchResult] = query_similar(
                     client=client,
                     query_text=query,
                     top_k=initial_k,
@@ -280,7 +280,7 @@ def search_chunks(
     )
 
 
-def list_collections() -> List[str]:
+def list_collections() -> list[str]:
     """
     List all available RAG collections in Weaviate.
 
@@ -371,7 +371,7 @@ def extract_strategy_from_collection(collection_name: str) -> str:
 
 
 @st.cache_data(ttl=60)
-def get_available_collections() -> List[CollectionInfo]:
+def get_available_collections() -> list[CollectionInfo]:
     """
     List all RAG collections with enriched metadata.
 

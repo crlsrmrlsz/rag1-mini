@@ -1,7 +1,7 @@
 import logging
 from enum import Enum, auto
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 
 # ============================================================================
@@ -153,7 +153,7 @@ def setup_logging(name: str) -> logging.Logger:
     )
     return logging.getLogger(name)
 
-def get_file_list(source_dir: Path, extension: str) -> List[Path]:
+def get_file_list(source_dir: Path, extension: str) -> list[Path]:
     """Recursively finds all files with specific extension."""
     if not source_dir.exists():
         raise FileNotFoundError(f"Source directory not found: {source_dir}")

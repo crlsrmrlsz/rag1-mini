@@ -267,6 +267,66 @@ def query_hybrid(
     return _parse_results(response.objects, use_distance=False)
 
 
+def query_bm25(
+    client: weaviate.WeaviateClient,
+    query_text: str,
+    top_k: int = 5,
+    book_ids: Optional[Union[str, List[str]]] = None,
+    collection_name: Optional[str] = None,
+) -> List[SearchResult]:
+    """
+    Perform pure BM25 keyword search without vector similarity.
+
+    BM25 (Best Matching 25) is a probabilistic ranking function that scores
+    documents based on term frequency, document length, and inverse document
+    frequency. Unlike hybrid search, this function does not use embeddings
+    at all, making it faster but potentially less semantically aware.
+
+    Use this when:
+    - Testing keyword-only baselines
+    - Queries contain specific technical terms or proper nouns
+    - Semantic similarity might be misleading (e.g., "not X" queries)
+
+    Args:
+        client: Connected Weaviate client.
+        query_text: The natural language query to search for.
+        top_k: Number of results to return (default: 5).
+        book_ids: Optional book ID(s) to filter results.
+        collection_name: Target collection (default: from config).
+
+    Returns:
+        List of SearchResult objects, ordered by BM25 relevance.
+
+    Raises:
+        weaviate.exceptions.WeaviateQueryError: If the search fails.
+
+    Example:
+        >>> results = query_bm25(
+        ...     client,
+        ...     "amygdala fear response",
+        ...     book_ids=["Behave", "Biopsychology"]
+        ... )
+    """
+    if collection_name is None:
+        collection_name = get_collection_name()
+
+    logger.info(f"[query_bm25] Collection: {collection_name}")
+    logger.info(f"BM25 search: {query_text[:50]}...")
+
+    collection = client.collections.get(collection_name)
+    book_filter = _build_book_filter(book_ids)
+
+    # Pure BM25 search - no vector similarity
+    response = collection.query.bm25(
+        query=query_text,
+        limit=top_k,
+        filters=book_filter,
+        return_metadata=MetadataQuery(score=True),
+    )
+
+    return _parse_results(response.objects, use_distance=False)
+
+
 def list_available_books(
     client: weaviate.WeaviateClient,
     collection_name: Optional[str] = None,

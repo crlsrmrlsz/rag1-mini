@@ -8,6 +8,7 @@ routing - they simply transform queries for better retrieval.
 
 Strategies:
 - none: No transformation (baseline for comparison)
+- keyword: Pure BM25 keyword search (no embeddings)
 - hyde: Generate hypothetical answer for semantic matching (arXiv:2212.10496)
 - decomposition: Break into sub-questions + RRF merge (+36.7% MRR@10, arXiv:2507.00355)
 - graphrag: Hybrid graph + vector retrieval via RRF (arXiv:2404.16130)
@@ -214,12 +215,42 @@ def graphrag_strategy(query: str, model: Optional[str] = None) -> PreprocessedQu
 
 
 # =============================================================================
+# KEYWORD STRATEGY (Pure BM25)
+# =============================================================================
+
+
+def keyword_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
+    """Pure BM25 keyword search - no embeddings needed.
+
+    This strategy signals that retrieval should use only keyword matching
+    (BM25 algorithm) without any vector similarity search. This is useful
+    for testing keyword-only baselines and for queries where exact term
+    matching is more appropriate than semantic similarity.
+
+    Args:
+        query: The user's original query.
+        model: Ignored (no LLM call made).
+
+    Returns:
+        PreprocessedQuery with strategy_used="keyword" to signal BM25-only mode.
+    """
+    return PreprocessedQuery(
+        original_query=query,
+        search_query=query,
+        strategy_used="keyword",
+        preprocessing_time_ms=0.0,
+        model=model or PREPROCESSING_MODEL,
+    )
+
+
+# =============================================================================
 # STRATEGY REGISTRY
 # =============================================================================
 
 # Maps strategy ID to strategy function
 STRATEGIES: Dict[str, StrategyFunction] = {
     "none": none_strategy,
+    "keyword": keyword_strategy,
     "hyde": hyde_strategy,
     "decomposition": decomposition_strategy,
     "graphrag": graphrag_strategy,

@@ -483,6 +483,30 @@ def retrieve_contexts(
                 client.close()
 
     # =========================================================================
+    # KEYWORD: Pure BM25 search (no embeddings)
+    # =========================================================================
+    if preprocessed and preprocessed.strategy_used == "keyword":
+        logger.info("  [keyword] Executing pure BM25 search")
+
+        from src.rag_pipeline.indexing.weaviate_query import query_bm25
+
+        client = get_client()
+        try:
+            results = query_bm25(
+                client=client,
+                query_text=question,
+                top_k=initial_k,
+                collection_name=collection_name,
+            )
+
+            # Apply cross-encoder reranking if enabled
+            results = apply_reranking_if_enabled(results, question, top_k, use_reranking)
+
+            return [r.text for r in results]
+        finally:
+            client.close()
+
+    # =========================================================================
     # DEFAULT: Standard hybrid search (for none and fallback)
     # =========================================================================
     client = get_client()
@@ -713,7 +737,7 @@ def process_single_question(
             retrieval_k = max_retrieval_k if max_retrieval_k else top_k
 
             contexts = retrieve_contexts_with_cache(
-                question=search_query,
+                question=question,  # Always use original question (preprocessed has strategy data)
                 top_k=top_k,
                 retrieval_k=retrieval_k,
                 collection_name=resolved_collection,

@@ -118,16 +118,17 @@ def hyde_prompt(query: str, model: Optional[str] = None, k: int = HYDE_K) -> Lis
                 temperature=0.7,  # Paper uses 0.7 for diverse hypothetical documents
                 # No max_tokens constraint - paper lets LLM generate naturally, encoder filters noise
             )
-            passages.append(response.strip())
+            response_text = response.strip()
+            if response_text:  # Only add non-empty responses
+                passages.append(response_text)
+            else:
+                logger.warning(f"HyDE prompt {i+1}/{k} returned empty response")
         except requests.RequestException as e:
             logger.warning(f"HyDE prompt {i+1}/{k} failed: {e}")
-            # On failure, use original query as fallback for this slot
-            if len(passages) == 0:
-                passages.append(query)
 
     # Ensure at least one passage (fallback to original query)
     if not passages:
-        logger.warning("All HyDE prompts failed, using original query")
+        logger.warning("All HyDE prompts failed or returned empty, using original query")
         passages = [query]
 
     logger.info(f"[hyde] Generated {len(passages)} hypotheticals")

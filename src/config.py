@@ -296,13 +296,13 @@ EVAL_LOGS_DIR = DATA_DIR / "evaluation" / "logs"
 # ============================================================================
 
 # Model for query preprocessing (hyde, decomposition)
-# GPT-5 Nano: $0.05/$0.40 per 1M tokens - consistent with eval/generation
-PREPROCESSING_MODEL = "openai/gpt-5-nano"
+# GPT-4o-mini: HyDE requires domain knowledge - nano models return empty responses
+PREPROCESSING_MODEL = "openai/gpt-4o-mini"
 
 # Fallback models for preprocessing (used if dynamic fetch fails)
 # These are updated manually when OpenRouter availability changes
 AVAILABLE_PREPROCESSING_MODELS = [
-    ("openai/gpt-5-nano", "Budget: GPT-5 Nano"),
+    ("openai/gpt-4o-mini", "Value: GPT-4o Mini"),
     ("deepseek/deepseek-v3.2", "Value: DeepSeek V3.2"),
     ("google/gemini-3-flash-preview", "Quality: Gemini 3 Flash"),
     ("anthropic/claude-haiku-4.5", "Premium: Claude Haiku 4.5"),

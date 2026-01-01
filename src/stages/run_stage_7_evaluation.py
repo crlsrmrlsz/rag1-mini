@@ -457,7 +457,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
 
     # Get all collections, alphas, top_k values, all strategies
     collections = list_collections()
-    alphas = [0.0, 0.5, 1.0]  # Reduced from 5 to 3 (removed 0.3, 0.7 - minimal impact)
+    alphas = [0.5, 1.0]  # Hybrid modes only (keyword search via 'keyword' strategy instead of alpha=0.0)
     top_k_values = [10, 20]
     all_strategies = list_strategies()
 

@@ -239,15 +239,14 @@ def call_structured_completion(
     max_retries: int = 5,
     backoff_base: float = 2.5,
 ) -> T:
-    """Call OpenRouter with JSON Schema enforcement and Pydantic validation.
+    """Call OpenRouter with JSON mode and Pydantic validation.
 
     This function provides structured outputs by:
-    1. Converting Pydantic model to JSON Schema
-    2. Sending schema to OpenRouter for enforcement (strict mode)
-    3. Parsing and validating response with Pydantic
+    1. Requesting JSON output from the model (json_object mode)
+    2. Parsing and validating response with Pydantic
 
-    Uses JSON Schema mode for guaranteed valid responses. Falls back to
-    json_object mode with warning if schema mode is unsupported by the model.
+    Uses json_object mode for broad compatibility across providers.
+    Pydantic validation ensures the response matches the expected schema.
 
     Args:
         messages: List of message dicts with 'role' and 'content' keys.
@@ -280,7 +279,6 @@ def call_structured_completion(
         "Hello!"
     """
     from .files import setup_logging
-    from .schemas import get_openrouter_schema
 
     logger = setup_logging(__name__)
 
@@ -293,16 +291,14 @@ def call_structured_completion(
         "Content-Type": "application/json",
     }
 
-    # Build payload with JSON Schema enforcement
+    # Build payload with json_object mode (widely supported across providers)
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        "response_format": get_openrouter_schema(response_model),
+        "response_format": {"type": "json_object"},
     }
-
-    use_fallback = False
 
     for attempt in range(max_retries + 1):
         try:
@@ -332,39 +328,7 @@ def call_structured_completion(
                 logger.info(f"[LLM] model={model} chars_in={chars_in} chars_out={chars_out} (structured)")
 
                 # Parse and validate with Pydantic
-                try:
-                    return response_model.model_validate_json(content)
-                except PydanticValidationError as e:
-                    if not use_fallback:
-                        # Schema mode may have failed, try json_object fallback
-                        logger.warning(
-                            f"Pydantic validation failed, trying json_object fallback: {e}"
-                        )
-                        payload["response_format"] = {"type": "json_object"}
-                        use_fallback = True
-                        continue
-                    # Already in fallback mode, re-raise
-                    raise
-
-            # Check for schema mode unsupported error (400 with specific message)
-            # OpenRouter may return generic "Provider returned error" for schema issues
-            if response.status_code == 400 and not use_fallback:
-                try:
-                    error_msg = response.json().get("error", {}).get("message", "")
-                    fallback_triggers = [
-                        "response_format",
-                        "schema",
-                        "provider returned error",  # Generic OpenRouter wrapper error
-                    ]
-                    if any(trigger in error_msg.lower() for trigger in fallback_triggers):
-                        logger.warning(
-                            f"JSON Schema mode not supported by {model}, falling back to json_object"
-                        )
-                        payload["response_format"] = {"type": "json_object"}
-                        use_fallback = True
-                        continue
-                except Exception:
-                    pass
+                return response_model.model_validate_json(content)
 
             # Retryable errors: rate limit or server errors
             if response.status_code >= 500 or response.status_code == 429:

@@ -148,7 +148,6 @@ RetrievalCache = Dict[RetrievalCacheKey, List[str]]  # Maps cache key -> context
 TEST_QUESTIONS_FILE = EVAL_TEST_QUESTIONS_FILE
 RESULTS_DIR = EVAL_RESULTS_DIR
 EVALUATION_HISTORY_FILE = PROJECT_ROOT / "memory-bank" / "evaluation-history.md"
-EVALUATION_RUNS_FILE = PROJECT_ROOT / "data" / "evaluation" / "evaluation_runs.json"
 
 
 # ============================================================================
@@ -331,114 +330,6 @@ def append_to_evaluation_history(
         f.write(entry)
 
     logger.info(f"Appended to {EVALUATION_HISTORY_FILE} as Run {run_number}")
-
-
-def update_tracking_json(
-    results: Dict[str, Any],
-    config: Dict[str, Any],
-    questions: List[Dict[str, Any]],
-    output_path: Path,
-) -> None:
-    """
-    Update data/evaluation/tracking.json with new run entry.
-
-    Maintains a structured JSON file for programmatic analysis of
-    evaluation history.
-
-    Args:
-        results: RAGAS evaluation results with 'scores' key.
-        config: Run configuration dict.
-        questions: List of test questions.
-        output_path: Path where JSON results were saved.
-    """
-    # Load existing tracking data
-    if EVALUATION_RUNS_FILE.exists():
-        with open(EVALUATION_RUNS_FILE, "r") as f:
-            tracking = json.load(f)
-    else:
-        tracking = {
-            "_documentation": {
-                "purpose": "Track evaluation runs with configurations and metrics",
-                "schema_version": "1.0",
-                "usage": "Updated automatically by run_stage_7_evaluation.py",
-            },
-            "runs": [],
-            "improvements": [],
-            "next_experiments": [],
-        }
-
-    # Calculate category breakdown and failures
-    df = results.get("results")
-    category_breakdown = {}
-    failures = []
-
-    if df is not None:
-        for i, q in enumerate(questions):
-            if i >= len(df):
-                continue
-            category = q.get("category", "unknown")
-            if category not in category_breakdown:
-                category_breakdown[category] = {"count": 0, "avg_relevancy": 0, "avg_faithfulness": 0}
-            category_breakdown[category]["count"] += 1
-
-            relevancy = df.iloc[i].get("answer_relevancy", 0) or 0
-            faithfulness = df.iloc[i].get("faithfulness", 0) or 0
-
-            # Track running totals for averaging
-            cat = category_breakdown[category]
-            n = cat["count"]
-            cat["avg_relevancy"] = ((n - 1) * cat["avg_relevancy"] + relevancy) / n
-            cat["avg_faithfulness"] = ((n - 1) * cat["avg_faithfulness"] + faithfulness) / n
-
-            # Track failures
-            if relevancy == 0:
-                failures.append(q.get("id", f"q{i}"))
-
-    # Round category averages
-    for cat in category_breakdown.values():
-        cat["avg_relevancy"] = round(cat["avg_relevancy"], 2)
-        cat["avg_faithfulness"] = round(cat["avg_faithfulness"], 2)
-
-    # Build run entry
-    run_id = output_path.stem  # e.g., "eval_20251220_101507"
-    scores = results.get("scores", {})
-
-    run_entry = {
-        "run_id": run_id,
-        "timestamp": datetime.now().isoformat(),
-        "config": {
-            "collection": config.get("collection", get_collection_name()),
-            "search_type": "hybrid",
-            "top_k": config.get("top_k", 10),
-            "alpha": config.get("alpha", 0.5),
-            "chunk_size": MAX_CHUNK_TOKENS,
-            "overlap_sentences": OVERLAP_SENTENCES,
-            "embedding_model": EMBEDDING_MODEL,
-            "generation_model": config.get("generation_model", "unknown"),
-            "evaluation_model": config.get("evaluation_model", "unknown"),
-            "reranking": config.get("reranking", False),
-            "rerank_model": "mxbai-rerank-large-v1" if config.get("reranking") else None,
-            "preprocessing_strategy": config.get("preprocessing_strategy", "none"),
-            "preprocessing_model": config.get("preprocessing_model"),
-        },
-        "metrics": {
-            "faithfulness": round(scores.get("faithfulness", 0), 3),
-            "relevancy": round(scores.get("relevancy", 0), 3),
-            "context_precision": round(scores.get("context_precision", 0), 3) if scores.get("context_precision") else None,
-            "num_questions": len(questions),
-        },
-        "category_breakdown": category_breakdown,
-        "failures": failures,
-        "notes": "",
-    }
-
-    tracking["runs"].append(run_entry)
-
-    # Write updated tracking
-    with open(EVALUATION_RUNS_FILE, "w") as f:
-        json.dump(tracking, f, indent=2)
-
-    logger.info(f"Updated {EVALUATION_RUNS_FILE} with run {run_id}")
 
 
 # ============================================================================
@@ -1385,7 +1276,6 @@ def main():
             "evaluation_model": args.evaluation_model,
         }
         append_to_evaluation_history(results, config, output_path, questions)
-        update_tracking_json(results, config, questions, output_path)
     else:
         logger.info("Skipping auto-logging (--no-log specified)")
 

@@ -34,30 +34,45 @@ Example:
 }
 ```
 
-## Evaluation Grid (4D)
+## Evaluation Grid (5D)
 
 ```
-Collections × Alphas × Top-K × Strategies
-    │           │        │        │
-    │           │        │        └── [none, hyde, decomposition, graphrag]
-    │           │        └── [10, 20] chunks retrieved
-    │           └── [0.0, 0.3, 0.5, 0.7, 1.0] (BM25 ↔ vector balance)
-    └── [section, contextual, raptor] (chunking strategies)
+Collections × Search Types × Alphas × Strategies × Top-K
+    │             │           │          │           │
+    │             │           │          │           └── [10, 20] chunks retrieved
+    │             │           │          └── [none, hyde, decomposition, graphrag]
+    │             │           └── [0.5, 1.0] (hybrid only; N/A for keyword)
+    │             └── [keyword, hybrid]
+    └── [section, contextual, semantic, raptor]
 ```
 
-**Typical grid**: 3 collections × 5 alphas × 2 top_k × 4 strategies = **~120 combinations**
+**Dimensions:**
+- **Collections**: Chunking strategies (section, contextual, semantic, raptor)
+- **Search Types**: `keyword` (BM25 only) or `hybrid` (vector + BM25)
+- **Alphas**: For hybrid search, balance between vector (1.0) and keyword (0.5). Ignored for keyword search.
+- **Strategies**: Query preprocessing (none, hyde, decomposition, graphrag)
+- **Top-K**: Number of chunks to retrieve (10, 20)
+
+**Total**: ~102 valid combinations (51 base × 2 top_k values)
 
 Note: graphrag only compatible with section/contextual collections (requires matching chunk IDs).
 
 ## Running Evaluation
 
 ```bash
-# Single configuration (full 45 questions)
+# Single configuration with hybrid search (full 45 questions)
 python -m src.stages.run_stage_7_evaluation \
   --collection RAG_section_embed3large_v1 \
+  --search-type hybrid \
   --preprocessing hyde \
   --alpha 0.7 \
   --top-k 15
+
+# Single configuration with keyword (BM25) search
+python -m src.stages.run_stage_7_evaluation \
+  --collection RAG_section_embed3large_v1 \
+  --search-type keyword \
+  --preprocessing decomposition
 
 # Grid search (15-question curated subset)
 python -m src.stages.run_stage_7_evaluation --comprehensive
@@ -65,6 +80,16 @@ python -m src.stages.run_stage_7_evaluation --comprehensive
 # Retry failed combinations from previous run
 python -m src.stages.run_stage_7_evaluation --retry-failed comprehensive_20251231_120000
 ```
+
+**CLI Arguments:**
+| Argument | Values | Default | Description |
+|----------|--------|---------|-------------|
+| `--search-type`, `-s` | keyword, hybrid | hybrid | Weaviate query method |
+| `--preprocessing`, `-p` | none, hyde, decomposition, graphrag | none | Query transformation |
+| `--alpha`, `-a` | 0.0-1.0 | 0.5 | Hybrid balance (ignored for keyword) |
+| `--top-k`, `-k` | int | 10 | Chunks to retrieve |
+| `--collection` | string | auto | Weaviate collection name |
+| `--comprehensive` | flag | - | Run 5D grid search |
 
 Comprehensive mode uses 15 curated questions (5 single-concept + 10 cross-domain) for faster grid search.
 

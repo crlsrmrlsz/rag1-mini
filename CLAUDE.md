@@ -50,7 +50,8 @@ python -m src.stages.run_stage_6b_neo4j
 
 # === Query with graphrag strategy ===
 # UI: Select "graphrag" in preprocessing dropdown
-# CLI: python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
+# CLI (with hybrid search - recommended for graphrag):
+python -m src.stages.run_stage_7_evaluation --search-type hybrid --preprocessing graphrag
 ```
 
 **Consolidation Strategies:**
@@ -208,14 +209,15 @@ Update these files when making significant changes to maintain project continuit
 - [x] Register decomposition in STRATEGIES dict
 - [x] Update config, CLI, logger, and UI
 
-**Phase 5: Alpha Tuning + Comprehensive Eval** - COMPLETE (Dec 24-31)
-- [x] Comprehensive evaluation mode: `--comprehensive` flag for 4D grid search
-- [x] Tests all combinations: collections × alphas × top_k × strategies
+**Phase 5: Alpha Tuning + Comprehensive Eval** - COMPLETE (Dec 24-Jan 1)
+- [x] Comprehensive evaluation mode: `--comprehensive` flag for 5D grid search
+- [x] Tests all combinations: collections × search_types × alphas × strategies × top_k
 - [x] Curated 15-question subset in `comprehensive_questions.json`
 - [x] Leaderboard report with metric breakdowns
 - [x] Trace persistence for metric recalculation (Dec 31)
 - [x] Retrieval caching for top_k dimension (Dec 31)
 - [x] Retry logic with exponential backoff (Dec 31)
+- [x] Added search_type dimension (keyword vs hybrid) - Jan 1
 
 **Phase 6: Contextual Retrieval** - COMPLETE (Dec 22)
 - [x] Create contextual_chunker.py (prepend LLM context to chunks)
@@ -238,8 +240,8 @@ Update these files when making significant changes to maintain project continuit
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.
 
 ### Completed Recently
-- Evaluation docs update: 4D grid, traces, caching, design decisions (~180 lines consolidated) (Dec 31)
+- Added search_type dimension: keyword (BM25) vs hybrid as 5th evaluation axis (Jan 1)
+- Evaluation docs update: 5D grid, traces, caching, design decisions (Jan 1)
 - Retrieval caching: top_k as innermost loop, 50% fewer API calls in grid search (Dec 31)
 - Top_k as 4th evaluation dimension: [10, 20] to test retrieval depth impact (Dec 31)
 - Trace schemas + retry logic: QuestionTrace, EvaluationTrace, exponential backoff (Dec 31)
-- Expanded comprehensive questions: 10→15 (5 single-concept + 10 cross-domain) (Dec 31)

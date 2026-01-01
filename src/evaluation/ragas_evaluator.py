@@ -25,10 +25,10 @@ from ragas.metrics import (
     FactualCorrectness,
     AnswerCorrectness,
 )
-from ragas.llms import llm_factory
-from ragas.embeddings import OpenAIEmbeddings as RagasOpenAIEmbeddings
+from ragas.llms import LangchainLLMWrapper
+from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.run_config import RunConfig
-from openai import OpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from src.config import (
     OPENROUTER_API_KEY,
@@ -85,41 +85,45 @@ def _is_valid_score(value: Any) -> bool:
 # ============================================================================
 
 
-def create_evaluator_llm(model: str = "openai/gpt-4o-mini"):
+def create_evaluator_llm(model: str = "openai/gpt-4o-mini") -> LangchainLLMWrapper:
     """
     Create LLM wrapper for RAGAS evaluation via OpenRouter.
 
-    Uses the new llm_factory API (replaces deprecated LangchainLLMWrapper).
-    This properly manages async lifecycle to avoid event loop cleanup errors.
+    Uses LangchainLLMWrapper (deprecated but functional). The newer llm_factory
+    API is incompatible with RAGAS evaluate() - causes 'agenerate_prompt' errors.
 
     Args:
         model: OpenRouter model ID for evaluation.
 
     Returns:
-        RAGAS LLM wrapper configured for OpenRouter.
+        LangchainLLMWrapper configured for OpenRouter.
     """
-    client = OpenAI(
-        api_key=OPENROUTER_API_KEY,
+    llm = ChatOpenAI(
+        model=model,
         base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
+        temperature=0.0,
+        max_tokens=4096,
+        request_timeout=120,
     )
-    return llm_factory(model, client=client)
+    return LangchainLLMWrapper(llm)
 
 
-def create_evaluator_embeddings():
+def create_evaluator_embeddings() -> LangchainEmbeddingsWrapper:
     """
     Create embeddings wrapper for RAGAS evaluation via OpenRouter.
 
-    Uses the new RagasOpenAIEmbeddings API (replaces deprecated LangchainEmbeddingsWrapper).
-    This properly manages async lifecycle to avoid event loop cleanup errors.
+    Uses LangchainEmbeddingsWrapper (deprecated but functional).
 
     Returns:
-        RAGAS embeddings wrapper configured for OpenRouter.
+        LangchainEmbeddingsWrapper configured for OpenRouter.
     """
-    client = OpenAI(
-        api_key=OPENROUTER_API_KEY,
+    embeddings = OpenAIEmbeddings(
+        model=EMBEDDING_MODEL_ID,
         base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
     )
-    return RagasOpenAIEmbeddings(client=client, model=EMBEDDING_MODEL_ID)
+    return LangchainEmbeddingsWrapper(embeddings)
 
 
 class RAGASEvaluationError(Exception):
@@ -131,8 +135,8 @@ class RAGASEvaluationError(Exception):
 def evaluate_with_retry(
     dataset: EvaluationDataset,
     metrics: list,
-    llm: Any,
-    embeddings: Any,
+    llm: LangchainLLMWrapper,
+    embeddings: LangchainEmbeddingsWrapper,
     max_retries: int = 3,
     backoff_base: float = 2.0,
     run_config: Optional[RunConfig] = None,

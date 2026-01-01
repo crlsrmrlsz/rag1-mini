@@ -261,11 +261,10 @@ MAX_TOP_K = 20
 # DeepSeek V3.2: $0.14/1M input - good balance of cost and capability
 EVAL_GENERATION_MODEL = "deepseek/deepseek-v3.2"
 
-# Evaluation model: Claude 3 Haiku for stable LLM-as-judge
-# RAGAS research: "Anthropic models were the most stable" for evaluation
-# Source: https://blog.ragas.io/evaluating-the-evaluators
-# Smaller models (GPT-4o-mini, Gemini Flash-Lite) showed unpredictable behavior
-EVAL_EVALUATION_MODEL = "anthropic/claude-3-haiku"
+# Evaluation model: GPT-4o-mini with JSON mode for reliable structured output
+# Claude 3 Haiku was returning prose instead of JSON, causing OutputParserException
+# GPT-4o-mini supports response_format: json_object for guaranteed JSON compliance
+EVAL_EVALUATION_MODEL = "openai/gpt-4o-mini"
 
 # Test questions file location
 EVAL_TEST_QUESTIONS_FILE = PROJECT_ROOT / "src" / "evaluation" / "test_questions.json"

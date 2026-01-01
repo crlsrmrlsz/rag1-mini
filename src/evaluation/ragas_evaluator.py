@@ -270,14 +270,18 @@ def retrieve_contexts(
     use_reranking: bool = True,
     alpha: float = 0.5,
     preprocessed: Optional[PreprocessedQuery] = None,
+    search_type: str = "hybrid",
 ) -> List[str]:
     """
     Retrieve relevant contexts from Weaviate for a question.
 
-    This function implements strategy-aware retrieval:
-    1. For decomposition: Executes each sub-query and merges with RRF
-    2. For graphrag: Combines vector search with Neo4j graph traversal
-    3. For other strategies: Standard hybrid search with optional reranking
+    This function implements strategy-aware retrieval with configurable search type:
+    1. search_type determines HOW to search (keyword BM25 vs hybrid)
+    2. preprocessing_strategy determines query transformation (HyDE, decomposition, graphrag)
+
+    These are orthogonal dimensions:
+    - search_type: "keyword" (BM25 only) or "hybrid" (vector + BM25)
+    - preprocessing: "none", "hyde", "decomposition", "graphrag"
 
     Args:
         question: The user's question (or preprocessed search_query).
@@ -285,25 +289,48 @@ def retrieve_contexts(
         collection_name: Override collection name.
         use_reranking: If True, apply cross-encoder reranking.
                        Retrieves 50 candidates and reranks to top_k.
-                       If False, directly returns top_k from hybrid search.
-        alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
+                       If False, directly returns top_k from search.
+        alpha: Hybrid search balance (0.5=balanced, 1.0=vector). Only used for hybrid.
         preprocessed: PreprocessedQuery from strategy, enables strategy-aware
                      retrieval for decomposition (RRF) and graphrag (Neo4j).
+        search_type: "keyword" for pure BM25, "hybrid" for vector+BM25 (default).
 
     Returns:
         List of context strings from retrieved chunks.
 
     Technical Notes:
         - Hybrid search combines vector similarity with BM25 keyword matching
-        - alpha=0.0 is pure BM25, alpha=1.0 is pure vector, 0.5 is balanced
+        - Keyword search uses pure BM25 (no embeddings)
         - Decomposition uses RRF to merge results from 3-4 sub-queries
         - GraphRAG boosts chunks found via Neo4j entity traversal
         - Cross-encoder reranking improves precision by 20-35%
     """
+    from src.rag_pipeline.indexing.weaviate_query import query_bm25
+
     collection_name = collection_name or get_collection_name()
 
     # Determine initial retrieval size
     initial_k = 50 if use_reranking else top_k
+
+    # Helper function to execute search based on search_type
+    def execute_search(client, query_text: str, k: int, precomputed_embedding=None):
+        """Execute keyword or hybrid search based on search_type."""
+        if search_type == "keyword":
+            return query_bm25(
+                client=client,
+                query_text=query_text,
+                top_k=k,
+                collection_name=collection_name,
+            )
+        else:  # hybrid
+            return query_hybrid(
+                client=client,
+                query_text=query_text,
+                top_k=k,
+                alpha=alpha,
+                collection_name=collection_name,
+                precomputed_embedding=precomputed_embedding,
+            )
 
     # =========================================================================
     # DECOMPOSITION: Multi-query with RRF merge
@@ -311,7 +338,7 @@ def retrieve_contexts(
     if preprocessed and preprocessed.strategy_used == "decomposition":
         generated_queries = preprocessed.generated_queries or []
         if len(generated_queries) > 1:
-            logger.info(f"  [decomposition] Executing {len(generated_queries)} queries with RRF merge")
+            logger.info(f"  [decomposition] Executing {len(generated_queries)} queries with RRF merge (search_type={search_type})")
 
             # Import RRF infrastructure from UI search service
             from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion
@@ -321,7 +348,7 @@ def retrieve_contexts(
                 result_lists = []
                 query_types = []
 
-                # Execute each sub-query
+                # Execute each sub-query using configured search_type
                 per_query_k = max(top_k * 2, 20)
                 for q in generated_queries:
                     query_text = q.get("query", "")
@@ -330,13 +357,7 @@ def retrieve_contexts(
                     if not query_text:
                         continue
 
-                    results = query_hybrid(
-                        client=client,
-                        query_text=query_text,
-                        top_k=per_query_k,
-                        alpha=alpha,
-                        collection_name=collection_name,
-                    )
+                    results = execute_search(client, query_text, per_query_k)
 
                     result_lists.append(results)
                     query_types.append(query_type)
@@ -363,21 +384,17 @@ def retrieve_contexts(
     # GRAPHRAG: Hybrid graph + vector retrieval
     # =========================================================================
     if preprocessed and preprocessed.strategy_used == "graphrag":
-        logger.info("  [graphrag] Executing hybrid graph + vector retrieval")
+        if search_type == "keyword":
+            logger.warning("  [graphrag] GraphRAG is designed for vector search; keyword search may be suboptimal")
+        logger.info(f"  [graphrag] Executing hybrid graph + vector retrieval (search_type={search_type})")
 
         client = get_client()
         try:
-            # First, get vector results
-            vector_results = query_hybrid(
-                client=client,
-                query_text=question,
-                top_k=initial_k,
-                alpha=alpha,
-                collection_name=collection_name,
-            )
+            # First, get results using configured search_type
+            search_results = execute_search(client, question, initial_k)
 
             # Convert SearchResult to dicts for hybrid_graph_retrieval
-            vector_dicts = [
+            result_dicts = [
                 {
                     "chunk_id": r.chunk_id,
                     "book_id": r.book_id,
@@ -387,7 +404,7 @@ def retrieve_contexts(
                     "token_count": r.token_count,
                     "similarity": r.score,
                 }
-                for r in vector_results
+                for r in search_results
             ]
 
             # Merge with Neo4j graph traversal
@@ -400,7 +417,7 @@ def retrieve_contexts(
                     merged_results, graph_meta = hybrid_graph_retrieval(
                         query=preprocessed.original_query,
                         driver=driver,
-                        vector_results=vector_dicts,
+                        vector_results=result_dicts,
                         top_k=initial_k,
                     )
 
@@ -434,45 +451,68 @@ def retrieve_contexts(
                     driver.close()
 
             except Exception as e:
-                # Fallback to vector-only if Neo4j fails
-                logger.warning(f"  [graphrag] Neo4j retrieval failed: {e}, using vector-only")
-                vector_results = apply_reranking_if_enabled(
-                    vector_results, preprocessed.original_query, top_k, use_reranking
+                # Fallback to search-only if Neo4j fails
+                logger.warning(f"  [graphrag] Neo4j retrieval failed: {e}, using search-only")
+                search_results = apply_reranking_if_enabled(
+                    search_results, preprocessed.original_query, top_k, use_reranking
                 )
-                return [r.text for r in vector_results[:top_k]]
+                return [r.text for r in search_results[:top_k]]
 
         finally:
             client.close()
 
     # =========================================================================
     # HYDE: K=5 hypotheticals with embedding averaging (paper recommendation)
+    # Note: For keyword search_type, HyDE still transforms the query but uses BM25
     # =========================================================================
     if preprocessed and preprocessed.strategy_used == "hyde":
         generated_queries = preprocessed.generated_queries or []
         hyde_passages = [q.get("query", "") for q in generated_queries if q.get("type") == "hyde" and q.get("query")]
 
         if len(hyde_passages) > 1:
-            logger.info(f"  [hyde] Averaging {len(hyde_passages)} hypothetical embeddings")
-
-            from src.rag_pipeline.embedding.embedder import embed_texts
-
-            # Embed all K hypothetical passages
-            embeddings = embed_texts(hyde_passages)  # List[List[float]]
-
-            # Average embeddings (element-wise mean)
-            avg_embedding = [sum(col) / len(col) for col in zip(*embeddings)]
+            logger.info(f"  [hyde] {len(hyde_passages)} hypotheticals (search_type={search_type})")
 
             client = get_client()
             try:
-                # Use averaged embedding for search, original query for BM25
-                results = query_hybrid(
-                    client=client,
-                    query_text=preprocessed.original_query,  # Original for BM25
-                    top_k=initial_k,
-                    alpha=alpha,
-                    collection_name=collection_name,
-                    precomputed_embedding=avg_embedding,  # Averaged for vector
-                )
+                if search_type == "keyword":
+                    # For keyword search, use HyDE passages as search queries with RRF
+                    from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion
+
+                    result_lists = []
+                    query_types = []
+                    per_query_k = max(top_k * 2, 20)
+
+                    for i, passage in enumerate(hyde_passages):
+                        results = query_bm25(
+                            client=client,
+                            query_text=passage,
+                            top_k=per_query_k,
+                            collection_name=collection_name,
+                        )
+                        result_lists.append(results)
+                        query_types.append(f"hyde_{i}")
+
+                    rrf_result = reciprocal_rank_fusion(
+                        result_lists=result_lists,
+                        query_types=query_types,
+                        top_k=initial_k,
+                    )
+                    results = rrf_result.results
+                else:
+                    # For hybrid search, average embeddings (original HyDE paper approach)
+                    from src.rag_pipeline.embedding.embedder import embed_texts
+
+                    embeddings = embed_texts(hyde_passages)
+                    avg_embedding = [sum(col) / len(col) for col in zip(*embeddings)]
+
+                    results = query_hybrid(
+                        client=client,
+                        query_text=preprocessed.original_query,
+                        top_k=initial_k,
+                        alpha=alpha,
+                        collection_name=collection_name,
+                        precomputed_embedding=avg_embedding,
+                    )
 
                 results = apply_reranking_if_enabled(
                     results, preprocessed.original_query, top_k, use_reranking
@@ -483,42 +523,12 @@ def retrieve_contexts(
                 client.close()
 
     # =========================================================================
-    # KEYWORD: Pure BM25 search (no embeddings)
-    # =========================================================================
-    if preprocessed and preprocessed.strategy_used == "keyword":
-        logger.info("  [keyword] Executing pure BM25 search")
-
-        from src.rag_pipeline.indexing.weaviate_query import query_bm25
-
-        client = get_client()
-        try:
-            results = query_bm25(
-                client=client,
-                query_text=question,
-                top_k=initial_k,
-                collection_name=collection_name,
-            )
-
-            # Apply cross-encoder reranking if enabled
-            results = apply_reranking_if_enabled(results, question, top_k, use_reranking)
-
-            return [r.text for r in results]
-        finally:
-            client.close()
-
-    # =========================================================================
-    # DEFAULT: Standard hybrid search (for none and fallback)
+    # DEFAULT: Standard search (for none and fallback)
     # =========================================================================
     client = get_client()
 
     try:
-        results = query_hybrid(
-            client=client,
-            query_text=question,
-            top_k=initial_k,
-            alpha=alpha,
-            collection_name=collection_name,
-        )
+        results = execute_search(client, question, initial_k)
 
         # Apply cross-encoder reranking if enabled (using helper for consistency)
         results = apply_reranking_if_enabled(results, question, top_k, use_reranking)
@@ -575,6 +585,7 @@ def retrieve_contexts_with_cache(
     preprocessed: Optional[PreprocessedQuery],
     cache: Optional[Dict] = None,
     cache_key: Optional[tuple] = None,
+    search_type: str = "hybrid",
 ) -> List[str]:
     """Retrieve contexts with optional caching for comprehensive mode.
 
@@ -594,7 +605,8 @@ def retrieve_contexts_with_cache(
         alpha: Hybrid search balance.
         preprocessed: Optional PreprocessedQuery for strategy-aware retrieval.
         cache: Optional cache dict (keys are cache_key tuples).
-        cache_key: Optional tuple (question_id, collection, alpha, strategy).
+        cache_key: Optional tuple (question_id, collection, search_type, alpha, strategy).
+        search_type: "keyword" for BM25, "hybrid" for vector+BM25 (default).
 
     Returns:
         List of context text strings (length = top_k).
@@ -615,6 +627,7 @@ def retrieve_contexts_with_cache(
         use_reranking=use_reranking,
         alpha=alpha,
         preprocessed=preprocessed,
+        search_type=search_type,
     )
 
     # Store in cache before slicing
@@ -664,6 +677,7 @@ def process_single_question(
     max_retrieval_k: Optional[int] = None,
     max_retries: int = 3,
     backoff_base: float = 2.0,
+    search_type: str = "hybrid",
 ) -> QuestionProcessingResult:
     """Process a single question through preprocessing, retrieval, and generation with retry.
 
@@ -684,6 +698,7 @@ def process_single_question(
         max_retrieval_k: Max retrieval count for caching.
         max_retries: Maximum retry attempts per stage.
         backoff_base: Exponential backoff base.
+        search_type: "keyword" for BM25, "hybrid" for vector+BM25 (default).
 
     Returns:
         QuestionProcessingResult with success status, sample, trace, or error details.
@@ -732,7 +747,8 @@ def process_single_question(
 
             cache_key = None
             if retrieval_cache is not None:
-                cache_key = (question_id, resolved_collection, alpha, preprocessing_strategy)
+                # Cache key includes search_type to differentiate keyword vs hybrid results
+                cache_key = (question_id, resolved_collection, search_type, alpha, preprocessing_strategy)
 
             retrieval_k = max_retrieval_k if max_retrieval_k else top_k
 
@@ -746,6 +762,7 @@ def process_single_question(
                 preprocessed=preprocessed,
                 cache=retrieval_cache,
                 cache_key=cache_key,
+                search_type=search_type,
             )
             logger.info(f"  Retrieved {len(contexts)} contexts")
 
@@ -787,6 +804,7 @@ def process_single_question(
                     "alpha": alpha,
                     "collection": resolved_collection,
                     "reranking": use_reranking,
+                    "search_type": search_type,
                 },
                 generated_answer=answer,
                 generation_model=generation_model,
@@ -857,6 +875,8 @@ def run_evaluation(
     ragas_max_workers: int = 4,
     ragas_max_wait: int = 90,
     ragas_log_tenacity: bool = True,
+    # Search type dimension (orthogonal to preprocessing)
+    search_type: str = "hybrid",
 ) -> Dict[str, Any]:
     """
     Run RAGAS evaluation on test questions with traceability and resilience.
@@ -882,8 +902,8 @@ def run_evaluation(
         collection_name: Override Weaviate collection.
         use_reranking: If True, apply cross-encoder reranking to improve retrieval.
                        Default: True (enabled for best accuracy).
-        alpha: Hybrid search balance (0.0=keyword, 0.5=balanced, 1.0=vector).
-        preprocessing_strategy: Query preprocessing strategy ("none", "hyde", "decomposition").
+        alpha: Hybrid search balance (0.5=balanced, 1.0=vector). Only used for hybrid search_type.
+        preprocessing_strategy: Query preprocessing strategy ("none", "hyde", "decomposition", "graphrag").
                                Default: "none" for clean baseline evaluation.
         preprocessing_model: Model for preprocessing LLM calls (default from config).
         save_trace: If True, save trace file with all interactions for recalculation.
@@ -891,7 +911,7 @@ def run_evaluation(
         ragas_max_retries: Maximum retries for RAGAS evaluation API calls.
         ragas_backoff_base: Exponential backoff base for RAGAS retries.
         retrieval_cache: Optional cache dict for comprehensive mode. When provided,
-                        retrieval results are cached by (question_id, collection, alpha, strategy).
+                        retrieval results are cached by (question_id, collection, search_type, alpha, strategy).
                         Enables top_k slicing optimization (retrieve max_retrieval_k once, slice for smaller top_k).
         max_retrieval_k: When caching, retrieve this many results and cache them.
                         Smaller top_k values are sliced from the cached results.
@@ -899,6 +919,7 @@ def run_evaluation(
                           Default 4 (vs RAGAS default 16) to prevent rate limiting.
         ragas_max_wait: Maximum wait time (seconds) between RAGAS retries. Default 90.
         ragas_log_tenacity: If True, log RAGAS retry attempts for visibility.
+        search_type: "keyword" for pure BM25, "hybrid" for vector+BM25 (default).
 
     Returns:
         Dict with:
@@ -927,6 +948,7 @@ def run_evaluation(
     # Build config dict for trace
     config = {
         "collection": resolved_collection,
+        "search_type": search_type,
         "alpha": alpha,
         "top_k": top_k,
         "use_reranking": use_reranking,
@@ -962,6 +984,7 @@ def run_evaluation(
             max_retrieval_k=max_retrieval_k,
             max_retries=ragas_max_retries,
             backoff_base=ragas_backoff_base,
+            search_type=search_type,
         )
 
         if result.success:

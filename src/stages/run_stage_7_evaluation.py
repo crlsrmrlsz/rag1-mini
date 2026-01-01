@@ -136,8 +136,8 @@ def setup_file_logging(timestamp: str) -> Path:
 
 
 # Type alias for retrieval cache (used in comprehensive mode)
-# Cache key: (question_id, collection, alpha, strategy) - top_k is NOT in key
-RetrievalCacheKey = Tuple[str, str, float, str]
+# Cache key: (question_id, collection, search_type, alpha, strategy) - top_k is NOT in key
+RetrievalCacheKey = Tuple[str, str, str, float, str]
 RetrievalCache = Dict[RetrievalCacheKey, List[str]]  # Maps cache key -> context strings
 
 
@@ -421,10 +421,13 @@ def generate_report(
 def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     """Run comprehensive evaluation across all VALID combinations with failure tracking.
 
-    Tests: collections x alpha values x preprocessing strategies
-    - Filters out invalid combinations (e.g., graphrag + semantic collection)
+    Tests: collections x search_types x (alphas for hybrid) x preprocessing_strategies x top_k
+    - search_type: "keyword" (BM25) or "hybrid" (vector+BM25)
+    - For keyword search_type, alpha is ignored (set to 0.0 in results)
+    - For hybrid search_type, alpha values [0.5, 1.0] are tested
+    - Filters out invalid preprocessing strategies (e.g., graphrag + semantic collection)
     - No reranking (always disabled for speed)
-    - Uses curated 10-question subset
+    - Uses curated question subset
     - Generates enhanced leaderboard report with statistical analysis
     - Outputs article-ready summary with key findings
     - Saves failed_combinations.json for later retry
@@ -436,7 +439,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     import time
     from src.ui.services.search import list_collections, extract_strategy_from_collection
     from src.rag_pipeline.retrieval.preprocessing.strategies import list_strategies
-    from src.config import get_valid_preprocessing_strategies
+    from src.config import get_valid_preprocessing_strategies, list_search_types
     from src.evaluation.schemas import FailedCombinationsReport
 
     # Generate timestamp early for consistent naming across log, checkpoint, and results
@@ -455,9 +458,10 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         return
     logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
 
-    # Get all collections, alphas, top_k values, all strategies
+    # Get all dimensions
     collections = list_collections()
-    alphas = [0.5, 1.0]  # Hybrid modes only (keyword search via 'keyword' strategy instead of alpha=0.0)
+    search_types = list_search_types()  # ["keyword", "hybrid"]
+    hybrid_alphas = [0.5, 1.0]  # Only used when search_type="hybrid"
     top_k_values = [10, 20]
     all_strategies = list_strategies()
 
@@ -481,28 +485,40 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
         logger.error("No RAG collections found in Weaviate. Run stage 6 first.")
         return
 
-    # Build base combinations (collection, alpha, strategy) - without top_k for caching optimization
-    # top_k will be the innermost loop so we can cache retrievals and slice for smaller top_k values
+    # Build base combinations: (collection, search_type, alpha, strategy)
+    # For keyword: alpha is always 0.0 (unused but stored for consistency)
+    # For hybrid: test each alpha value
+    # top_k will be the innermost loop for caching optimization
     base_combinations = []
     for collection in collections:
         collection_strategy = extract_strategy_from_collection(collection)
         valid_preprocessing = get_valid_preprocessing_strategies(collection_strategy)
-        for alpha in alphas:
-            for strategy in all_strategies:
-                if strategy in valid_preprocessing:
-                    base_combinations.append((collection, alpha, strategy))
+        for search_type in search_types:
+            if search_type == "keyword":
+                # Keyword search: alpha is ignored, use 0.0 as placeholder
+                for strategy in all_strategies:
+                    if strategy in valid_preprocessing:
+                        base_combinations.append((collection, search_type, 0.0, strategy))
+            else:  # hybrid
+                # Hybrid search: test each alpha value
+                for alpha in hybrid_alphas:
+                    for strategy in all_strategies:
+                        if strategy in valid_preprocessing:
+                            base_combinations.append((collection, search_type, alpha, strategy))
 
     # Calculate total combinations (base * top_k values)
     total_combinations = len(base_combinations) * len(top_k_values)
-    total_possible = len(collections) * len(alphas) * len(top_k_values) * len(all_strategies)
-    skipped = total_possible - total_combinations
+    # Count expected valid combinations for logging
+    num_keyword = len(collections) * len(all_strategies)  # keyword x all strategies (filtered later)
+    num_hybrid = len(collections) * len(hybrid_alphas) * len(all_strategies)  # hybrid x alphas x strategies
 
     # Log what we're testing
-    logger.info(f"Testing {total_combinations} valid combinations ({skipped} invalid skipped):")
+    logger.info(f"Testing {total_combinations} valid combinations:")
     logger.info(f"  Collections ({len(collections)}): {collections}")
-    logger.info(f"  Alphas ({len(alphas)}): {alphas}")
+    logger.info(f"  Search types ({len(search_types)}): {search_types}")
+    logger.info(f"  Alphas for hybrid ({len(hybrid_alphas)}): {hybrid_alphas}")
     logger.info(f"  Top-K values ({len(top_k_values)}): {top_k_values}")
-    logger.info(f"  Strategies ({len(all_strategies)}): {all_strategies}")
+    logger.info(f"  Preprocessing strategies ({len(all_strategies)}): {all_strategies}")
     logger.info(f"  Base combinations: {len(base_combinations)} (top_k is innermost loop for caching)")
     logger.info(f"  Note: graphrag only valid with section/contextual collections")
 
@@ -521,7 +537,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     )
 
     # Initialize retrieval cache (scoped to this comprehensive run)
-    # Cache key: (question_id, collection, alpha, strategy) - top_k NOT in key
+    # Cache key: (question_id, collection, search_type, alpha, strategy) - top_k NOT in key
     # This allows us to retrieve once with max(top_k) and slice for smaller values
     retrieval_cache: RetrievalCache = {}
     max_retrieval_k = max(top_k_values)
@@ -529,12 +545,14 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     # Iterate with top_k as INNERMOST loop for caching optimization
     # First top_k (10): cache miss, retrieves 20, caches
     # Second top_k (20): cache hit, uses cached 20
-    for collection, alpha, strategy in base_combinations:
+    for collection, search_type, alpha, strategy in base_combinations:
         for top_k in top_k_values:
             count += 1
+            # Format alpha display: show for hybrid, mark as N/A for keyword
+            alpha_display = f"alpha={alpha}" if search_type == "hybrid" else "alpha=N/A (keyword)"
             logger.info(
                 f"\n[{count}/{total_combinations}] "
-                f"{collection} | alpha={alpha} | top_k={top_k} | strategy={strategy}"
+                f"{collection} | {search_type} | {alpha_display} | top_k={top_k} | strategy={strategy}"
             )
 
             try:
@@ -552,6 +570,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                     save_trace=True,  # Enable traces for debugging and recalculation
                     retrieval_cache=retrieval_cache,  # Caching for top_k optimization
                     max_retrieval_k=max_retrieval_k,  # Always retrieve max, slice for smaller
+                    search_type=search_type,  # NEW: keyword or hybrid
                 )
 
                 # Store configuration + scores + difficulty breakdown + trace path
@@ -562,6 +581,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
 
                 all_results.append({
                     "collection": collection,
+                    "search_type": search_type,
                     "alpha": alpha,
                     "top_k": top_k,
                     "strategy": strategy,
@@ -610,6 +630,7 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
 
                 all_results.append({
                     "collection": collection,
+                    "search_type": search_type,
                     "alpha": alpha,
                     "top_k": top_k,
                     "strategy": strategy,
@@ -628,7 +649,8 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
                 "results": all_results,
                 "grid_params": {
                     "collections": collections,
-                    "alphas": alphas,
+                    "search_types": search_types,
+                    "hybrid_alphas": hybrid_alphas,
                     "top_k_values": top_k_values,
                     "strategies": all_strategies,
                 },
@@ -646,11 +668,11 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     # Build grid parameters for report
     grid_params = {
         "collections": collections,
-        "alphas": alphas,
+        "search_types": search_types,
+        "hybrid_alphas": hybrid_alphas,
         "top_k_values": top_k_values,
         "strategies": all_strategies,
         "valid_combinations_count": total_combinations,
-        "skipped_count": skipped,
     }
 
     generate_comprehensive_report(
@@ -1127,11 +1149,19 @@ def main():
         help="Output file path (default: results/eval_TIMESTAMP.json)",
     )
     parser.add_argument(
+        "--search-type",
+        "-s",
+        type=str,
+        choices=["keyword", "hybrid"],
+        default="hybrid",
+        help="Search type: keyword (BM25 only) or hybrid (vector+BM25, default)",
+    )
+    parser.add_argument(
         "--alpha",
         "-a",
         type=float,
         default=0.5,
-        help="Hybrid search alpha: 0.0=keyword, 0.5=balanced, 1.0=vector (default: 0.5)",
+        help="Hybrid search alpha: 0.5=balanced, 1.0=vector (default: 0.5). Only used with --search-type=hybrid.",
     )
     parser.add_argument(
         "--reranking",
@@ -1161,7 +1191,7 @@ def main():
         "--preprocessing",
         "-p",
         type=str,
-        choices=["none", "keyword", "hyde", "decomposition", "graphrag"],
+        choices=["none", "hyde", "decomposition", "graphrag"],
         default="none",
         help="Query preprocessing strategy (default: none for clean baseline)",
     )
@@ -1234,7 +1264,9 @@ def main():
     logger.info(f"Collection: {collection_name}")
     logger.info(f"Metrics: {args.metrics}")
     logger.info(f"Top-K: {args.top_k}")
-    logger.info(f"Alpha: {args.alpha}")
+    logger.info(f"Search type: {args.search_type}")
+    alpha_display = f"{args.alpha}" if args.search_type == "hybrid" else "N/A (keyword)"
+    logger.info(f"Alpha: {alpha_display}")
     logger.info(f"Reranking: {args.reranking}")
     logger.info(f"Preprocessing: {args.preprocessing}")
     logger.info(f"Generation model: {args.generation_model}")
@@ -1252,6 +1284,7 @@ def main():
             alpha=args.alpha,
             preprocessing_strategy=args.preprocessing,
             preprocessing_model=args.preprocessing_model,
+            search_type=args.search_type,
         )
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
@@ -1267,6 +1300,7 @@ def main():
     if not args.no_log:
         config = {
             "collection": collection_name,
+            "search_type": args.search_type,
             "alpha": args.alpha,
             "top_k": args.top_k,
             "reranking": args.reranking,

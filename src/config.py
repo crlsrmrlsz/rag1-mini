@@ -333,10 +333,27 @@ ENABLE_QUERY_PREPROCESSING = True
 
 
 # ============================================================================
+# SEARCH TYPE SETTINGS
+# ============================================================================
+
+# Available search types (how chunks are retrieved from Weaviate)
+# This is orthogonal to preprocessing strategies (which transform the query)
+# Format: (search_type_id, display_label, description)
+AVAILABLE_SEARCH_TYPES = [
+    ("keyword", "Keyword (BM25)", "Pure BM25 keyword search, no embeddings"),
+    ("hybrid", "Hybrid", "Combines vector similarity with BM25 keyword matching"),
+]
+
+# Default search type for evaluation
+DEFAULT_SEARCH_TYPE = "hybrid"
+
+
+# ============================================================================
 # PREPROCESSING STRATEGY SETTINGS
 # ============================================================================
 
-# Available preprocessing strategies
+# Available preprocessing strategies (query transformation before search)
+# Note: These are ORTHOGONAL to search_type. Any strategy works with any search_type.
 # Format: (strategy_id, display_label, description)
 AVAILABLE_PREPROCESSING_STRATEGIES = [
     ("none", "None", "No preprocessing, use original query"),
@@ -386,6 +403,15 @@ def get_valid_preprocessing_strategies(collection_strategy: str) -> list:
     return PREPROCESSING_COMPATIBILITY.get(
         base_strategy, ["none", "hyde", "decomposition"]
     )
+
+
+def list_search_types() -> list:
+    """List all available search type IDs.
+
+    Returns:
+        List of search type IDs (e.g., ["keyword", "hybrid"]).
+    """
+    return [st[0] for st in AVAILABLE_SEARCH_TYPES]
 
 
 # ============================================================================

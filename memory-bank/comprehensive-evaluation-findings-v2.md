@@ -13,9 +13,11 @@
 **5-Dimensional Grid:**
 - **Chunking:** section, contextual, raptor, semantic_0.3
 - **Preprocessing:** none, HyDE, decomposition, GraphRAG
-- **Search Type:** keyword (BM25), hybrid (vector + BM25)
-- **Alpha:** 0.0, 0.5, 1.0 (semantic weight)
+- **Search Type:** keyword (BM25 only) vs hybrid (BM25 + vector)
+- **Alpha:** 0.5 vs 1.0 (semantic weight, within hybrid search only)
 - **Top-K:** 10, 20
+
+*Note: Alpha=0.0 is equivalent to keyword search, so alpha comparisons are only meaningful within hybrid configurations.*
 
 **Corpus:** 19 books (neuroscience + philosophy)
 **Questions:** 15 (5 single-concept + 10 cross-domain)
@@ -59,9 +61,9 @@ These findings apply regardless of which generation model you use.
 | Dimension | Best | Worst | Gap | Cohen's d |
 |-----------|------|-------|-----|-----------|
 | **Search Type** | hybrid (0.888) | keyword (0.787) | 0.101 | d=2.68 |
-| **Alpha** | alpha=1.0 (0.897) | alpha=0.0 (0.787) | 0.110 | d=2.65 |
-| Preprocessing | semantic_0.3 (0.869) | graphrag (0.836) | 0.031 | d=0.45 |
-| Chunking | contextual (0.852) | raptor (0.853) | 0.001 | d=0.01 |
+| Alpha (hybrid only) | alpha=1.0 (0.897) | alpha=0.5 (0.879) | 0.018 | d=0.58 |
+| Preprocessing | decomposition (0.867) | graphrag (0.836) | 0.031 | d=0.49 |
+| Chunking | semantic_0.3 (0.869) | section (0.848) | 0.021 | d=0.33 |
 | Top-K | k=10 (0.856) | k=20 (0.853) | 0.003 | d=0.04 |
 
 ---
@@ -79,16 +81,16 @@ Search Type  ██                    12%   <- Low impact
 
 **For Context Precision (Relevance):**
 ```
-Alpha        ████████████████████  100%  <- Biggest lever
-Search Type  ██████████████████    92%
-Preprocessing█████                 29%
-Chunking     ███                   19%   <- Low impact
-Top-K        ▏                      2%   <- Negligible
+Search Type    ████████████████████  100%  <- Biggest lever (hybrid vs keyword)
+Preprocessing  ██████                31%
+Chunking       ████                  20%
+Alpha (hybrid) ███                   17%   <- Modest impact within hybrid
+Top-K          ▏                      3%   <- Negligible
 ```
 
 **Key Insight:** Different dimensions dominate different metrics:
 - **Recall** is controlled by chunking, top_k, and preprocessing
-- **Precision** is controlled by alpha and search type
+- **Precision** is controlled by search type (hybrid vs keyword)
 
 ---
 
@@ -110,15 +112,14 @@ Top-K        ▏                      2%   <- Negligible
 | Comparison | d | Conclusion |
 |------------|---|------------|
 | hybrid vs keyword | +2.68 | **hybrid WINS** |
-| alpha=1.0 vs alpha=0.0 | +2.65 | **alpha=1.0 WINS** |
-| alpha=0.5 vs alpha=0.0 | +2.37 | **alpha=0.5 WINS** |
+| alpha=1.0 vs alpha=0.5 (hybrid only) | +0.58 | Medium effect (alpha=1.0 slightly better) |
 
 ### Indistinguishable (d < 0.4)
 
 - contextual ~ raptor ~ section (for recall, d=0.19-0.58)
 - graphrag ~ hyde ~ none (for recall, d=0.20-0.42)
 - All chunking strategies (for precision, d=0.01-0.33)
-- All alpha values (for recall, d=0.08-0.21)
+- alpha=0.5 ~ alpha=1.0 (for recall, d=0.15)
 
 ---
 
@@ -216,10 +217,11 @@ These differences are statistically reliable with n=15 questions:
 | Finding | Effect Size | Practical Impact |
 |---------|-------------|------------------|
 | **Hybrid > Keyword** for precision | d=2.68 | +10.1% precision |
-| **Alpha=1.0 > Alpha=0.0** for precision | d=2.65 | +11.0% precision |
 | **Contextual > Semantic_0.3** for recall | d=1.45 | +7.7% recall |
 | **k=20 > k=10** for recall | d=1.10 | +6.0% recall |
 | **HyDE > Decomposition** for recall | d=1.01 | +5.9% recall |
+| **Raptor > Semantic_0.3** for recall | d=0.97 | +5.7% recall |
+| **GraphRAG > Decomposition** for recall | d=0.83 | +4.5% recall |
 
 ## 3.2 Novel Findings for Publication
 
@@ -227,13 +229,13 @@ These differences are statistically reliable with n=15 questions:
 
 | For Recall | For Precision |
 |------------|---------------|
-| 1. Chunking (100%) | 1. Alpha (100%) |
-| 2. Top-K (77%) | 2. Search Type (92%) |
-| 3. Preprocessing (76%) | 3. Preprocessing (29%) |
-| 4. Alpha (18%) | 4. Chunking (19%) |
-| 5. Search Type (12%) | 5. Top-K (2%) |
+| 1. Chunking (100%) | 1. Search Type (100%) |
+| 2. Top-K (77%) | 2. Preprocessing (31%) |
+| 3. Preprocessing (76%) | 3. Chunking (20%) |
+| 4. Search Type (12%) | 4. Alpha-hybrid (17%) |
+| 5. Alpha-hybrid (11%) | 5. Top-K (3%) |
 
-**Implication:** Practitioners optimizing for recall should focus on chunking strategy; those optimizing for precision should focus on alpha and search type.
+**Implication:** Practitioners optimizing for recall should focus on chunking strategy and top_k; those optimizing for precision should use hybrid search.
 
 ### Finding 2: HyDE Uniquely Bridges the Cross-Domain Gap
 
@@ -249,11 +251,11 @@ Query decomposition **hurts** cross-domain retrieval despite being designed for 
 
 ### Finding 4: Recall and Precision Have Different Levers
 
-To improve **recall**: Change chunking strategy (contextual > semantic), increase top_k (20 > 10)
+To improve **recall**: Change chunking strategy (contextual > semantic), increase top_k (20 > 10), use HyDE
 
-To improve **precision**: Increase alpha (1.0 > 0.0), use hybrid search
+To improve **precision**: Use hybrid search (not keyword-only)
 
-**Trade-off:** These optimizations are largely independent — you can optimize both.
+**Trade-off:** These optimizations are largely independent — you can optimize both simultaneously.
 
 ---
 
@@ -308,10 +310,15 @@ All "reliable" findings in this report have d >= 0.8.
 ---
 
 *v2 Changes from v1:*
-- *Removed semantic_0.75 edge case (18 configurations)*
+- *Removed semantic_0.75 edge case (84 configurations analyzed)*
 - *Separated retrieval metrics (LLM-independent) from answer correctness (LLM-dependent)*
 - *Added retrieval-to-answer correlation analysis*
 - *Added dimension impact hierarchy*
 - *Restructured around retrieval vs end-to-end framework*
+
+*v2.1 Corrections:*
+- *Fixed alpha dimension: only compares 0.5 vs 1.0 within hybrid (keyword = alpha=0.0 is separate dimension)*
+- *Fixed chunking precision ranking: semantic_0.3 best, section worst*
+- *Updated dimension impact hierarchy for precision: search type dominates (100%)*
 
 *Generated January 3, 2026*

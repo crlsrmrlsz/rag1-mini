@@ -45,7 +45,7 @@ flowchart TB
 
         subgraph CHUNK_OPTS["Choose Strategy"]
             direction LR
-            SEC["<b>Section</b><br/>800 tokens<br/>2-sent overlap"]
+            SEC["<b>Fixed-Size</b><br/>800 tokens<br/>2-sent overlap"]
             SEM["<b>Semantic</b><br/>Similarity<br/>breakpoints"]
             CTX["<b>Contextual</b><br/>LLM context<br/>prepended"]
             RAP["<b>RAPTOR</b><br/>Hierarchical<br/>summaries"]

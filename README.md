@@ -6,200 +6,165 @@ Study done over two fields of knowledge, neuroscience and practical wisdom philo
 
 ### Workflow
 
+#### Pipeline Overview
+
 ```mermaid
-flowchart TB
-    %% ============================================================
-    %% RAGLAB COMPLETE PIPELINE DIAGRAM
-    %% From PDF to Answer with all experimental techniques
-    %% ============================================================
+flowchart LR
+    PDF["📄 PDF<br/>Corpus"]
+    PREP["1. Content<br/>Preparation"]
+    CHUNK["2. Chunking"]
+    INDEX["3. Indexing"]
+    QUERY["4. Query<br/>Processing"]
+    RETRIEVE["5. Retrieval"]
+    GEN["6. Generation"]
+    EVAL["7. Evaluation"]
 
-    %% === INPUT ===
-    subgraph INPUT["📚 Corpus"]
-        PDF[("19 PDF Books<br/>~700k tokens")]
-    end
-
-    %% === PHASE 1: CONTENT PREPARATION ===
-    subgraph PREP["Phase 1: Content Preparation"]
-        direction TB
-
-        subgraph S1["Stage 1: Extract"]
-            DOCLING["Docling<br/>PDF → Markdown"]
-        end
-
-        subgraph S2["Stage 2: Clean"]
-            CLEAN["Regex Pipeline<br/>Remove artifacts"]
-        end
-
-        subgraph S3["Stage 3: Segment"]
-            SPACY["spaCy NLP<br/>Sentence boundaries"]
-        end
-
-        S1 --> S2 --> S3
-    end
-
-    %% === PHASE 2: CHUNKING STRATEGIES ===
-    subgraph CHUNK["Phase 2: Chunking Strategies"]
-        direction TB
-
-        CHUNK_IN(["Segmented Text"])
-
-        subgraph CHUNK_OPTS["Choose Strategy"]
-            direction LR
-            SEC["<b>Fixed-Size</b><br/>800 tokens<br/>2-sent overlap"]
-            SEM["<b>Semantic</b><br/>Similarity<br/>breakpoints"]
-            CTX["<b>Contextual</b><br/>LLM context<br/>prepended"]
-            RAP["<b>RAPTOR</b><br/>Hierarchical<br/>summaries"]
-        end
-
-        CHUNK_IN --> CHUNK_OPTS
-
-        SEC --> CHUNKS_OUT
-        SEM --> CHUNKS_OUT
-        CTX --> CHUNKS_OUT
-        RAP --> CHUNKS_OUT
-
-        CHUNKS_OUT(["Chunks + Metadata"])
-    end
-
-    %% === GRAPHRAG BRANCH ===
-    subgraph GRAPH["GraphRAG Pipeline"]
-        direction TB
-
-        subgraph EXTRACT["Entity Extraction"]
-            AUTOTUNE["Auto-Tuning<br/>Discover types"]
-            FIXED["Predefined<br/>14 entity types"]
-        end
-
-        NEO4J[("Neo4j<br/>Knowledge Graph")]
-        LEIDEN["Leiden<br/>Communities"]
-        COMM_SUM["Community<br/>Summaries"]
-
-        AUTOTUNE --> NEO4J
-        FIXED --> NEO4J
-        NEO4J --> LEIDEN --> COMM_SUM
-    end
-
-    %% === EMBEDDING & INDEXING ===
-    subgraph INDEX["Phase 3: Embed & Index"]
-        direction TB
-
-        EMBED["OpenRouter API<br/>text-embedding-3-large<br/>3072 dimensions"]
-        WEAVIATE[("Weaviate<br/>HNSW Index<br/>+ BM25")]
-        COMM_VEC[("Community<br/>Vectors")]
-
-        EMBED --> WEAVIATE
-        EMBED --> COMM_VEC
-    end
-
-    %% === QUERY PREPROCESSING ===
-    subgraph PREPROC["Phase 4: Query Preprocessing"]
-        direction TB
-
-        QUERY_IN["User Query"]
-
-        subgraph PREPROC_OPTS["Choose Strategy"]
-            direction LR
-            NONE["<b>None</b><br/>Direct query"]
-            HYDE["<b>HyDE</b><br/>Hypothetical<br/>document"]
-            DECOMP["<b>Decomposition</b><br/>Sub-questions<br/>+ RRF"]
-            GRAPHQ["<b>GraphRAG</b><br/>Entity lookup<br/>+ traversal"]
-        end
-
-        QUERY_IN --> PREPROC_OPTS
-    end
-
-    %% === RETRIEVAL ===
-    subgraph RETRIEVE["Phase 5: Retrieval"]
-        direction TB
-
-        subgraph SEARCH_TYPE["Search Method"]
-            direction LR
-            KW["<b>Keyword</b><br/>BM25"]
-            HYB["<b>Hybrid</b><br/>α-weighted<br/>vector + BM25"]
-        end
-
-        RERANK["Cross-Encoder<br/>Reranking<br/><i>(optional)</i>"]
-        RRF["RRF Merge<br/><i>(multi-query)</i>"]
-
-        SEARCH_TYPE --> RRF
-        RRF --> RERANK
-        RERANK --> CONTEXTS
-
-        CONTEXTS(["Retrieved Contexts<br/>top-k chunks"])
-    end
-
-    %% === GENERATION ===
-    subgraph GEN["Phase 6: Generation"]
-        direction TB
-
-        SYNTH["LLM Synthesis<br/>DeepSeek V3<br/>with citations"]
-        ANSWER(["Final Answer<br/>with [1][2] refs"])
-
-        SYNTH --> ANSWER
-    end
-
-    %% === EVALUATION ===
-    subgraph EVAL["Phase 7: Evaluation"]
-        direction LR
-
-        subgraph RAGAS["RAGAS Framework"]
-            direction TB
-            FAITH["Faithfulness"]
-            REL["Relevancy"]
-            PREC["Context Precision"]
-            REC["Context Recall"]
-            CORR["Answer Correctness"]
-        end
-
-        GRID["5D Grid Search<br/>84 combinations"]
-    end
-
-    %% === CONNECTIONS ===
-    PDF --> PREP
-    PREP --> CHUNK
-
-    CHUNKS_OUT --> GRAPH
-    CHUNKS_OUT --> INDEX
-
-    COMM_SUM --> COMM_VEC
-    GRAPH -.->|"entity context"| RETRIEVE
-
-    PREPROC --> RETRIEVE
+    PDF --> PREP --> CHUNK --> INDEX
     INDEX --> RETRIEVE
-    COMM_VEC -.->|"community search"| RETRIEVE
+    QUERY --> RETRIEVE --> GEN --> EVAL
 
-    CONTEXTS --> GEN
-    ANSWER --> EVAL
-
-    %% === STYLING ===
-    classDef inputStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef prepStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef chunkStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
-    classDef graphStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef indexStyle fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
-    classDef queryStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
-    classDef retrieveStyle fill:#f1f8e9,stroke:#33691e,stroke-width:2px
-    classDef genStyle fill:#ede7f6,stroke:#311b92,stroke-width:2px
-    classDef evalStyle fill:#fff8e1,stroke:#f57f17,stroke-width:2px
-    classDef dbStyle fill:#eceff1,stroke:#37474f,stroke-width:3px
-
-    class INPUT inputStyle
-    class PREP,S1,S2,S3 prepStyle
-    class CHUNK,CHUNK_OPTS chunkStyle
-    class GRAPH,EXTRACT graphStyle
-    class INDEX indexStyle
-    class PREPROC,PREPROC_OPTS queryStyle
-    class RETRIEVE,SEARCH_TYPE retrieveStyle
-    class GEN genStyle
-    class EVAL,RAGAS evalStyle
-    class WEAVIATE,NEO4J,COMM_VEC dbStyle
+    style PDF fill:#e3f2fd,stroke:#1565c0
+    style PREP fill:#f3e5f5,stroke:#7b1fa2
+    style CHUNK fill:#e8f5e9,stroke:#2e7d32
+    style INDEX fill:#fff3e0,stroke:#ef6c00
+    style QUERY fill:#fce4ec,stroke:#c2185b
+    style RETRIEVE fill:#e0f2f1,stroke:#00695c
+    style GEN fill:#ede7f6,stroke:#512da8
+    style EVAL fill:#fff8e1,stroke:#f9a825
 ```
 
-**Legend:**
-- **Solid arrows**: Main data flow
-- **Dashed arrows**: Optional/conditional paths
-- **Bold text**: Strategy options (choose one per category)
-- **Databases**: Weaviate (vectors), Neo4j (knowledge graph)
+#### Chunking Strategies (Index-Time)
+
+```mermaid
+flowchart TB
+    subgraph INPUT["Segmented Text"]
+        IN["Sentences with<br/>section metadata"]
+    end
+
+    subgraph STRATEGIES["Choose One Strategy"]
+        direction LR
+
+        FIXED["<b>Fixed-Size</b><br/>Baseline<br/>━━━━━━━━━<br/>800 tokens<br/>2-sentence overlap<br/>Section boundaries"]
+
+        SEM["<b>Semantic</b><br/>━━━━━━━━━<br/>Embedding similarity<br/>breakpoints<br/>Cosine threshold 0.4"]
+
+        CTX["<b>Contextual Retrieval</b><br/>Anthropic 2024<br/>━━━━━━━━━<br/>LLM-generated context<br/>prepended to chunks<br/>-35% retrieval failures"]
+
+        RAP["<b>RAPTOR</b><br/>arXiv:2401.18059<br/>━━━━━━━━━<br/>UMAP + GMM clustering<br/>Hierarchical summaries<br/>Multi-level tree"]
+    end
+
+    subgraph OUTPUT["Output"]
+        OUT["Chunks ready<br/>for embedding"]
+    end
+
+    IN --> FIXED & SEM & CTX & RAP --> OUT
+
+    style FIXED fill:#e8f5e9,stroke:#2e7d32
+    style SEM fill:#e8f5e9,stroke:#2e7d32
+    style CTX fill:#e8f5e9,stroke:#2e7d32
+    style RAP fill:#e8f5e9,stroke:#2e7d32
+```
+
+#### Query Preprocessing Strategies (Query-Time)
+
+```mermaid
+flowchart TB
+    subgraph INPUT["User Query"]
+        Q["Natural language<br/>question"]
+    end
+
+    subgraph STRATEGIES["Choose One Strategy"]
+        direction LR
+
+        NONE["<b>None</b><br/>Baseline<br/>━━━━━━━━━<br/>Direct query<br/>No transformation"]
+
+        HYDE["<b>HyDE</b><br/>arXiv:2212.10496<br/>━━━━━━━━━<br/>Generate hypothetical<br/>answer passage<br/>Embed the hypothesis"]
+
+        DECOMP["<b>Decomposition</b><br/>arXiv:2507.00355<br/>━━━━━━━━━<br/>Split into sub-queries<br/>Parallel retrieval<br/>RRF merge results"]
+
+        GRAPH["<b>GraphRAG</b><br/>arXiv:2404.16130<br/>━━━━━━━━━<br/>Extract entities<br/>Graph traversal<br/>Community context"]
+    end
+
+    subgraph OUTPUT["Processed Query"]
+        OUT["Ready for<br/>retrieval"]
+    end
+
+    Q --> NONE & HYDE & DECOMP & GRAPH --> OUT
+
+    style NONE fill:#fce4ec,stroke:#c2185b
+    style HYDE fill:#fce4ec,stroke:#c2185b
+    style DECOMP fill:#fce4ec,stroke:#c2185b
+    style GRAPH fill:#fce4ec,stroke:#c2185b
+```
+
+#### Retrieval & Search Methods
+
+```mermaid
+flowchart LR
+    subgraph SEARCH["Search Type"]
+        direction TB
+        KW["<b>Keyword</b><br/>BM25 only"]
+        HYB["<b>Hybrid</b><br/>α·vector + (1-α)·BM25"]
+    end
+
+    subgraph MERGE["Multi-Query"]
+        RRF["RRF Fusion<br/>Cormack 1993"]
+    end
+
+    subgraph RERANK["Reranking"]
+        CE["Cross-Encoder<br/>mxbai-rerank-large"]
+    end
+
+    subgraph DBS["Databases"]
+        direction TB
+        WV[("Weaviate<br/>HNSW + BM25")]
+        N4J[("Neo4j<br/>Knowledge Graph")]
+    end
+
+    SEARCH --> WV --> RRF
+    N4J -.->|"GraphRAG"| RRF
+    RRF --> CE --> OUT["Top-k<br/>Contexts"]
+
+    style KW fill:#e0f2f1,stroke:#00695c
+    style HYB fill:#e0f2f1,stroke:#00695c
+    style WV fill:#eceff1,stroke:#455a64,stroke-width:2px
+    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
+```
+
+#### GraphRAG Pipeline Detail
+
+```mermaid
+flowchart TB
+    subgraph EXTRACT["Entity Extraction"]
+        direction LR
+        AUTO["<b>Auto-Tuning</b><br/>MS Research 2024<br/>━━━━━━━━━<br/>Discover types<br/>from corpus"]
+        PRED["<b>Predefined</b><br/>━━━━━━━━━<br/>14 domain<br/>entity types"]
+    end
+
+    subgraph GRAPH["Knowledge Graph"]
+        N4J[("Neo4j<br/>Entities + Relations")]
+    end
+
+    subgraph COMMUNITY["Community Detection"]
+        LEIDEN["<b>Leiden Algorithm</b><br/>━━━━━━━━━<br/>Hierarchical clustering<br/>Better than Louvain"]
+        SUM["LLM Summaries<br/>per community"]
+    end
+
+    subgraph QUERY["Query-Time"]
+        ENT["Extract query<br/>entities"]
+        TRAV["Graph traversal<br/>2-hop neighbors"]
+        COMM["Community<br/>context lookup"]
+    end
+
+    AUTO & PRED --> N4J --> LEIDEN --> SUM
+    ENT --> TRAV --> N4J
+    SUM --> COMM
+
+    style AUTO fill:#fff3e0,stroke:#ef6c00
+    style PRED fill:#fff3e0,stroke:#ef6c00
+    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
+    style LEIDEN fill:#fff3e0,stroke:#ef6c00
+```
 
 ### Corpus
 

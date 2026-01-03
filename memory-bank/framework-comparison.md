@@ -108,6 +108,121 @@ RAGLab is a **well-structured learning project** that implements real research c
 
 ---
 
+## 3.1 RAGBench Deep Dive: Architecture & Dataset Differences
+
+RAGBench deserves special attention as the largest academic RAG benchmark. This section details the fundamental architectural differences.
+
+### Architectural Difference: Pre-Retrieved vs End-to-End
+
+```
+RAGBench Architecture:
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Question   │ --> │  Documents  │ --> │  Response   │
+│             │     │ (PROVIDED)  │     │ (generated) │
+└─────────────┘     └─────────────┘     └─────────────┘
+                          │
+                    Already retrieved - no retrieval step tested
+
+RAGLab Architecture:
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Question   │ --> │  Retrieval  │ --> │  Documents  │ --> │  Response   │
+│             │     │  (Weaviate) │     │ (retrieved) │     │ (generated) │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+                          │
+              Tests chunking + embedding + search strategies
+```
+
+**Key implication**: RAGBench evaluates **generation quality** given perfect retrieval. RAGLab evaluates the **full pipeline** including retrieval quality.
+
+### RAGBench 12 Sub-Datasets
+
+| Dataset | Domain | Docs/Example | Avg Tokens | Train/Val/Test | Source Type |
+|---------|--------|--------------|------------|----------------|-------------|
+| PubMedQA | Biomedical | 4 | 99 | 19.5k/2.5k/2.5k | Research abstracts |
+| CovidQA | Biomedical | 4 | 122 | 2.5k/534/492 | CORD-19 papers |
+| HotpotQA | General | 4 | 126 | 3.7k/847/776 | Wikipedia paragraphs |
+| MS Marco | General | 10 | 94 | ~8k/1k/1k | Bing search results |
+| HAGRID | General | 3 | 153 | ~1.5k/250/250 | Wikipedia passages |
+| ExpertQA | General | 1 | 548 | ~1.5k/250/250 | Google search results |
+| CUAD | Legal | 1 | 11,000 | 1.5k/506/508 | Commercial contracts |
+| FinQA | Finance | 3 | 310 | 12k/1.7k/2.2k | Financial reports |
+| TAT-QA | Finance | 5 | 96 | 26k/3.2k/3.2k | Tables + text |
+| TechQA | Support | 10 | 1,800 | ~2k/300/300 | IBM forum posts |
+| EManual | Support | 3 | ~200 | ~1.5k/250/250 | Samsung TV manual |
+| DelucionQA | Support | 3 | ~150 | ~1.5k/250/250 | Jeep manual |
+
+**Total**: ~100k examples (78k train, 12k validation, 11k test)
+
+### RAGLab Corpus
+
+| Domain | Books | Est. Tokens | Questions | Source Type |
+|--------|-------|-------------|-----------|-------------|
+| Neuroscience | ~10 | ~400k | 8 | Academic/popular science books |
+| Philosophy | ~9 | ~300k | 7 | Classical texts + modern interpretations |
+| **Cross-domain** | 19 | ~700k | 10 | Multi-book synthesis required |
+
+**Total**: 19 books, ~700k tokens, 15-45 questions
+
+### Ground Truth Comparison
+
+**RAGBench** (no human reference answers):
+```python
+{
+    "question": "What was the revenue change?",
+    "documents": ["Table: Revenue $500M (2019), $550M (2020)..."],
+    "response": "Revenue increased by 10%.",  # LLM-generated answer
+
+    # TRACe labels (GPT-4 annotated grounding, not correctness)
+    "relevance_score": 0.85,      # Are docs relevant to question?
+    "utilization_score": 0.72,    # How much context was used?
+    "completeness_score": 0.90,   # Was all relevant info used?
+    "adherence_score": True,      # Is response grounded (no hallucination)?
+}
+```
+
+**RAGLab** (human-crafted reference answers):
+```python
+{
+    "question": "Why do humans struggle with self-control?",
+    "reference": "Self-control failures stem from brain architecture...",  # Gold answer
+    "ground_truth_quote": "\"System 1 is more influential than your experience\" (Kahneman)",
+    "expected_books": ["Thinking Fast and Slow", "Behave", "The Enchiridion"],
+}
+```
+
+| Aspect | RAGBench | RAGLab |
+|--------|----------|--------|
+| Reference answers | ❌ None (response IS the data) | ✅ Human-crafted with quotes |
+| Grounding labels | ✅ Span-level TRACe | ❌ Not annotated |
+| Source attribution | ❌ Not tracked | ✅ Expected books listed |
+| Enables context_recall | ❌ No reference | ✅ Yes |
+| Enables answer_correctness | ❌ No reference | ✅ Yes |
+| Enables utilization metrics | ✅ TRACe labels | ❌ Not implemented |
+
+### Scope Comparison
+
+| Dimension | RAGBench | RAGLab |
+|-----------|----------|--------|
+| **What it tests** | Generation quality given docs | Full pipeline (retrieval + generation) |
+| **Retrieval tested** | ❌ Documents pre-attached | ✅ Weaviate hybrid search |
+| **Chunking tested** | ❌ Pre-chunked passages | ✅ 4 chunking strategies |
+| **Question types** | Single-hop, multi-hop, numerical | Single-concept, cross-domain synthesis |
+| **Document length** | 94-11,000 tokens per doc | 800-token chunks from books |
+| **Domain breadth** | 5 industries, 12 datasets | 2 domains, 1 corpus |
+| **Statistical power** | 100k examples | 15-45 examples |
+| **Reproducibility** | Public HuggingFace dataset | Private corpus |
+
+### Key Insight
+
+RAGBench and RAGLab answer **different questions**:
+
+- **RAGBench asks**: "Given these documents, can your LLM generate a grounded answer?"
+- **RAGLab asks**: "Given these books, can your full RAG pipeline find relevant chunks AND generate a correct answer?"
+
+RAGBench is a **generation benchmark**. RAGLab is an **end-to-end RAG exploration platform**.
+
+---
+
 ## 4. Hyperparameter Handling
 
 ### RAGBench

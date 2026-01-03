@@ -1,7 +1,7 @@
 # Comparative Analysis: RAGLab vs. Professional Evaluation Frameworks
 
 **Date:** January 3, 2026
-**Purpose:** Honest comparison of RAGLab against academic/industry RAG evaluation benchmarks
+**Purpose:** Honest comparison of RAGLab against academic/industry RAG evaluation benchmarks and parameter optimization frameworks
 
 ## Executive Summary
 
@@ -383,6 +383,130 @@ RAGLab is **excellent**. The 5D grid, research implementations, and cross-domain
 
 ---
 
+## 9. RAG Parameter Optimization Frameworks
+
+Beyond evaluation benchmarks, recent research addresses the challenge of **efficiently tuning RAG hyperparameters**. This section compares two optimization frameworks with RAGLab's approach.
+
+### The Hyperparameter Search Problem
+
+RAG systems have many interacting parameters. Grid search becomes intractable:
+- 5 top-k values × 3 embeddings × 5 compression ratios = 75 combinations (AutoRAG-HP)
+- 15+ parameters with multiple values each = thousands of combinations (Multi-Objective HPO)
+- RAGLab's 5D grid: ~100-150 combinations
+
+### AutoRAG-HP (EMNLP 2024, Microsoft)
+
+**Paper**: [AutoRAG-HP: Automatic Online Hyper-Parameter Tuning for Retrieval-Augmented Generation](https://arxiv.org/abs/2406.19251)
+
+**Approach**: Frames hyperparameter tuning as an online Multi-Armed Bandit (MAB) problem.
+
+| Aspect | Details |
+|--------|---------|
+| **Algorithm** | Hierarchical MAB (Hier-UCB) - two-level bandit |
+| **Parameters Tuned** | top-k (1,3,5,7,9), embedding model (3 options), compression ratio (0.3-1.0) |
+| **Search Space** | ~75 combinations |
+| **Objective** | Single: Recall@5 |
+| **Datasets** | ALCE-ASQA, Natural Questions |
+| **Key Result** | Achieves Recall@5 ≈ 0.8 with only **20% of grid search API calls** |
+| **Setting** | Online learning - adapts based on user feedback batches |
+
+**How Hier-MAB Works**:
+```
+High-level MAB: Selects which module to optimize (top-k vs embedding vs compression)
+       │
+       ▼
+Low-level MABs: Search within selected module using UCB (Upper Confidence Bound)
+       │
+       ▼
+Update rewards based on query performance → iterate
+```
+
+### Multi-Objective RAG HPO (ICLR 2025)
+
+**Paper**: [Faster, Cheaper, Better: Multi-Objective Hyperparameter Optimization for LLM and RAG Systems](https://arxiv.org/abs/2502.18635)
+
+**Approach**: Bayesian Optimization for Pareto-optimal configurations across multiple objectives.
+
+| Aspect | Details |
+|--------|---------|
+| **Algorithm** | qLogNEHVI (Quantitative Log Normalized Expected Hypervolume Improvement) |
+| **Parameters** | LLM model, embedding model, ranker, chunk size, + component-specific (15+) |
+| **Search Space** | "Intractably large" - thousands of combinations |
+| **Objectives** | Multi: Cost, Latency, Safety, Alignment |
+| **Benchmarks** | FinancialQA, MedicalQA (new, released with paper) |
+| **Key Result** | Bayesian optimization finds superior Pareto front vs baselines |
+| **Setting** | Offline optimization with Gaussian Process surrogate models |
+
+**The Four Objectives**:
+- **Cost**: Computational expense across pipeline components
+- **Latency**: Query-to-response time
+- **Safety**: Hallucination/inaccuracy risk
+- **Alignment**: Helpfulness and relevance
+
+**Key Finding**: "Optimal configurations may not generalize across tasks and objectives" - task-specific tuning required.
+
+### RAGLab's Approach: Exhaustive Grid Search
+
+| Aspect | Details |
+|--------|---------|
+| **Algorithm** | Full grid search (brute force) |
+| **Parameters** | collection (4), search_type (2), alpha (2), preprocessing (4), top_k (2) |
+| **Search Space** | ~100-150 valid combinations |
+| **Objectives** | 5 RAGAS metrics (faithfulness, relevancy, context_precision, context_recall, answer_correctness) |
+| **Dataset** | 15 curated questions |
+| **Key Result** | Complete coverage, statistical breakdown by dimension |
+| **Setting** | Offline batch evaluation with checkpointing |
+
+### Comparison Table
+
+| Dimension | AutoRAG-HP | Multi-Obj HPO | RAGLab |
+|-----------|------------|---------------|--------|
+| **Search Strategy** | MAB (online) | Bayesian (offline) | Grid (exhaustive) |
+| **Efficiency** | ~20% of grid | Pareto-efficient | 100% (all combos) |
+| **Objectives** | Single (Recall) | Multi (4 objectives) | Multi (5 RAGAS metrics) |
+| **Cost Tracking** | ❌ | ✅ (primary objective) | ❌ |
+| **Latency Tracking** | ❌ | ✅ (primary objective) | ❌ |
+| **Retrieval Testing** | ✅ | ✅ | ✅ |
+| **Generation Testing** | ✅ | ✅ | ✅ |
+| **Chunking Strategies** | ❌ (fixed) | ❌ (chunk size only) | ✅ (4 strategies) |
+| **Query Preprocessing** | ❌ | ❌ | ✅ (4 strategies) |
+| **Search Type Axis** | ❌ | ❌ | ✅ (keyword vs hybrid) |
+| **Statistical Analysis** | ❌ | Pareto front | Per-dimension breakdown |
+| **Reproducibility** | Public datasets | New benchmarks | Private corpus |
+
+### Key Insights
+
+**What AutoRAG-HP and Multi-Obj HPO Optimize That RAGLab Doesn't**:
+- API/compute cost (neither tracked in RAGLab)
+- Inference latency
+- Online adaptation to user feedback
+
+**What RAGLab Explores That They Don't**:
+- Chunking strategy comparison (section, contextual, raptor, semantic)
+- Query preprocessing strategies (none, hyde, decomposition, graphrag)
+- Search type dimension (keyword BM25 vs hybrid)
+- Cross-domain synthesis questions
+
+**Philosophical Difference**:
+- **AutoRAG-HP**: "Find good-enough config fast with minimal API calls"
+- **Multi-Obj HPO**: "Find Pareto-optimal tradeoffs between cost/latency/quality"
+- **RAGLab**: "Understand how every combination affects quality" (learning-focused)
+
+### Applicability to RAGLab
+
+If RAGLab were to adopt these approaches:
+
+| Enhancement | Benefit | Complexity |
+|-------------|---------|------------|
+| Add MAB-based search | Reduce comprehensive eval from 100+ to ~20 runs | Medium |
+| Track API costs | Enable cost-quality tradeoff analysis | Low |
+| Track latency | Enable speed-quality tradeoff analysis | Low |
+| Bayesian optimization | Efficient multi-objective search | High |
+
+**Current RAGLab strength**: The exhaustive grid provides **complete understanding** of parameter interactions - something efficient search methods sacrifice. For learning purposes, this is valuable.
+
+---
+
 ## Summary Table
 
 | Dimension | RAGBench | SCARF | BenchmarkQED | RAGLab | Winner |
@@ -413,9 +537,16 @@ To publish, would need to run on standard datasets. For learning, RAGLab is ahea
 
 ## References
 
+### Evaluation Benchmarks
 - [RAGBench Paper (arXiv:2407.11005)](https://arxiv.org/abs/2407.11005)
 - [RAGBench Dataset (HuggingFace)](https://huggingface.co/datasets/rungalileo/ragbench)
 - [SCARF Paper (arXiv:2504.07803)](https://arxiv.org/abs/2504.07803)
 - [SCARF GitHub](https://github.com/Eustema-S-p-A/SCARF)
 - [BenchmarkQED Microsoft Blog](https://www.microsoft.com/en-us/research/blog/benchmarkqed-automated-benchmarking-of-rag-systems/)
 - [BenchmarkQED GitHub](https://github.com/microsoft/benchmark-qed)
+
+### Parameter Optimization Frameworks
+- [AutoRAG-HP Paper (arXiv:2406.19251)](https://arxiv.org/abs/2406.19251) - EMNLP 2024, Microsoft
+- [AutoRAG-HP Code](https://aka.ms/autorag)
+- [Multi-Objective RAG HPO Paper (arXiv:2502.18635)](https://arxiv.org/abs/2502.18635) - ICLR 2025 Workshop
+- [OpenReview Discussion](https://openreview.net/forum?id=6cGFmr6Wgc)

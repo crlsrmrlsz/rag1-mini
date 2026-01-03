@@ -55,14 +55,11 @@ python -m src.stages.run_stage_4_5_raptor     # Build summary tree
 
 Creates hierarchical clusters with LLM-generated summaries using UMAP + GMM clustering.
 
-### Stage 4.5-4.6: GraphRAG (Knowledge Graph)
+### Stage 4.5: GraphRAG (Knowledge Graph)
 
 ```bash
-# Option A: Auto-discover entity types from corpus
+# Auto-discover entity types from corpus
 python -m src.stages.run_stage_4_5_autotune --strategy section
-
-# Option B: Use predefined entity types
-python -m src.stages.run_stage_4_6_graph_extract --strategy section
 
 # Upload to Neo4j + run Leiden community detection
 python -m src.stages.run_stage_6b_neo4j

@@ -33,10 +33,8 @@ from .schemas import (
     CommunityMember,
 )
 from .extractor import (
-    extract_from_chunk,
-    extract_from_chunks,
     load_chunks_for_extraction,
-    run_extraction,
+    save_extraction_results,
 )
 from .neo4j_client import (
     get_driver,
@@ -65,11 +63,9 @@ __all__ = [
     "ExtractionResult",
     "Community",
     "CommunityMember",
-    # Extraction
-    "extract_from_chunk",
-    "extract_from_chunks",
+    # Extraction helpers
     "load_chunks_for_extraction",
-    "run_extraction",
+    "save_extraction_results",
     # Neo4j
     "get_driver",
     "get_gds_client",

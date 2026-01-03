@@ -27,9 +27,8 @@ docker compose up -d neo4j weaviate
 ### Execution Steps
 
 ```bash
-# Step 1: Entity Extraction (choose ONE)
-python -m src.stages.run_stage_4_5_autotune --strategy section    # Auto-discovers types (recommended)
-python -m src.stages.run_stage_4_6_graph_extract --strategy section  # Uses predefined types
+# Step 1: Entity Extraction (auto-discovers types from corpus)
+python -m src.stages.run_stage_4_5_autotune --strategy section
 
 # Step 1b: Re-consolidate for mixed corpora (optional)
 python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
@@ -40,6 +39,9 @@ python -m src.stages.run_stage_6b_neo4j
 # Step 3: Query
 python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 ```
+
+> **Note:** Predefined entity types from `config.py` are available as a fallback
+> for query-time entity matching, but extraction uses auto-tuning.
 
 ### Crash Recovery
 

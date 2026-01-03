@@ -29,22 +29,16 @@ python -m src.stages.run_stage_7_evaluation     # RAGAS evaluation
 ### GraphRAG Pipeline (Knowledge Graph + Communities)
 
 GraphRAG creates a knowledge graph from your corpus and uses Leiden community detection for global queries.
-**Important:** There are two extraction paths - choose ONE:
 
 ```bash
-# === OPTION A: Auto-Tuning (Recommended) ===
-# Discovers entity types FROM your corpus content
+# === Auto-Tuning: Discover entity types from corpus ===
 python -m src.stages.run_stage_4_5_autotune --strategy section
-
-# === OPTION B: Predefined Types ===
-# Uses hardcoded entity types from src/config.py
-python -m src.stages.run_stage_4_6_graph_extract --strategy section
 
 # === Re-Consolidate with Stratified Algorithm (for mixed corpora) ===
 # Balances entity types across neuroscience vs philosophy books
 python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
 
-# === Then upload to Neo4j + run Leiden (same for both options) ===
+# === Upload to Neo4j + run Leiden ===
 docker compose up -d neo4j   # Start Neo4j if not running
 python -m src.stages.run_stage_6b_neo4j
 
@@ -54,13 +48,16 @@ python -m src.stages.run_stage_6b_neo4j
 python -m src.stages.run_stage_7_evaluation --search-type hybrid --preprocessing graphrag
 ```
 
+<!-- Alternative: Predefined entity types from config.py are available as a fallback
+     but auto-tuning is recommended as it adapts to your specific corpus. -->
+
 **Consolidation Strategies:**
 - `global` - Original algorithm, sorts by total count (larger corpora dominate)
 - `stratified` - Selects top types from EACH corpus proportionally (balanced representation)
 
 **Data Flow:**
 ```
-Stage 4 (chunks) → Stage 4.5 autotune OR 4.6 → Stage 6b (Neo4j + Leiden) → Query
+Stage 4 (chunks) → Stage 4.5 autotune → Stage 6b (Neo4j + Leiden) → Query
                          │                            │
                          ▼                            ▼
               extraction_results.json         communities.json
@@ -232,9 +229,9 @@ Update these files when making significant changes to maintain project continuit
 **Phase 8: GraphRAG** - COMPLETE (Dec 25)
 - [x] Add Neo4j to docker-compose.yml (with GDS plugin for Leiden)
 - [x] Create src/graph/ module (schemas, extractor, neo4j_client, community, query)
-- [x] Add Stage 4.6 (entity extraction) and Stage 6b (Neo4j upload + Leiden)
+- [x] Add Stage 4.5 autotune (entity extraction) and Stage 6b (Neo4j upload + Leiden)
 - [x] Add graphrag preprocessing strategy with hybrid retrieval (RRF merge)
-- [x] Run via: `python -m src.stages.run_stage_4_6_graph_extract`
+- [x] Run via: `python -m src.stages.run_stage_4_5_autotune`
 - [x] Upload: `python -m src.stages.run_stage_6b_neo4j`
 
 **Note:** Evaluation runs via CLI (`python -m src.stages.run_stage_7_evaluation`), not in UI.

@@ -284,8 +284,8 @@ For 19 books:
 ## Pipeline Commands
 
 ```bash
-# 1. Extract entities (after section chunking)
-python -m src.stages.run_stage_4_6_graph_extract --strategy section
+# 1. Extract entities with auto-tuning (discovers types from corpus)
+python -m src.stages.run_stage_4_5_autotune --strategy section
 
 # 2. Upload to Neo4j + run Leiden
 docker compose up -d neo4j
@@ -294,6 +294,9 @@ python -m src.stages.run_stage_6b_neo4j
 # 3. Query with graphrag strategy
 python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 ```
+
+> **Note:** An alternative approach uses predefined entity types from `config.py`,
+> but auto-tuning is recommended as it discovers types specific to your corpus.
 
 ## Results
 

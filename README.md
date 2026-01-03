@@ -136,9 +136,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph EXTRACT["Entity Extraction"]
-        direction LR
-        AUTO["<b>Auto-Tuning</b><br/>MS Research 2024<br/>━━━━━━━━━<br/>Discover types<br/>from corpus"]
-        PRED["<b>Predefined</b><br/>━━━━━━━━━<br/>14 domain<br/>entity types"]
+        AUTO["<b>Auto-Tuning</b><br/>MS Research 2024<br/>━━━━━━━━━<br/>Discover entity types<br/>from corpus content"]
     end
 
     subgraph GRAPH["Knowledge Graph"]
@@ -156,12 +154,11 @@ flowchart TB
         COMM["Community<br/>context lookup"]
     end
 
-    AUTO & PRED --> N4J --> LEIDEN --> SUM
+    AUTO --> N4J --> LEIDEN --> SUM
     ENT --> TRAV --> N4J
     SUM --> COMM
 
     style AUTO fill:#fff3e0,stroke:#ef6c00
-    style PRED fill:#fff3e0,stroke:#ef6c00
     style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
     style LEIDEN fill:#fff3e0,stroke:#ef6c00
 ```

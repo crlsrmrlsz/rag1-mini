@@ -8,6 +8,8 @@
 ![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
 ![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
+![RAGAS](https://img.shields.io/badge/RAGAS-evaluation-09B3AF)
+![scispaCy](https://img.shields.io/badge/scispaCy-NLP-1A9CFC?logo=spacy&logoColor=white)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
@@ -48,6 +50,8 @@ The data workflow starts with  books in PDF and follows the standard RAG pipelin
 
 ### Corpus
 
+List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. The tokens are calculated with *tiktoken* with *cl100k_base encoding* (GPT-4 / *text-embedding-3-large* tokenizer).
+
 | Book | Author | Category | Tokens |
 |------|--------|----------|--------|
 | Cognitive Neuroscience: The Biology of the Mind | Michael Gazzaniga | Neuroscience | 455,433 |
@@ -75,10 +79,13 @@ The data workflow starts with  books in PDF and follows the standard RAG pipelin
 
 ### Evaluation
 
-The Streamlit UI allows to change the configuration: embedding collection from the ones in Weaviate, preprocessing technique applied (HyDE, Query Decomposition, GraphRAG), search type (keyword, hybrid or pure semantic) and if reranking is used or not.
+The evaluation of RAG system can be done in two ways:
 
-In the UI you can see the chunks retrieved, the score of each chunk, the intermediante LLM interactions for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
-In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions.
+- Streamlit UI allows to change the configuration: embedding collection from the ones in Weaviate, preprocessing technique applied (HyDE, Query Decomposition, GraphRAG), search type (keyword, hybrid or pure semantic) and if reranking is used or not.
+
+    In the UI you can see the chunks retrieved, the score of each chunk, the intermediante LLM interactions for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
+
+- In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions.
 
 
 ## Techniques Implemented

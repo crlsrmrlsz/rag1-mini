@@ -4,6 +4,70 @@ A complete Retrieval-Augmented Generation pipeline built from scratch to deeply 
 
 Study done over two fields of knowledge, neuroscience and practical wisdom philosophy, using 19 books and testing with handcrafted evaluation questions done with Anthorpic Opus 4.5 after reading all the books.
 
+
+### Arquitecture
+
+```mermaid
+flowchart TB
+    subgraph UI["UI Layer"]
+        ST["Streamlit App"]
+    end
+
+    subgraph CORE["Core Modules"]
+        direction LR
+        subgraph PREP["content_preparation/"]
+            P1["extraction"]
+            P2["cleaning"]
+            P3["segmentation"]
+        end
+        subgraph RAG["rag_pipeline/"]
+            R1["chunking"]
+            R2["embedding"]
+            R3["indexing"]
+            R4["retrieval"]
+            R5["generation"]
+        end
+        subgraph GR["graph/"]
+            G1["extractor"]
+            G2["community"]
+            G3["query"]
+        end
+        EVAL["evaluation/"]
+    end
+
+    subgraph INFRA["Infrastructure"]
+        subgraph DBS["Databases"]
+            WV[("Weaviate<br/>Vector + BM25")]
+            N4J[("Neo4j<br/>Graph")]
+        end
+        subgraph EXT["External APIs"]
+            OR["OpenRouter<br/>LLM + Embeddings"]
+        end
+    end
+
+    subgraph DATA["Data Layer"]
+        PDF["PDF Corpus"]
+        PROC["Processed Files<br/>(markdown, chunks)"]
+    end
+
+    %% Connections
+    ST --> R4 & R5
+    ST --> EVAL
+    R3 --> WV
+    R4 --> WV
+    GR --> N4J
+    R2 --> OR
+    R5 --> OR
+    PREP --> PROC
+    PDF --> PREP
+
+    %% Styling
+    style ST fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style WV fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style N4J fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style OR fill:#ede7f6,stroke:#512da8,stroke-width:2px
+```
+
 ### Workflow
 
 #### Pipeline Overview

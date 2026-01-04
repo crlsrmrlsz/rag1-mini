@@ -7,16 +7,19 @@
 ![Weaviate](https://img.shields.io/badge/weaviate-vector_db-00C29A)
 ![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
+![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
-This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
+This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  an [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
 I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
 
 I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
-So trying to improve the RAG system performance I ended up building an evaluation framework with a user interface to test some of the recent improvements in RAG techniques, so i can be able to easily tune (embedding collection, preprocessing technique, type of search) and inspect each step result(chunks retrieved, LLM call and responses and final answer) and compare results with different configurations to get an intuition of the effect of each configuration decission.
+So trying to improve the RAG system performance I ended up building a customized evaluation framework to test some of the recent improvements in RAG techniques. I created an user interface to easily tune (embedding collection, preprocessing technique, type of search) and inspect each step result (chunks retrieved, LLM call and responses and final answer) and compare results with different configurations to get an intuition of the effect of each one.
+
+To get more consistent results it runs a comprehensive evaluation using each possible hyperparameter combination (102 cases) over a handcrafted set of test questions that cover both single concept and cross domain concepts. All details are accesible through the links at the end of this README file.
 
 This is custom and simple evaluation framewrok tailored to this specific project and does not aim to be used as a general framework. There are professional frameworks out there for that purpose, but nowadays it is quite easy to construct something like this using the power of coding agents. I did this using Claude Code and Opus 4.5.
 

@@ -1,52 +1,101 @@
-# RAPTOR: Hierarchical Summarization
+# RAPTOR: Hierarchical Summarization Tree
 
 > **Paper:** [RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval](https://arxiv.org/abs/2401.18059) | Sarthi et al. (Stanford/Google) | ICLR 2024
 
 Builds a hierarchical tree of summaries from document chunks, enabling retrieval at multiple levels of abstraction. Answers both "What did Sapolsky say about cortisol?" and "What is the main argument of this book?"
 
-## TL;DR
+**Type:** Index-time chunking | **LLM Calls:** ~36 per book | **Output:** Multi-level tree
 
-RAPTOR recursively clusters chunks using UMAP + GMM, generates LLM summaries for each cluster, then clusters the summaries. The result is a multi-level tree where:
-- **Leaves** (level 0): Original document chunks
-- **Summaries** (levels 1+): Progressively more abstract representations
+---
 
-At query time, all nodes (leaves + summaries) are searched together — the query naturally retrieves the right level of abstraction.
+## Diagram
 
-## Key Results (Paper)
+```mermaid
+flowchart TB
+    subgraph TREE["RAPTOR Tree Structure"]
+        direction TB
+        ROOT["Level 3: Document Summary"]
+        L2A["Level 2: Theme A"]
+        L2B["Level 2: Theme B"]
+        L2C["Level 2: Theme C"]
+        L1A["L1: Cluster"]
+        L1B["L1: Cluster"]
+        L1C["L1: Cluster"]
+        L1D["L1: Cluster"]
+        L0A["Chunk"]
+        L0B["Chunk"]
+        L0C["Chunk"]
+        L0D["Chunk"]
+        L0E["Chunk"]
+        L0F["Chunk"]
 
-- **+20% absolute accuracy** on QuALITY benchmark (complex reasoning)
-- **55.7% F1** on QASPER (new SOTA vs 53.0% for DPR)
-- **18.5-57%** of retrieved nodes come from summary layers
+        ROOT --> L2A & L2B & L2C
+        L2A --> L1A & L1B
+        L2B --> L1C
+        L2C --> L1D
+        L1A --> L0A & L0B
+        L1B --> L0C
+        L1C --> L0D & L0E
+        L1D --> L0F
+    end
 
-## The Problem
+    subgraph BUILD["Build Process"]
+        direction LR
+        EMBED["Embed chunks"]
+        UMAP["UMAP reduce<br/>(1536 → 10 dims)"]
+        GMM["GMM cluster<br/>(soft assignment)"]
+        SUM["LLM summarize<br/>each cluster"]
+        REPEAT["Repeat on<br/>summaries"]
+    end
 
-Traditional RAG retrieves only leaf-level chunks. This fails for:
+    BUILD --> TREE
+
+    style ROOT fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style L2A fill:#e3f2fd,stroke:#1565c0
+    style L2B fill:#e3f2fd,stroke:#1565c0
+    style L2C fill:#e3f2fd,stroke:#1565c0
+    style SUM fill:#ede7f6,stroke:#512da8,stroke-width:2px
+```
+
+---
+
+## Theory
+
+### The Core Problem
+
+Traditional RAG retrieves only leaf-level chunks. This fails for questions requiring multi-document synthesis:
+
 - **Theme questions**: "What is the author's central argument?"
 - **Multi-section synthesis**: "How do chapters 3 and 7 connect?"
 - **Comparative questions**: "What's the difference between X and Y approaches?"
 
-These require information scattered across many chunks — no single chunk contains the answer.
+No single chunk contains these answers because they span many chunks scattered across the document.
 
-## The Solution
+### Research Background
 
-### Tree Structure
+RAPTOR (ICLR 2024) addresses this with hierarchical summarization:
 
-```
-+------------------------------------------------------------------+
-|                     RAPTOR Tree Structure                         |
-+------------------------------------------------------------------+
-|                                                                   |
-|  Level 3 (Root):      [    Document Summary    ]                  |
-|                              ^                                    |
-|  Level 2 (Summaries):  [S1]    [S2]    [S3]                       |
-|                         ^       ^       ^                         |
-|  Level 1 (Clusters):  +-+-+   +-+-+   +-+-+                       |
-|                       |   |   |   |   |   |                       |
-|  Level 0 (Leaves):   [C1][C2][C3][C4][C5][C6][C7]...              |
-|                       ^   ^   ^   ^   ^   ^   ^                   |
-|                    Original Document Chunks                       |
-+------------------------------------------------------------------+
-```
+| Benchmark | RAPTOR | Best Baseline | Improvement |
+|-----------|--------|---------------|-------------|
+| QuALITY (multi-step reasoning) | 82.6% | 62.7% | **+20% absolute** |
+| QASPER (scientific QA) | 55.7% F1 | 53.0% (DPR) | **New SOTA** |
+
+**Key finding:** 18.5-57% of retrieved nodes come from summary layers, proving that hierarchical abstraction provides information not available in leaves alone.
+
+### The Algorithm
+
+1. **Cluster semantically similar chunks** using UMAP dimensionality reduction + Gaussian Mixture Models (GMM)
+2. **Generate LLM summaries** for each cluster
+3. **Recursively repeat** on the summaries until tree can't grow
+4. **Collapsed tree retrieval**: Query all nodes (leaves + summaries) together; similarity naturally selects appropriate abstraction level
+
+### Why GMM Over K-means?
+
+GMM provides **soft clustering**: a chunk about "stress and cortisol" can belong to BOTH "neuroscience" AND "health effects" clusters. K-means forces hard assignment.
+
+---
+
+## Implementation in RAGLab
 
 ### Algorithm
 
@@ -69,7 +118,22 @@ For each book:
   Return all nodes (leaves + all summary levels)
 ```
 
-## Implementation Details
+### Key Design Decisions
+
+| Decision | Paper | RAGLab | Rationale |
+|----------|-------|--------|-----------|
+| **Leaf chunk size** | 100 tokens | 800 tokens | Existing section chunks are optimized |
+| **Summary model** | gpt-3.5-turbo | claude-3-haiku | Fast, cheap, sufficient quality |
+| **UMAP n_neighbors** | 10 | 10 | Paper default works well |
+| **UMAP n_components** | 10 | 10 | Standard for GMM input |
+| **Retrieval method** | Collapsed tree | Collapsed tree | Paper shows superiority over tree traversal |
+| **Tree scope** | Per-document | Per-book | Matches existing structure |
+
+### Differences from Paper
+
+1. **Larger leaves**: 800-token section chunks vs 100-token chunks (reduces tree depth)
+2. **Per-book trees**: Paper sometimes builds cross-document trees; we stay within books
+3. **Hard clustering default**: We use hard cluster assignment initially (Option A in research); soft clustering (Option C with P > 0.3 threshold) is future work
 
 ### UMAP Dimensionality Reduction
 
@@ -89,12 +153,9 @@ def reduce_dimensions(embeddings: np.ndarray) -> np.ndarray:
     return reducer.fit_transform(embeddings)
 ```
 
-**Why UMAP?**
-- GMM struggles with high dimensions (curse of dimensionality)
-- UMAP preserves both local and global structure
-- 10 dimensions is a sweet spot for clustering quality
+**Why UMAP?** GMM struggles with high dimensions (curse of dimensionality). UMAP preserves both local and global structure while reducing 1536 dims to 10.
 
-### GMM Soft Clustering
+### GMM Clustering with BIC
 
 ```python
 from sklearn.mixture import GaussianMixture
@@ -109,10 +170,7 @@ def find_optimal_clusters(embeddings: np.ndarray, max_k: int = 50) -> int:
     return np.argmin(bics) + 2  # Lower BIC is better
 ```
 
-**Why GMM over K-means?**
-- **Soft clustering**: A chunk about "stress and cortisol" can belong to both "neuroscience" and "health" clusters
-- **Probabilistic**: Captures cluster shape and overlap
-- **BIC optimization**: Data-driven cluster count (no magic numbers)
+BIC automatically determines cluster count based on data, avoiding magic numbers.
 
 ### LLM Summarization
 
@@ -127,13 +185,8 @@ Passages:
 
 Summary:"""
 
-def generate_cluster_summary(
-    chunks: List[Dict],
-    model: str = "anthropic/claude-3-haiku"
-) -> str:
-    """Generate summary for a cluster of chunks."""
+def generate_cluster_summary(chunks: List[Dict], model: str) -> str:
     context = "\n\n".join(chunk["text"] for chunk in chunks)
-
     return call_chat_completion(
         messages=[{"role": "user", "content": prompt}],
         model=model,
@@ -142,121 +195,82 @@ def generate_cluster_summary(
     )
 ```
 
-### Tree Building Orchestration
+Average summary: 131 tokens (~72% compression). Average children per parent: 6.7 chunks.
 
-```python
-# src/rag_pipeline/chunking/raptor/tree_builder.py
+---
 
-def build_raptor_tree(
-    chunks: List[Dict],
-    book_id: str,
-    max_levels: int = 4,
-    min_cluster_size: int = 3,
-) -> Tuple[List[RaptorNode], TreeMetadata]:
-    """Build hierarchical RAPTOR tree from section chunks."""
+## Performance in This Pipeline
 
-    # Convert chunks to RaptorNodes (level 0)
-    nodes = [RaptorNode.from_chunk(c, level=0) for c in chunks]
+### Key Finding: Best Faithfulness Score
 
-    all_nodes = list(nodes)
-    current_level = 0
+From comprehensive evaluation across 102 configurations:
 
-    while len(nodes) >= min_cluster_size and current_level < max_levels:
-        # Embed current level
-        embeddings = embed_texts([n.text for n in nodes])
+| Metric | RAPTOR | Contextual | Section |
+|--------|--------|------------|---------|
+| Faithfulness | **95.2%** (1st) | 93.9% | 95.0% |
+| Cross-Domain Precision | **93.8%** (1st) | 91.9% | 92.7% |
+| Answer Correctness | 48.4% | **48.8%** | 47.9% |
 
-        # Cluster
-        reduced = reduce_dimensions(embeddings)
-        k = find_optimal_clusters(reduced)
-        clusters = cluster_nodes(reduced, k)
+**Primary Takeaway:** RAPTOR achieves the **highest faithfulness** (95.2%), meaning answers are more grounded in the retrieved context with less hallucination. The hierarchical summaries provide verified thematic anchors that reduce fabrication.
 
-        # Summarize each cluster
-        summary_nodes = []
-        for cluster_id, member_indices in clusters.items():
-            members = [nodes[i] for i in member_indices]
-            summary_text = generate_cluster_summary(members)
+### Why RAPTOR Excels at Faithfulness
 
-            summary_node = RaptorNode(
-                chunk_id=f"{book_id}::L{current_level+1}_cluster_{cluster_id}",
-                text=summary_text,
-                tree_level=current_level + 1,
-                is_summary=True,
-                child_ids=[m.chunk_id for m in members],
-                # ...
-            )
-            summary_nodes.append(summary_node)
+The summary nodes are **pre-computed verified abstractions**. When the LLM generates an answer, it can cite summary nodes that have already distilled and validated thematic claims, rather than synthesizing from scratch.
 
-        all_nodes.extend(summary_nodes)
-        nodes = summary_nodes
-        current_level += 1
+### Trade-off: Complexity vs Marginal Gains
 
-    return all_nodes, TreeMetadata(...)
-```
+RAPTOR's answer correctness (48.4%) is close to Contextual (48.8%) but requires significantly more infrastructure:
+- ~36 LLM calls per book for summarization
+- UMAP + GMM clustering pipeline
+- Larger index (leaves + summaries)
 
-### Collapsed Tree Retrieval
+**Recommendation:** Use RAPTOR when faithfulness is critical (e.g., regulated domains, low-hallucination requirements). Use Contextual for general-purpose answer quality with simpler infrastructure.
 
-At query time, RAPTOR uses "collapsed tree" retrieval (paper finding: outperforms tree traversal):
-
-```python
-# All nodes (leaves + summaries) are in the same Weaviate collection
-# Query searches ALL nodes by similarity
-# Higher-level summaries naturally match abstract queries
-# Leaf nodes naturally match specific factual queries
-
-results = weaviate_client.query_hybrid(
-    collection="RAG_raptor_embed3large_v1",
-    query_text=query,
-    limit=20,
-    alpha=0.7  # Favor vector over BM25
-)
-```
-
-The magic: same embedding model encodes both chunks and summaries, so similarity naturally selects the right abstraction level.
-
-## Design Decisions
-
-**Why 800-token leaves (not paper's 100)?**
-- RAGLab already optimized section chunks at 800 tokens
-- Reduces tree depth (fewer LLM summarization calls)
-- Maintains consistency with other strategies
-
-**Why Claude-3-Haiku for summaries?**
-- Fast and cheap (~$0.40 for full 19-book corpus)
-- Sufficient quality for summarization task
-- Configurable via `RAPTOR_SUMMARY_MODEL`
-
-**Why per-book trees (not cross-book)?**
-- Simpler implementation matching existing structure
-- Cross-book would require major schema changes
-- 19 books is small enough for within-book retrieval to work
-
-## When to Use
-
-**Good for:**
-- Questions about themes and arguments
-- Multi-section synthesis questions
-- "What is this book about?"
-- Comparison across chapters/sections
-
-**Limitations:**
-- Higher indexing cost (many LLM calls)
-- Larger index size (leaves + summaries)
-- Summary quality depends on LLM capability
-- Overkill for simple factual queries
+---
 
 ## Cost Analysis
 
 For 19 books with ~150 chunks each:
-- **Summaries**: ~36 per book × 19 = ~684 LLM calls
-- **Cost**: ~$0.40 total (claude-3-haiku)
+- **Summaries**: ~36 per book (level 1: ~30, level 2: ~5, root: ~1)
+- **LLM calls**: 36 × 19 = ~684 calls
+- **Cost**: ~$0.40 total (claude-3-haiku at $0.25/$1.25 per 1M tokens)
 - **Time**: ~3 minutes per book (LLM-dominated)
+- **Index size**: ~23% larger than section-only (leaves + summaries)
 
-## Results
+---
 
-See [Evaluation Results](../evaluation/results.md) for RAGAS metrics comparing RAPTOR against section and contextual chunking.
+## When to Use
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Theme/argument questions | RAPTOR excels at "What is this book about?" |
+| Low-hallucination requirements | Best faithfulness scores |
+| Multi-section synthesis | Summaries bridge distant content |
+| **Avoid when** | Simple factual queries, cost-sensitive, frequently changing corpus |
+
+---
+
+## Running RAPTOR
+
+```bash
+# Build RAPTOR trees (Stage 4.5)
+python -m src.stages.run_stage_4_5_raptor
+
+# Embed trees (Stage 5)
+python -m src.stages.run_stage_5_embedding --strategy raptor
+
+# Upload to Weaviate (Stage 6)
+python -m src.stages.run_stage_6_weaviate --strategy raptor
+
+# Evaluate
+python -m src.stages.run_stage_7_evaluation --collection RAG_raptor_embed3large_v1
+```
+
+---
 
 ## Related
 
-- [Section Chunking](section-chunking.md) — Prerequisite (RAPTOR uses section chunks as leaves)
-- [Contextual Chunking](contextual-chunking.md) — Alternative approach (can be combined)
-- [GraphRAG](../preprocessing/graphrag.md) — Different hierarchy via knowledge graphs
+- [Section Chunking](section-chunking.md) - Prerequisite (RAPTOR uses section chunks as leaves)
+- [Contextual Chunking](contextual-chunking.md) - Alternative approach (can be combined: contextual leaves + RAPTOR hierarchy)
+- [GraphRAG](../preprocessing/graphrag.md) - Different hierarchy via knowledge graphs instead of clustering
+- [Chunking Overview](README.md) - Strategy comparison

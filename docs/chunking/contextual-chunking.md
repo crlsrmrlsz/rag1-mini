@@ -4,13 +4,45 @@
 
 Prepends LLM-generated context to each chunk, improving embedding quality by disambiguating entities and situating content within the document.
 
-## TL;DR
+**Type:** Index-time chunking | **LLM Calls:** 1 per chunk | **Tokens/Chunk:** ~900
 
-For each chunk, an LLM generates a 2-3 sentence context snippet based on neighboring chunks. This snippet is prepended to the chunk text before embedding, reducing retrieval failures by 35% (Anthropic's benchmark).
+---
 
-## The Problem
+## Diagram
 
-Traditional chunking loses document-level context:
+```mermaid
+flowchart TB
+    subgraph INPUT["Section Chunks"]
+        CHUNK["Original chunk:<br/>'The company's revenue<br/>grew by 3% in Q2...'"]
+    end
+
+    subgraph CONTEXT["Context Gathering"]
+        NEIGHBORS["Gather 2 chunks<br/>before + 2 after"]
+        META["Book name +<br/>section path"]
+    end
+
+    subgraph LLM["LLM Generation"]
+        PROMPT["Generate 2-3 sentence<br/>context snippet"]
+        SNIPPET["'This chunk from ACME Corp's<br/>2023 annual report discusses<br/>quarterly performance...'"]
+    end
+
+    subgraph OUTPUT["Contextualized Chunk"]
+        FINAL["[Context snippet]<br/>Original text"]
+    end
+
+    CHUNK --> NEIGHBORS --> META --> PROMPT --> SNIPPET --> FINAL
+
+    style PROMPT fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style SNIPPET fill:#ede7f6,stroke:#512da8,stroke-width:2px
+```
+
+---
+
+## Theory
+
+### The Core Problem
+
+Traditional chunking loses document-level context that's critical for accurate retrieval:
 
 ```
 Original chunk:
@@ -20,24 +52,38 @@ expansion into Asian markets."
 Problem: Which company? What year? What's the overall trend?
 ```
 
-When embedded, this chunk is similar to any revenue growth discussion, making precise retrieval difficult.
+When embedded, this chunk is semantically similar to ANY revenue growth discussion, making precise retrieval difficult when the user asks about a specific company.
 
-## The Solution
+### Research Background
 
-### Contextualized Chunk
+Anthropic's September 2024 research quantified this problem:
+
+| Approach | Retrieval Failure Rate | Improvement |
+|----------|----------------------|-------------|
+| Standard chunking | Baseline | - |
+| Contextual chunking | **-35%** | Top-20 retrieval |
+| + BM25 hybrid + reranking | **-67%** | Combined approach |
+
+**Key insight from Anthropic:** The embedding model encodes *what words are in the chunk* but not *what the chunk is about*. Adding a contextual snippet that explicitly states the chunk's semantic role bridges this gap.
+
+### The Transformation
 
 ```
-"[This chunk is from ACME Corp's 2023 annual report, specifically
-the Financial Performance section discussing quarterly results.]
-The company's revenue grew by 3% in Q2, driven primarily by
-expansion into Asian markets."
+Before: "The company's revenue grew by 3% in Q2..."
+         ↓ embedding
+         [vector similar to any revenue discussion]
+
+After:  "[This chunk from ACME Corp's 2023 annual report,
+         specifically the Financial Performance section
+         discussing quarterly results.]
+         The company's revenue grew by 3% in Q2..."
+         ↓ embedding
+         [vector captures: ACME, 2023, Q2, financial context]
 ```
 
-Now the embedding captures:
-- Company identity (ACME Corp)
-- Time period (2023, Q2)
-- Document section (Financial Performance)
-- Content type (annual report)
+---
+
+## Implementation in RAGLab
 
 ### Algorithm
 
@@ -50,7 +96,20 @@ For each chunk in document:
   5. Re-compute token count
 ```
 
-## Implementation Details
+### Key Design Decisions
+
+| Decision | Value | Rationale |
+|----------|-------|-----------|
+| **Neighbor count** | 2 each direction | Captures local context without excessive tokens |
+| **Temperature** | 0.3 | Low for factual accuracy, high enough to vary phrasing |
+| **Max snippet tokens** | 100 | Brief context, not a summary |
+| **Store original_text** | Yes | Enables debugging and reprocessing |
+
+### Differences from Anthropic's Approach
+
+1. **Neighbor-based context**: We use 2 chunks before/after instead of full document context (token efficiency)
+2. **Section path metadata**: Include hierarchical path like "Book > Chapter > Section" in prompt
+3. **Dual storage**: Keep both original and contextualized text for comparison
 
 ### Context Gathering
 
@@ -63,11 +122,7 @@ def gather_document_context(
     neighbor_count: int = 2,
     max_context_tokens: int = 2000,
 ) -> str:
-    """Gather text from neighboring chunks as document context.
-
-    Collects chunks before and after the current chunk to provide
-    the LLM with surrounding document context.
-    """
+    """Gather text from neighboring chunks as document context."""
     start_idx = max(0, current_index - neighbor_count)
     end_idx = min(len(chunks), current_index + neighbor_count + 1)
 
@@ -102,87 +157,74 @@ def generate_contextual_snippet(
         context_path=chunk.get("context", ""),
     )
 
-    snippet = call_chat_completion(
+    return call_chat_completion(
         messages=[{"role": "user", "content": prompt}],
         model=model,
-        temperature=0.3,  # Some creativity but mostly factual
+        temperature=0.3,
         max_tokens=max_tokens,
-    )
-    return snippet.strip()
+    ).strip()
 ```
 
-### Chunk Assembly
+---
 
-```python
-def contextualize_chunk(chunk: Dict, contextual_snippet: str) -> Dict:
-    """Create a contextualized version of a chunk."""
-    original_text = chunk.get("text", "")
+## Performance in This Pipeline
 
-    if contextual_snippet:
-        contextualized_text = f"[{contextual_snippet}] {original_text}"
-    else:
-        contextualized_text = original_text
+### Key Finding: Best Answer Correctness Across Query Types
 
-    return {
-        "chunk_id": chunk.get("chunk_id", ""),
-        "book_id": chunk.get("book_id", ""),
-        "context": chunk.get("context", ""),
-        "section": chunk.get("section", ""),
-        "text": contextualized_text,
-        "token_count": count_tokens(contextualized_text),
-        "chunking_strategy": "contextual",
-        "original_text": original_text,
-        "contextual_snippet": contextual_snippet,
-    }
-```
+From comprehensive evaluation across 102 configurations:
 
-### Design Decisions
+| Metric | Contextual | Section | RAPTOR | Semantic 0.3 |
+|--------|------------|---------|--------|--------------|
+| Single-Concept Correctness | **59.1%** | 57.6% | 57.9% | 54.1% |
+| Cross-Domain Correctness | **48.8%** | 47.9% | 48.4% | 48.0% |
+| Single-Concept Recall | **96.3%** | 92.9% | 96.1% | 93.3% |
 
-**Why 2 neighbors each direction?**
-- Captures local context without excessive token costs
-- Enough to understand flow and references
-- Configurable via `CONTEXTUAL_NEIGHBOR_CHUNKS`
+**Primary Takeaway:** Contextual chunking achieves the **highest answer correctness** on both single-concept and cross-domain queries. The LLM-generated context helps the embedding model understand what each chunk IS ABOUT, not just what words it contains.
 
-**Why temperature 0.3?**
-- Low enough for factual accuracy
-- High enough to vary phrasing
-- Avoids templated outputs
+### Why Recall Correlates with Correctness
 
-**Why store original_text separately?**
-- Debugging: compare contextual vs original retrieval
-- Reprocessing: regenerate snippets without re-chunking
+The evaluation revealed a critical insight: **recall matters more than precision for answer quality**.
 
-## When to Use
+| Strategy | Precision | Recall | Answer Correctness |
+|----------|-----------|--------|-------------------|
+| Semantic 0.3 | **73.4%** (1st) | 93.3% | 54.1% (4th) |
+| Contextual | 71.7% (2nd) | **96.3%** (1st) | **59.1%** (1st) |
 
-**Good for:**
-- Production deployments with quality requirements
-- Ambiguous content (pronouns, partial references)
-- Multi-document corpora (need to distinguish sources)
-- Hybrid search (BM25 benefits from added keywords)
+The generator LLM can filter irrelevant context (low precision is recoverable) but cannot invent missing information (low recall is unrecoverable).
 
-**Limitations:**
-- LLM cost per chunk (one call per chunk)
-- Indexing time increases significantly
-- Snippet quality depends on LLM capability
+### Synergy with GraphRAG
+
+Contextual + GraphRAG achieves the highest answer correctness (61.7% single-concept) because they operate on orthogonal dimensions:
+- **Contextual**: Intra-document clarity (what is this chunk about?)
+- **GraphRAG**: Inter-document connections (how do concepts relate?)
+
+---
 
 ## Cost Analysis
 
 For 19 books with ~5,000 total chunks:
-- Model: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output)
-- Input: ~2000 tokens/call (context + prompt)
-- Output: ~80 tokens/call (snippet)
+- **Model**: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output)
+- **Input**: ~2000 tokens/call (context + prompt)
+- **Output**: ~80 tokens/call (snippet)
 - **Total cost**: ~$2-3 for full corpus
+- **Indexing time**: ~2-3 hours (rate-limited by API calls)
 
-## Results
+---
 
-Anthropic reports:
-- **35% reduction** in retrieval failures (top-20)
-- **67% reduction** with BM25 hybrid + reranking
-- Largest gains on ambiguous queries
+## When to Use
 
-See [Evaluation Results](../evaluation/results.md) for RAGLab-specific metrics.
+| Scenario | Recommendation |
+|----------|----------------|
+| Production deployments | Use contextual for best answer quality |
+| Ambiguous content | Pronouns, partial references need disambiguation |
+| Multi-document corpora | Distinguish "the company" across different sources |
+| Hybrid search | BM25 benefits from added keywords in context |
+| **Avoid when** | Cost-sensitive prototyping, frequently changing corpus |
+
+---
 
 ## Related
 
-- [Section Chunking](section-chunking.md) — Prerequisite (contextual builds on section chunks)
-- [RAPTOR](raptor.md) — Alternative approach using hierarchical summaries
+- [Section Chunking](section-chunking.md) - Prerequisite (contextual builds on section chunks)
+- [RAPTOR](raptor.md) - Alternative approach using hierarchical summaries
+- [Chunking Overview](README.md) - Strategy comparison

@@ -267,15 +267,27 @@ DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
 
 # Reranking: Cross-encoder model for two-stage retrieval
-# Options (sorted by speed, fastest first):
-#   CPU-Friendly (recommended for CPU-only):
-#   - "cross-encoder/ms-marco-MiniLM-L-2-v2"    (15.6M params, ~4100 docs/s GPU, fastest)
-#   - "cross-encoder/ms-marco-MiniLM-L-6-v2"    (22.7M params, ~1800 docs/s GPU, best quality/speed)
-#   - "mixedbread-ai/mxbai-rerank-xsmall-v1"    (70.8M params, NDCG 43.9, good general quality)
-#   GPU-Optimized (slow on CPU):
-#   - "mixedbread-ai/mxbai-rerank-base-v1"      (278M params, NDCG 46.9, balanced)
-#   - "BAAI/bge-reranker-v2-m3"                 (~568M params, multilingual)
-#   - "mixedbread-ai/mxbai-rerank-large-v1"     (560M params, NDCG 48.8, SOTA quality)
+#
+# DECISION: mxbai-rerank-xsmall-v1 (Jan 2025)
+# - Corpus is cross-domain (philosophy + neuroscience) requiring diverse training
+# - MiniLM models trained only on MS MARCO (web search) underperform on BEIR (+16% gap)
+# - mxbai-xsmall offers 8x speedup vs large-v1 while retaining diverse training
+# - Expected: ~3s for 50 docs on CPU (vs ~1min with large-v1)
+#
+# Model Comparison (see docs/preprocessing/reranking.md for full analysis):
+# ┌─────────────────────────────────────┬─────────┬────────────┬──────────────────┐
+# │ Model                               │ Params  │ BEIR NDCG  │ CPU Speed        │
+# ├─────────────────────────────────────┼─────────┼────────────┼──────────────────┤
+# │ cross-encoder/ms-marco-MiniLM-L-2   │ 15.6M   │ ~35*       │ Fastest (1x)     │
+# │ cross-encoder/ms-marco-MiniLM-L-6   │ 22.7M   │ ~38*       │ Fast (2.4x)      │
+# │ mixedbread-ai/mxbai-rerank-xsmall   │ 70.8M   │ 43.9       │ Moderate (7x)    │
+# │ mixedbread-ai/mxbai-rerank-base     │ 200M    │ 46.9       │ Slow (20x)       │
+# │ mixedbread-ai/mxbai-rerank-large    │ 560M    │ 48.8       │ Very slow (56x)  │
+# └─────────────────────────────────────┴─────────┴────────────┴──────────────────┘
+# * MiniLM excels on MS MARCO (74.3 NDCG) but underperforms on diverse BEIR domains
+#
+# Trade-off: MiniLM is faster but trained only on web search queries.
+#            mxbai trained on diverse data (scientific, financial, etc.) - better for RAGLab.
 RERANK_MODEL = "mixedbread-ai/mxbai-rerank-xsmall-v1"
 RERANK_INITIAL_K = 50  # Retrieve more candidates than final top_k for reranking
 

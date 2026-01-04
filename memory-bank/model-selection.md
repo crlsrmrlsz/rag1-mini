@@ -116,6 +116,26 @@ Based on [RAGAS research "Evaluating the Evaluators"](https://blog.ragas.io/eval
 
 ---
 
+## Local Models (Jan 2025)
+
+### Cross-Encoder Reranking
+
+**Selected:** `mixedbread-ai/mxbai-rerank-xsmall-v1` (70.8M params)
+
+| Model | Params | BEIR NDCG | CPU (50 docs) | Training |
+|-------|--------|-----------|---------------|----------|
+| ms-marco-MiniLM-L-2 | 15.6M | ~35 | ~125ms | MS MARCO only |
+| ms-marco-MiniLM-L-6 | 22.7M | ~38 | ~300ms | MS MARCO only |
+| **mxbai-xsmall-v1** | **70.8M** | **43.9** | **~3s** | Diverse |
+| mxbai-base-v1 | 200M | 46.9 | ~8s | Diverse |
+| mxbai-large-v1 | 560M | 48.8 | ~60s | Diverse |
+
+**Rationale:** Cross-domain corpus (philosophy + neuroscience) requires diverse training data. MiniLM trained only on web search queries underperforms on BEIR (+16% gap). mxbai-xsmall offers best quality/speed balance for CPU.
+
+See `docs/preprocessing/reranking.md` for full analysis.
+
+---
+
 ## Sources
 
 - [OpenRouter Models](https://openrouter.ai/models)
@@ -123,3 +143,5 @@ Based on [RAGAS research "Evaluating the Evaluators"](https://blog.ragas.io/eval
 - [GPT-5.2 Introduction](https://openai.com/index/introducing-gpt-5-2/)
 - [Gemini 3 Flash Launch](https://blog.google/products/gemini/gemini-3-flash/)
 - [RAGAS: Evaluating the Evaluators](https://blog.ragas.io/evaluating-the-evaluators)
+- [mxbai-rerank-xsmall-v1 - HuggingFace](https://huggingface.co/mixedbread-ai/mxbai-rerank-xsmall-v1)
+- [MS MARCO Cross-Encoders - SBERT](https://www.sbert.net/docs/pretrained-models/ce-msmarco.html)

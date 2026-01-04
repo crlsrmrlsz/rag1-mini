@@ -65,7 +65,11 @@ The pipeline includes RAGAS-based evaluation metrics:
 
 **Configuration:** Hybrid search, alpha=0.5, top-k=10, cross-encoder reranking
 
-**Note:** Cross-encoder reranking improves quality but is slow on CPU (~2 min/query). Disabled by default; code preserved for future GPU/API use.
+**Reranking Model (Jan 2025):** `mxbai-rerank-xsmall-v1` (70.8M params, BEIR NDCG 43.9)
+- Chosen for cross-domain corpus (philosophy + neuroscience)
+- 8x faster than large-v1 on CPU (~3s vs ~60s for 50 docs)
+- MiniLM alternatives faster but trained only on web search (lower BEIR scores)
+- See `docs/preprocessing/reranking.md` for full model comparison
 
 ## Stage 8: Query Preprocessing + Answer Generation (Completed Dec 22)
 

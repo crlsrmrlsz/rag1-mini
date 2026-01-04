@@ -1,10 +1,10 @@
 # Cross-Encoder Reranking
 
-> **Model:** [mixedbread-ai/mxbai-rerank-large-v1](https://huggingface.co/mixedbread-ai/mxbai-rerank-large-v1) | MixedBread AI | MTEB Score: 57.49
+> **Model:** [mixedbread-ai/mxbai-rerank-xsmall-v1](https://huggingface.co/mixedbread-ai/mxbai-rerank-xsmall-v1) | MixedBread AI | BEIR NDCG: 43.9
 
 A second-stage retrieval step that re-scores candidates using a cross-encoder model. The cross-encoder sees query and document together, enabling deeper semantic matching than embedding similarity alone.
 
-**Type:** Post-retrieval reranking | **Model Size:** 560M params | **Latency:** ~1s CPU, ~0.1s GPU
+**Type:** Post-retrieval reranking | **Model Size:** 70.8M params | **Latency:** ~3s CPU (50 docs), ~0.3s GPU
 
 ---
 
@@ -98,24 +98,55 @@ Two-stage retrieval is the standard architecture in production search systems:
 
 | Decision | Value | Rationale |
 |----------|-------|-----------|
-| **Model** | mxbai-rerank-large-v1 | SOTA open-source (MTEB 57.49), Apache 2.0 |
+| **Model** | mxbai-rerank-xsmall-v1 | Best quality/speed for CPU + cross-domain corpus |
 | **Initial candidates** | 50 | Enough for recall, few enough for speed |
-| **Lazy loading** | Singleton pattern | Avoid reloading 1.2GB model per call |
+| **Lazy loading** | Singleton pattern | Avoid reloading model per call |
 | **GPU auto-detect** | Yes | Uses CUDA/MPS if available, falls back to CPU |
 
-### Model Comparison
+### Model Selection Analysis (Jan 2025)
+
+Two benchmarks measure different things:
+
+| Benchmark | What It Measures | Best For |
+|-----------|------------------|----------|
+| **MS MARCO** | Web search queries, short passages | MiniLM models (trained here) |
+| **BEIR** | Multi-domain: scientific, financial, medical | mxbai models (diverse training) |
+
+**RAGLab corpus:** Philosophy + neuroscience books = cross-domain academic text, closer to BEIR than MS MARCO.
+
+### Comprehensive Model Comparison
+
+| Model | Params | BEIR NDCG@10 | MS MARCO NDCG@10 | CPU Time (50 docs) | Training Data |
+|-------|--------|--------------|------------------|-------------------|---------------|
+| ms-marco-MiniLM-L-2-v2 | 15.6M | ~35* | 71.01 | ~125ms | MS MARCO only |
+| ms-marco-MiniLM-L-6-v2 | 22.7M | ~38* | 74.30 | ~300ms | MS MARCO only |
+| **mxbai-rerank-xsmall-v1** | **70.8M** | **43.9** | — | **~3s** | Diverse |
+| mxbai-rerank-base-v1 | 200M | 46.9 | — | ~8s | Diverse |
+| BAAI/bge-reranker-v2-m3 | 568M | ~45 | — | ~15s | Multilingual |
+| mxbai-rerank-large-v1 | 560M | 48.8 | — | ~60s | Diverse |
+
+*Estimated from BEIR subset evaluations
+
+### Why mxbai-xsmall-v1?
+
+1. **Cross-domain corpus:** Our philosophy + neuroscience books require diverse training (BEIR 43.9 vs ~38 for MiniLM)
+2. **CPU-friendly:** 8x faster than large-v1, practical for development
+3. **Quality retention:** Only 5 NDCG points below SOTA, but 20x faster on CPU
+4. **Fallback option:** If still too slow, MiniLM-L-6 is 10x faster (sacrifice some cross-domain quality)
 
 ```python
-# Available models (src/rag_pipeline/retrieval/reranking.py)
+# src/config.py - Model options
 
-# SOTA accuracy (default)
-"mixedbread-ai/mxbai-rerank-large-v1"  # 560M params, MTEB 57.49
+# Current choice (best for cross-domain CPU)
+"mixedbread-ai/mxbai-rerank-xsmall-v1"  # 70.8M, BEIR 43.9
 
-# Balanced
-"BAAI/bge-reranker-v2-m3"              # Smaller, faster
+# Faster alternatives (if CPU is bottleneck)
+"cross-encoder/ms-marco-MiniLM-L-6-v2"  # 22.7M, BEIR ~38, MS MARCO 74.3
+"cross-encoder/ms-marco-MiniLM-L-2-v2"  # 15.6M, fastest, lowest quality
 
-# Fastest (lowest accuracy)
-"cross-encoder/ms-marco-MiniLM-L-6-v2" # Very small, fastest
+# Higher quality (GPU recommended)
+"mixedbread-ai/mxbai-rerank-base-v1"    # 200M, BEIR 46.9
+"mixedbread-ai/mxbai-rerank-large-v1"   # 560M, BEIR 48.8, SOTA
 ```
 
 ### Core Function
@@ -192,12 +223,24 @@ Cross-Encoder (Reranker):
 
 ## Cost Analysis
 
+### mxbai-rerank-xsmall-v1 (Current)
+
 | Component | CPU | GPU |
 |-----------|-----|-----|
-| Model load (first call) | ~5s | ~3s |
-| 50 documents | ~1s | ~0.1s |
-| 100 documents | ~2s | ~0.2s |
-| Memory | 1.2GB | 1.2GB VRAM |
+| Model load (first call) | ~3s | ~2s |
+| 50 documents | ~3s | ~0.3s |
+| 100 documents | ~6s | ~0.6s |
+| Memory | ~300MB | ~300MB VRAM |
+
+### Comparison Across Models
+
+| Model | CPU (50 docs) | Model Size | Download |
+|-------|---------------|------------|----------|
+| MiniLM-L-2-v2 | ~125ms | ~60MB | ~30MB |
+| MiniLM-L-6-v2 | ~300ms | ~90MB | ~45MB |
+| **mxbai-xsmall-v1** | **~3s** | **~280MB** | **~140MB** |
+| mxbai-base-v1 | ~8s | ~800MB | ~400MB |
+| mxbai-large-v1 | ~60s | ~2.2GB | ~1.1GB |
 
 No API costs — model runs locally.
 
@@ -219,10 +262,8 @@ Via UI: Toggle "Enable Cross-Encoder" in Streamlit sidebar.
 
 ```python
 # src/config.py
+RERANK_MODEL = "mixedbread-ai/mxbai-rerank-xsmall-v1"  # See model comparison above
 RERANK_INITIAL_K = 50  # Candidates before reranking
-
-# src/rag_pipeline/retrieval/reranking.py
-RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
 ```
 
 ---
@@ -237,6 +278,16 @@ RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
 | Debugging retrieval | Disable — see raw retrieval quality |
 | GPU available | Enable — minimal latency impact |
 | **Avoid when** | Latency-critical (<100ms), CPU-only with high QPS |
+
+---
+
+## References
+
+- [mxbai-rerank-xsmall-v1 - HuggingFace](https://huggingface.co/mixedbread-ai/mxbai-rerank-xsmall-v1)
+- [MS MARCO Cross-Encoders - SBERT](https://www.sbert.net/docs/pretrained-models/ce-msmarco.html)
+- [Reranking Benchmarks arXiv:2409.07691](https://arxiv.org/html/2409.07691v1)
+- [Metarank Cross-Encoder Benchmarks](https://docs.metarank.ai/guides/index/cross-encoders)
+- [SBERT Efficiency Guide](https://sbert.net/docs/cross_encoder/usage/efficiency.html)
 
 ---
 

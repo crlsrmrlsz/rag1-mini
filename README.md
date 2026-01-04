@@ -14,53 +14,35 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 
 ```mermaid
 flowchart TB
-    subgraph USER["User"]
-        U["Query"]
-    end
+    U["User Query"]
+    ST["Streamlit UI"]
+    PRE["Query Preprocessing"]
+    SEARCH["Search & Retrieval"]
+    RERANK["Reranking"]
+    GEN["Answer Generation"]
+    OR["OpenRouter"]
+    LLM["LLM"]
+    WV["Weaviate"]
+    N4J["Neo4j"]
 
-    subgraph UI["Interface"]
-        ST["Streamlit"]
-    end
-
-    subgraph CORE["RAG Pipeline"]
-        direction LR
-        PRE["Query Preprocessing<br/>(HyDE, Decomposition, GraphRAG)"]
-        SEARCH["Search & Retrieval"]
-        RERANK["Reranking<br/>(Cross-Encoder)"]
-        GEN["Answer Generation"]
-        PRE --> SEARCH --> RERANK --> GEN
-    end
-
-    subgraph EXT["External"]
-        OR["OpenRouter"]
-        LLM["LLM"]
-        OR --> LLM
-    end
-
-    subgraph DBS["Databases"]
-        WV[("Weaviate<br/>Vectors + BM25")]
-        N4J[("Neo4j<br/>Knowledge Graph")]
-    end
-
-    %% User flow
-    U --> ST --> PRE
-
-    %% Core to LLM
-    PRE -.->|HyDE, Decomposition| OR
-    GEN --> OR
-
-    %% Core to databases
-    SEARCH --> WV
-    SEARCH -.->|GraphRAG| N4J
-
-    %% Output
+    U --> ST
+    ST --> PRE
+    PRE --> SEARCH
+    SEARCH --> RERANK
+    RERANK --> GEN
     GEN --> ST
 
-    %% Styling
-    style ST fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    style WV fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style N4J fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style LLM fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    PRE -.-> OR
+    GEN --> OR
+    OR --> LLM
+
+    SEARCH --> WV
+    SEARCH -.-> N4J
+
+    style ST fill:#e8f5e9,stroke:#2e7d32
+    style WV fill:#fff3e0,stroke:#ef6c00
+    style N4J fill:#fff3e0,stroke:#ef6c00
+    style LLM fill:#ede7f6,stroke:#512da8
 ```
 
 ### Workflow

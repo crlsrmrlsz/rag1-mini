@@ -13,7 +13,7 @@
 
 This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  an [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
-I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
+I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying some schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
 
 I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
@@ -27,73 +27,8 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 
 ### Architecture
 
-```mermaid
-flowchart TB
-    subgraph UI["Interface"]
-        U["User Query"]
-        ST["Streamlit"]
-    end
+![RAGlab arquitecture](assets/arquitecture_nobackground.png)
 
-    subgraph CORE["RAG Pipeline"]
-        PRE["Query Preprocessing"]
-        SEARCH["Search & Retrieval"]
-        RERANK["Reranking"]
-        GEN["Answer Generation"]
-    end
-
-    subgraph EXT["External"]
-        OR["OpenRouter"]
-        LLM["LLM"]
-    end
-
-    subgraph DBS["Databases"]
-        WV["Weaviate"]
-        N4J["Neo4j"]
-    end
-
-    U --> ST
-    ST --> PRE
-    PRE --> SEARCH
-    SEARCH --> RERANK
-    RERANK --> GEN
-    GEN --> ST
-
-    PRE -.-> OR
-    GEN --> OR
-    OR --> LLM
-
-    SEARCH --> WV
-    SEARCH -.-> N4J
-```
-
-### Workflow
-
-#### Pipeline Overview
-
-```mermaid
-flowchart LR
-    PDF["📄 PDF<br/>Corpus"]
-    PREP["1. Content<br/>Preparation"]
-    CHUNK["2. Chunking"]
-    INDEX["3. Indexing"]
-    QUERY["4. Query<br/>Processing"]
-    RETRIEVE["5. Retrieval"]
-    GEN["6. Generation"]
-    EVAL["7. Evaluation"]
-
-    PDF --> PREP --> CHUNK --> INDEX
-    INDEX --> RETRIEVE
-    QUERY --> RETRIEVE --> GEN --> EVAL
-
-    style PDF fill:#e3f2fd,stroke:#1565c0
-    style PREP fill:#f3e5f5,stroke:#7b1fa2
-    style CHUNK fill:#e8f5e9,stroke:#2e7d32
-    style INDEX fill:#fff3e0,stroke:#ef6c00
-    style QUERY fill:#fce4ec,stroke:#c2185b
-    style RETRIEVE fill:#e0f2f1,stroke:#00695c
-    style GEN fill:#ede7f6,stroke:#512da8
-    style EVAL fill:#fff8e1,stroke:#f9a825
-```
 
 #### Chunking Strategies (Index-Time)
 

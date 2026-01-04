@@ -267,7 +267,10 @@ DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
 
 # Reranking: Cross-encoder model for two-stage retrieval
-# Options: "mixedbread-ai/mxbai-rerank-large-v1" (SOTA), "BAAI/bge-reranker-v2-m3" (faster)
+# Options:
+#   - "mixedbread-ai/mxbai-rerank-large-v1" (SOTA, 560M params, MTEB 57.49)
+#   - "BAAI/bge-reranker-v2-m3" (smaller, faster)
+#   - "cross-encoder/ms-marco-MiniLM-L-6-v2" (very small, fastest)
 RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
 RERANK_INITIAL_K = 50  # Retrieve more candidates than final top_k for reranking
 

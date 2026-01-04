@@ -1,6 +1,6 @@
 # RAGLab
 
-This an investigation project started to test concepts learned in [DeepLearning.AI course about RAG] (https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar] (https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube] (https://youtu.be/fqVLjtvWgq8).
+This an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
 I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worring main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
 

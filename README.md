@@ -1,9 +1,14 @@
 # RAGLab
 
-A complete Retrieval-Augmented Generation pipeline built from scratch to deeply understand RAG concepts and compare the effect of different configurations in chunking, searching and preprocessing techniques.
+This an investigation project started to test concepts learned in DeepLearning.AI course about RAG (https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book Brain and Behaviour, by David Eagleman and Jonathan Downar, which I discovered thanks to Andrej Karpathy talk in youtube.
 
-Study done over two fields of knowledge, neuroscience and practical wisdom philosophy, using 19 books and testing with handcrafted evaluation questions done with Anthorpic Opus 4.5 after reading all the books.
+I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worring main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
 
+I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
+
+So trying to improve the RAG system performance I ended up testing some of the recent improvements in RAG techniques and discovered how difficult it really is, the complexity to find the proper configuration over the great amount of tuning posibilities and over all, had lot of fun getting interesting insights about human behavour.
+
+I cannot publish the dataset nor database (weaviate, neo4j) data as the books have intelectual property protection, but publish the project code and the insights extracted from my humble point of view.
 
 ### Arquitecture
 

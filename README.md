@@ -27,7 +27,7 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 
 ### Architecture
 
-![RAGlab arquitecture](assets/arquitecture_nobackground.png)
+![RAGlab arquitecture](assets/arquitecture_background.png)
 
 
 #### Chunking Strategies (Index-Time)

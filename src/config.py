@@ -276,7 +276,7 @@ MAX_TOP_K = 20
 #   - "mixedbread-ai/mxbai-rerank-base-v1"      (278M params, NDCG 46.9, balanced)
 #   - "BAAI/bge-reranker-v2-m3"                 (~568M params, multilingual)
 #   - "mixedbread-ai/mxbai-rerank-large-v1"     (560M params, NDCG 48.8, SOTA quality)
-RERANK_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANK_MODEL = "mixedbread-ai/mxbai-rerank-xsmall-v1"
 RERANK_INITIAL_K = 50  # Retrieve more candidates than final top_k for reranking
 
 

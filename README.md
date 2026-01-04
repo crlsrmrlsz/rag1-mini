@@ -8,6 +8,7 @@
 ![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
+![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
 This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
@@ -15,9 +16,11 @@ I love also practical philosophy books about wisdom of life from Stoics authors,
 
 I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
-So trying to improve the RAG system performance I ended up testing some of the recent improvements in RAG techniques and discovered how difficult it really is, the complexity to find the proper configuration over the great amount of tuning posibilities and over all, had lot of fun getting interesting insights about human behavour.
+So trying to improve the RAG system performance I ended up building an evaluation framework with a user interface to test some of the recent improvements in RAG techniques, so i can be able to easily tune (embedding collection, preprocessing technique, type of search) and inspect each step result(chunks retrieved, LLM call and responses and final answer) and compare results with different configurations to get an intuition of the effect of each configuration decission.
 
-I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the insights extracted from my humble point of view.
+This is custom and simple evaluation framewrok tailored to this specific project and does not aim to be used as a general framework. There are professional frameworks out there for that purpose, but nowadays it is quite easy to construct something like this using the power of coding agents. I did this using Claude Code and Opus 4.5.
+
+I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the technical insights and intuitions extracted from my non expert point of view.
 
 ### Architecture
 

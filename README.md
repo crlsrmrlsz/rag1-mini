@@ -1,5 +1,14 @@
 # RAGLab
 
+![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)
+![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)
+![Weaviate](https://img.shields.io/badge/weaviate-vector_db-00C29A)
+![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
+![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
+![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
+
 This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
 I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.

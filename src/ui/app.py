@@ -372,8 +372,6 @@ selected_strategy = st.sidebar.selectbox(
 )
 enable_preprocessing = selected_strategy != "none"
 
-st.sidebar.divider()
-
 # -----------------------------------------------------------------------------
 # Collection
 # -----------------------------------------------------------------------------
@@ -404,8 +402,6 @@ elif collection_infos:
 else:
     st.sidebar.warning("No collections found. Is Weaviate running?")
     selected_collection = None
-
-st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
 # Retrieval (always visible)
@@ -440,8 +436,6 @@ top_k = st.sidebar.slider(
     value=DEFAULT_TOP_K,
     help="Number of chunks to retrieve.",
 )
-
-st.sidebar.divider()
 
 # -----------------------------------------------------------------------------
 # Reranking (always visible)

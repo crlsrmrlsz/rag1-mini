@@ -145,7 +145,8 @@ RetrievalCache = dict[RetrievalCacheKey, list[str]]  # Maps cache key -> context
 # PATHS (from config)
 # ============================================================================
 
-TEST_QUESTIONS_FILE = EVAL_TEST_QUESTIONS_FILE
+DEFAULT_QUESTIONS_FILE = COMPREHENSIVE_QUESTIONS_FILE  # 15 curated questions
+FULL_QUESTIONS_FILE = EVAL_TEST_QUESTIONS_FILE  # All 45 questions
 RESULTS_DIR = EVAL_RESULTS_DIR
 EVALUATION_HISTORY_FILE = PROJECT_ROOT / "memory-bank" / "evaluation-history.md"
 
@@ -155,8 +156,24 @@ EVALUATION_HISTORY_FILE = PROJECT_ROOT / "memory-bank" / "evaluation-history.md"
 # ============================================================================
 
 
+def resolve_questions_file(questions_file_arg: Optional[str]) -> Path:
+    """Resolve questions file path from CLI argument.
+
+    Args:
+        questions_file_arg: CLI argument value (None, 'full', or path).
+
+    Returns:
+        Resolved path to questions file.
+    """
+    if questions_file_arg is None:
+        return DEFAULT_QUESTIONS_FILE
+    if questions_file_arg.lower() == "full":
+        return FULL_QUESTIONS_FILE
+    return Path(questions_file_arg)
+
+
 def load_test_questions(
-    filepath: Path = TEST_QUESTIONS_FILE,
+    filepath: Path = DEFAULT_QUESTIONS_FILE,
     limit: Optional[int] = None,
 ) -> list[dict[str, Any]]:
     """
@@ -451,12 +468,13 @@ def run_comprehensive_evaluation(args: argparse.Namespace) -> None:
     logger.info("Starting comprehensive evaluation mode...")
     start_time = time.time()
 
-    # Load curated question subset
-    questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
+    # Load questions (respect --questions-file if provided)
+    questions_filepath = resolve_questions_file(args.questions_file)
+    questions = load_test_questions(filepath=questions_filepath)
     if not questions:
-        logger.error(f"No questions found in {COMPREHENSIVE_QUESTIONS_FILE}")
+        logger.error(f"No questions found in {questions_filepath}")
         return
-    logger.info(f"Loaded {len(questions)} curated questions from comprehensive_questions.json")
+    logger.info(f"Loaded {len(questions)} questions from {questions_filepath.name}")
 
     # Get all dimensions
     collections = list_collections()
@@ -732,9 +750,10 @@ def retry_failed_combinations(run_id: str, args: argparse.Namespace) -> None:
 
     logger.info(f"Found {failed_report.total_failed} failed combinations to retry")
 
-    # Load questions (use comprehensive questions for consistency)
-    questions = load_test_questions(filepath=COMPREHENSIVE_QUESTIONS_FILE)
-    logger.info(f"Loaded {len(questions)} questions")
+    # Load questions (respect --questions-file if provided)
+    questions_filepath = resolve_questions_file(args.questions_file)
+    questions = load_test_questions(filepath=questions_filepath)
+    logger.info(f"Loaded {len(questions)} questions from {questions_filepath.name}")
 
     start_time = time.time()
     retry_results = []
@@ -1221,6 +1240,13 @@ def main() -> None:
         metavar="RUN_ID",
         help="Re-run failed combinations from a previous comprehensive run (e.g., comprehensive_20251231_120000)",
     )
+    parser.add_argument(
+        "--questions-file",
+        "-q",
+        type=str,
+        default=None,
+        help="Questions file: path or 'full' for all 45 questions (default: comprehensive 15)",
+    )
 
     args = parser.parse_args()
 
@@ -1245,8 +1271,10 @@ def main() -> None:
                 return
 
     # Load test questions
-    logger.info("Loading test questions...")
+    questions_filepath = resolve_questions_file(args.questions_file)
+    logger.info(f"Loading test questions from {questions_filepath.name}...")
     questions = load_test_questions(
+        filepath=questions_filepath,
         limit=args.questions,
     )
 

@@ -36,14 +36,13 @@ Input: "[CLS] What metaphor does Marcus Aurelius use? [SEP] He likens humans to 
 The model sees both texts simultaneously, enabling it to understand that
 "puppets" directly answers the question about "metaphor".
 
-## Model: mxbai-rerank-large-v2
+## Model Selection
 
-We use MixedBread AI's `mxbai-rerank-large-v1` model:
-- **MTEB Reranking Score:** 57.49 (state-of-the-art open-source)
-- **Base:** XLM-RoBERTa (multilingual)
-- **Parameters:** ~560M
-- **License:** Apache 2.0 (commercial use OK)
-- **Speed:** ~50 pairs/second on CPU, ~500/second on GPU
+Configurable via `RERANK_MODEL` in `src/config.py`. Options range from:
+- **CPU-friendly:** MiniLM (15-22M params, ~1-4k docs/sec)
+- **GPU-optimized:** mxbai-rerank-large (560M params, SOTA quality)
+
+See config.py for full model list with speed/quality tradeoffs.
 """
 
 import time

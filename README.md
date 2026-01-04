@@ -13,7 +13,7 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 ### Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph USER["User"]
         U["Query"]
     end
@@ -23,17 +23,12 @@ flowchart LR
     end
 
     subgraph CORE["RAG Pipeline"]
-        direction TB
+        direction LR
         PRE["Query Preprocessing<br/>(HyDE, Decomposition, GraphRAG)"]
         SEARCH["Search & Retrieval"]
         RERANK["Reranking<br/>(Cross-Encoder)"]
         GEN["Answer Generation"]
         PRE --> SEARCH --> RERANK --> GEN
-    end
-
-    subgraph DBS["Databases"]
-        WV[("Weaviate<br/>Vectors + BM25")]
-        N4J[("Neo4j<br/>Knowledge Graph")]
     end
 
     subgraph EXT["External"]
@@ -42,16 +37,21 @@ flowchart LR
         OR --> LLM
     end
 
+    subgraph DBS["Databases"]
+        WV[("Weaviate<br/>Vectors + BM25")]
+        N4J[("Neo4j<br/>Knowledge Graph")]
+    end
+
     %% User flow
     U --> ST --> PRE
-
-    %% Core to databases
-    SEARCH --> WV
-    SEARCH -.->|GraphRAG| N4J
 
     %% Core to LLM
     PRE -.->|HyDE, Decomposition| OR
     GEN --> OR
+
+    %% Core to databases
+    SEARCH --> WV
+    SEARCH -.->|GraphRAG| N4J
 
     %% Output
     GEN --> ST

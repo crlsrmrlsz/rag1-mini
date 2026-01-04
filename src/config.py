@@ -266,8 +266,10 @@ def get_community_collection_name(chunking_strategy: str = None) -> str:
 DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
 
-# Reranking: Retrieve more candidates than final top_k for cross-encoder to rerank
-RERANK_INITIAL_K = 50
+# Reranking: Cross-encoder model for two-stage retrieval
+# Options: "mixedbread-ai/mxbai-rerank-large-v1" (SOTA), "BAAI/bge-reranker-v2-m3" (faster)
+RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
+RERANK_INITIAL_K = 50  # Retrieve more candidates than final top_k for reranking
 
 
 # ============================================================================

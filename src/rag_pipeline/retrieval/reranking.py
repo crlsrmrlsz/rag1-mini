@@ -52,7 +52,7 @@ from dataclasses import dataclass, replace, field
 
 from sentence_transformers import CrossEncoder
 
-from src.config import RERANK_INITIAL_K
+from src.config import RERANK_INITIAL_K, RERANK_MODEL
 from src.rag_pipeline.indexing.weaviate_query import SearchResult
 from src.shared.files import setup_logging
 
@@ -75,20 +75,6 @@ class RerankResult:
     order_changes: list[dict[str, Any]] = field(default_factory=list)
     rerank_time_ms: float = 0.0
     model: str = ""
-
-# =============================================================================
-# MODEL CONFIGURATION
-# =============================================================================
-
-# The reranking model to use
-# Options:
-#   - "mixedbread-ai/mxbai-rerank-large-v1" (SOTA open-source, 560M params)
-#   - "BAAI/bge-reranker-v2-m3" (smaller, faster)
-#   - "cross-encoder/ms-marco-MiniLM-L-6-v2" (very small, fastest)
-RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
-
-# Default number of candidates to retrieve before reranking
-# (configured in src/config.py as RERANK_INITIAL_K)
 
 # Singleton to hold loaded model (avoids reloading 1.2GB model on each call)
 _reranker: Optional[CrossEncoder] = None

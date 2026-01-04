@@ -14,16 +14,27 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 
 ```mermaid
 flowchart TB
-    U["User Query"]
-    ST["Streamlit UI"]
-    PRE["Query Preprocessing"]
-    SEARCH["Search & Retrieval"]
-    RERANK["Reranking"]
-    GEN["Answer Generation"]
-    OR["OpenRouter"]
-    LLM["LLM"]
-    WV["Weaviate"]
-    N4J["Neo4j"]
+    subgraph UI["Interface"]
+        U["User Query"]
+        ST["Streamlit"]
+    end
+
+    subgraph CORE["RAG Pipeline"]
+        PRE["Query Preprocessing"]
+        SEARCH["Search & Retrieval"]
+        RERANK["Reranking"]
+        GEN["Answer Generation"]
+    end
+
+    subgraph EXT["External"]
+        OR["OpenRouter"]
+        LLM["LLM"]
+    end
+
+    subgraph DBS["Databases"]
+        WV["Weaviate"]
+        N4J["Neo4j"]
+    end
 
     U --> ST
     ST --> PRE
@@ -38,11 +49,6 @@ flowchart TB
 
     SEARCH --> WV
     SEARCH -.-> N4J
-
-    style ST fill:#e8f5e9,stroke:#2e7d32
-    style WV fill:#fff3e0,stroke:#ef6c00
-    style N4J fill:#fff3e0,stroke:#ef6c00
-    style LLM fill:#ede7f6,stroke:#512da8
 ```
 
 ### Workflow

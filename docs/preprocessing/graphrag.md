@@ -78,6 +78,42 @@ flowchart LR
 
 ---
 
+
+
+#### GraphRAG Pipeline Detail
+
+```mermaid
+flowchart TB
+    subgraph EXTRACT["Entity Extraction"]
+        AUTO["<b>Auto-Tuning</b><br/>MS Research 2024<br/>━━━━━━━━━<br/>Discover entity types<br/>from corpus content"]
+    end
+
+    subgraph GRAPH["Knowledge Graph"]
+        N4J[("Neo4j<br/>Entities + Relations")]
+    end
+
+    subgraph COMMUNITY["Community Detection"]
+        LEIDEN["<b>Leiden Algorithm</b><br/>━━━━━━━━━<br/>Hierarchical clustering<br/>Better than Louvain"]
+        SUM["LLM Summaries<br/>per community"]
+    end
+
+    subgraph QUERY["Query-Time"]
+        ENT["Extract query<br/>entities"]
+        TRAV["Graph traversal<br/>2-hop neighbors"]
+        COMM["Community<br/>context lookup"]
+    end
+
+    AUTO --> N4J --> LEIDEN --> SUM
+    ENT --> TRAV --> N4J
+    SUM --> COMM
+
+    style AUTO fill:#fff3e0,stroke:#ef6c00
+    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
+    style LEIDEN fill:#fff3e0,stroke:#ef6c00
+```
+
+---
+
 ## Theory
 
 ### The Core Problem

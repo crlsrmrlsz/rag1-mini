@@ -98,6 +98,41 @@ From comprehensive evaluation across 102 configurations:
 
 ---
 
+
+
+#### Query Preprocessing Strategies (Query-Time)
+
+```mermaid
+flowchart TB
+    subgraph INPUT["User Query"]
+        Q["Natural language<br/>question"]
+    end
+
+    subgraph STRATEGIES["Choose One Strategy"]
+        direction LR
+
+        NONE["<b>None</b><br/>Baseline<br/>━━━━━━━━━<br/>Direct query<br/>No transformation"]
+
+        HYDE["<b>HyDE</b><br/>arXiv:2212.10496<br/>━━━━━━━━━<br/>Generate hypothetical<br/>answer passage<br/>Embed the hypothesis"]
+
+        DECOMP["<b>Decomposition</b><br/>arXiv:2507.00355<br/>━━━━━━━━━<br/>Split into sub-queries<br/>Parallel retrieval<br/>RRF merge results"]
+
+        GRAPH["<b>GraphRAG</b><br/>arXiv:2404.16130<br/>━━━━━━━━━<br/>Extract entities<br/>Graph traversal<br/>Community context"]
+    end
+
+    subgraph OUTPUT["Processed Query"]
+        OUT["Ready for<br/>retrieval"]
+    end
+
+    Q --> NONE & HYDE & DECOMP & GRAPH --> OUT
+
+    style NONE fill:#fce4ec,stroke:#c2185b
+    style HYDE fill:#fce4ec,stroke:#c2185b
+    style DECOMP fill:#fce4ec,stroke:#c2185b
+    style GRAPH fill:#fce4ec,stroke:#c2185b
+```
+
+
 ## Strategy Flow
 
 ```

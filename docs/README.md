@@ -90,3 +90,39 @@ python -m src.stages.run_stage_7_evaluation --comprehensive  # Full grid search
 | GraphRAG | `src/graph/extractor.py`, `community.py`, `query.py` |
 | RRF Merging | `src/rag_pipeline/retrieval/rrf.py` |
 | Evaluation | `src/evaluation/ragas_evaluator.py` |
+
+
+#### Retrieval & Search Methods
+
+```mermaid
+flowchart LR
+    subgraph SEARCH["Search Type"]
+        direction TB
+        KW["<b>Keyword</b><br/>BM25 only"]
+        HYB["<b>Hybrid</b><br/>α·vector + (1-α)·BM25"]
+    end
+
+    subgraph MERGE["Multi-Query"]
+        RRF["RRF Fusion<br/>Cormack 1993"]
+    end
+
+    subgraph RERANK["Reranking"]
+        CE["Cross-Encoder<br/>mxbai-rerank-large"]
+    end
+
+    subgraph DBS["Databases"]
+        direction TB
+        WV[("Weaviate<br/>HNSW + BM25")]
+        N4J[("Neo4j<br/>Knowledge Graph")]
+    end
+
+    SEARCH --> WV --> RRF
+    N4J -.->|"GraphRAG"| RRF
+    RRF --> CE --> OUT["Top-k<br/>Contexts"]
+
+    style KW fill:#e0f2f1,stroke:#00695c
+    style HYB fill:#e0f2f1,stroke:#00695c
+    style WV fill:#eceff1,stroke:#455a64,stroke-width:2px
+    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
+```
+

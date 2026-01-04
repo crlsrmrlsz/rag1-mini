@@ -35,6 +35,38 @@ flowchart LR
     style RAPTOR fill:#fff3e0,stroke:#ef6c00
 ```
 
+#### Chunking Strategies (Index-Time)
+
+```mermaid
+flowchart TB
+    subgraph INPUT["Segmented Text"]
+        IN["Sentences with<br/>section metadata"]
+    end
+
+    subgraph STRATEGIES["Choose One Strategy"]
+        direction LR
+
+        FIXED["<b>Fixed-Size</b><br/>Baseline<br/>━━━━━━━━━<br/>800 tokens<br/>2-sentence overlap<br/>Section boundaries"]
+
+        SEM["<b>Semantic</b><br/>━━━━━━━━━<br/>Embedding similarity<br/>breakpoints<br/>Cosine threshold 0.4"]
+
+        CTX["<b>Contextual Retrieval</b><br/>Anthropic 2024<br/>━━━━━━━━━<br/>LLM-generated context<br/>prepended to chunks<br/>-35% retrieval failures"]
+
+        RAP["<b>RAPTOR</b><br/>arXiv:2401.18059<br/>━━━━━━━━━<br/>UMAP + GMM clustering<br/>Hierarchical summaries<br/>Multi-level tree"]
+    end
+
+    subgraph OUTPUT["Output"]
+        OUT["Chunks ready<br/>for embedding"]
+    end
+
+    IN --> FIXED & SEM & CTX & RAP --> OUT
+
+    style FIXED fill:#e8f5e9,stroke:#2e7d32
+    style SEM fill:#e8f5e9,stroke:#2e7d32
+    style CTX fill:#e8f5e9,stroke:#2e7d32
+    style RAP fill:#e8f5e9,stroke:#2e7d32
+```
+
 ---
 
 ## Strategy Comparison

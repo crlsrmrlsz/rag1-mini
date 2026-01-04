@@ -25,171 +25,47 @@ This is custom and simple evaluation framewrok tailored to this specific project
 
 I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the technical insights and intuitions extracted from my non expert point of view.
 
+---
+
 ### Architecture
 
+This are the main components of the application. 
+
+
 ![RAGlab arquitecture](assets/arquitecture.png)
+
+---
 
 
 ### Workflow
 
+The data workflow starts with  books in PDF and follows the standard RAG pipeline. It allows to test different RAG improvement techniques both alone and combined to see the effect of each possible combination chunking strategy/query preprocessing and search type.
+
+
 ![RAGlab workflow](assets/workflow.png)
 
-#### Chunking Strategies (Index-Time)
-
-```mermaid
-flowchart TB
-    subgraph INPUT["Segmented Text"]
-        IN["Sentences with<br/>section metadata"]
-    end
-
-    subgraph STRATEGIES["Choose One Strategy"]
-        direction LR
-
-        FIXED["<b>Fixed-Size</b><br/>Baseline<br/>━━━━━━━━━<br/>800 tokens<br/>2-sentence overlap<br/>Section boundaries"]
-
-        SEM["<b>Semantic</b><br/>━━━━━━━━━<br/>Embedding similarity<br/>breakpoints<br/>Cosine threshold 0.4"]
-
-        CTX["<b>Contextual Retrieval</b><br/>Anthropic 2024<br/>━━━━━━━━━<br/>LLM-generated context<br/>prepended to chunks<br/>-35% retrieval failures"]
-
-        RAP["<b>RAPTOR</b><br/>arXiv:2401.18059<br/>━━━━━━━━━<br/>UMAP + GMM clustering<br/>Hierarchical summaries<br/>Multi-level tree"]
-    end
-
-    subgraph OUTPUT["Output"]
-        OUT["Chunks ready<br/>for embedding"]
-    end
-
-    IN --> FIXED & SEM & CTX & RAP --> OUT
-
-    style FIXED fill:#e8f5e9,stroke:#2e7d32
-    style SEM fill:#e8f5e9,stroke:#2e7d32
-    style CTX fill:#e8f5e9,stroke:#2e7d32
-    style RAP fill:#e8f5e9,stroke:#2e7d32
-```
-
-#### Query Preprocessing Strategies (Query-Time)
-
-```mermaid
-flowchart TB
-    subgraph INPUT["User Query"]
-        Q["Natural language<br/>question"]
-    end
-
-    subgraph STRATEGIES["Choose One Strategy"]
-        direction LR
-
-        NONE["<b>None</b><br/>Baseline<br/>━━━━━━━━━<br/>Direct query<br/>No transformation"]
-
-        HYDE["<b>HyDE</b><br/>arXiv:2212.10496<br/>━━━━━━━━━<br/>Generate hypothetical<br/>answer passage<br/>Embed the hypothesis"]
-
-        DECOMP["<b>Decomposition</b><br/>arXiv:2507.00355<br/>━━━━━━━━━<br/>Split into sub-queries<br/>Parallel retrieval<br/>RRF merge results"]
-
-        GRAPH["<b>GraphRAG</b><br/>arXiv:2404.16130<br/>━━━━━━━━━<br/>Extract entities<br/>Graph traversal<br/>Community context"]
-    end
-
-    subgraph OUTPUT["Processed Query"]
-        OUT["Ready for<br/>retrieval"]
-    end
-
-    Q --> NONE & HYDE & DECOMP & GRAPH --> OUT
-
-    style NONE fill:#fce4ec,stroke:#c2185b
-    style HYDE fill:#fce4ec,stroke:#c2185b
-    style DECOMP fill:#fce4ec,stroke:#c2185b
-    style GRAPH fill:#fce4ec,stroke:#c2185b
-```
-
-#### Retrieval & Search Methods
-
-```mermaid
-flowchart LR
-    subgraph SEARCH["Search Type"]
-        direction TB
-        KW["<b>Keyword</b><br/>BM25 only"]
-        HYB["<b>Hybrid</b><br/>α·vector + (1-α)·BM25"]
-    end
-
-    subgraph MERGE["Multi-Query"]
-        RRF["RRF Fusion<br/>Cormack 1993"]
-    end
-
-    subgraph RERANK["Reranking"]
-        CE["Cross-Encoder<br/>mxbai-rerank-large"]
-    end
-
-    subgraph DBS["Databases"]
-        direction TB
-        WV[("Weaviate<br/>HNSW + BM25")]
-        N4J[("Neo4j<br/>Knowledge Graph")]
-    end
-
-    SEARCH --> WV --> RRF
-    N4J -.->|"GraphRAG"| RRF
-    RRF --> CE --> OUT["Top-k<br/>Contexts"]
-
-    style KW fill:#e0f2f1,stroke:#00695c
-    style HYB fill:#e0f2f1,stroke:#00695c
-    style WV fill:#eceff1,stroke:#455a64,stroke-width:2px
-    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
-```
-
-#### GraphRAG Pipeline Detail
-
-```mermaid
-flowchart TB
-    subgraph EXTRACT["Entity Extraction"]
-        AUTO["<b>Auto-Tuning</b><br/>MS Research 2024<br/>━━━━━━━━━<br/>Discover entity types<br/>from corpus content"]
-    end
-
-    subgraph GRAPH["Knowledge Graph"]
-        N4J[("Neo4j<br/>Entities + Relations")]
-    end
-
-    subgraph COMMUNITY["Community Detection"]
-        LEIDEN["<b>Leiden Algorithm</b><br/>━━━━━━━━━<br/>Hierarchical clustering<br/>Better than Louvain"]
-        SUM["LLM Summaries<br/>per community"]
-    end
-
-    subgraph QUERY["Query-Time"]
-        ENT["Extract query<br/>entities"]
-        TRAV["Graph traversal<br/>2-hop neighbors"]
-        COMM["Community<br/>context lookup"]
-    end
-
-    AUTO --> N4J --> LEIDEN --> SUM
-    ENT --> TRAV --> N4J
-    SUM --> COMM
-
-    style AUTO fill:#fff3e0,stroke:#ef6c00
-    style N4J fill:#eceff1,stroke:#455a64,stroke-width:2px
-    style LEIDEN fill:#fff3e0,stroke:#ef6c00
-```
+---
 
 ### Corpus
 
-| Book | Author | Category | Tokens |
-|------|--------|----------|--------|
-| Cognitive Neuroscience: The Biology of the Mind | Michael Gazzaniga | Neuroscience | 455,433 |
-| Brain and Behavior | David Eagleman, Jonathan Downar | Neuroscience | 370,663 |
-| Biopsychology | John Pinel, Steven Barnes | Neuroscience | 326,159 |
-| Behave | Robert M. Sapolsky | Neuroscience | 276,948 |
-| Psychobiology of Behaviour | K. Fountoulakis, I. Nimatoudis | Neuroscience | 197,404 |
-| Determined | Robert M. Sapolsky | Neuroscience | 194,134 |
-| Fundamentals of Cognitive Neuroscience | Nicole M. Gage, Bernard Baars | Neuroscience | 152,365 |
-| Cognitive Biology | Luca Tommasi et al. | Neuroscience | 146,231 |
-| Letters from a Stoic | Seneca | Philosophy/Wisdom | 281,487 |
-| Thinking Fast and Slow | Daniel Kahneman | Philosophy/Wisdom | 204,286 |
-| Essays and Aphorisms | Arthur Schopenhauer | Philosophy/Wisdom | 102,616 |
-| The Meditations | Marcus Aurelius | Philosophy/Wisdom | 88,693 |
-| The Enchiridion | Epictetus | Philosophy/Wisdom | 88,466 |
-| The Analects | Confucius | Philosophy/Wisdom | 77,862 |
-| The Pocket Oracle | Baltasar Gracián | Philosophy/Wisdom | 54,819 |
-| Counsels and Maxims | Arthur Schopenhauer | Philosophy/Wisdom | 54,649 |
-| The Wisdom of Life | Arthur Schopenhauer | Philosophy/Wisdom | 51,641 |
-| The Art of Living | Epictetus | Philosophy/Wisdom | 23,660 |
-| Tao Te Ching | Lao Tzu | Philosophy/Wisdom | 20,415 |
-| **Total** | **19 books** | | **3.17M** |
+The dataset is componsed of a set of books:
 
-**Full 8-stage pipeline:** PDF extraction (Docling) → Markdown cleaning → NLP sentence segmentation (spaCy) → chunking (800 tokens) → embeddings (OpenRouter) → vector storage (Weaviate) → hybrid search + reranking → answer generation with RAGAS evaluation.
+| Domain | Books | Est. Tokens | Questions | Source Type |
+|--------|-------|-------------|-----------|-------------|
+| Neuroscience | ~10 | ~400k | 8 | Academic/popular science books |
+| Philosophy | ~9 | ~300k | 7 | Classical texts + modern interpretations |
+
+
+**Total**: 19 books, ~700k tokens, 15-45 questions
+
+---
+
+### Evaluation
+
+The Streamlit UI allows to change the configuration: embedding collection from the ones in Weaviate, preprocessing technique applied (HyDE, Query Decomposition, GraphRAG), search type (keyword, hybrid or pure semantic) and if reranking is used or not.
+
+In the UI you can see the chunks retrieved, the score of each chunk, the intermediante LLM interactions for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
+In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions.
 
 
 ## Techniques Implemented

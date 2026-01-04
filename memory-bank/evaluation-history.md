@@ -272,3 +272,111 @@
 ### Key Learning
 [Add notes about this run manually]
 
+
+---
+
+## Run 9: RAG_contextual_embed3large_v1
+
+**Date:** January 04, 2026
+**File:** `data/evaluation/ragas_results/eval_20260104_140854.json`
+
+### Configuration
+- **Collection:** RAG_contextual_embed3large_v1
+- **Search Type:** Hybrid
+- **Alpha:** 0.5
+- **Top-K:** 20
+- **Reranking:** Yes
+- **Preprocessing:** none
+- **Generation Model:** deepseek/deepseek-v3.2
+- **Evaluation Model:** openai/gpt-4o-mini
+
+### Results
+| Metric | Score |
+|--------|-------|
+| Faithfulness | 0.989 |
+| Relevancy | 0.727 |
+| Context Precision | 0.922 |
+| Failures | 6/45 (13%) |
+
+### Category Breakdown
+| Category | Relevancy | Faithfulness |
+|----------|-----------|--------------|
+| Neuroscience (12) | 0.77 | 0.96 |
+| Cross_Domain (22) | 0.65 | 1.00 |
+| Philosophy (11) | 0.84 | 1.00 |
+
+### Key Learning
+[Add notes about this run manually]
+
+
+---
+
+## Run 10: RAG_contextual_embed3large_v1
+
+**Date:** January 04, 2026
+**File:** `data/evaluation/ragas_results/eval_20260104_181305.json`
+
+### Configuration
+- **Collection:** RAG_contextual_embed3large_v1
+- **Search Type:** Hybrid
+- **Alpha:** 0.5
+- **Top-K:** 20
+- **Reranking:** Yes
+- **Preprocessing:** none
+- **Generation Model:** deepseek/deepseek-v3.2
+- **Evaluation Model:** openai/gpt-4o-mini
+
+### Results
+| Metric | Score |
+|--------|-------|
+| Faithfulness | 0.967 |
+| Relevancy | 0.670 |
+| Context Precision | 0.920 |
+| Failures | 3/15 (20%) |
+
+### Category Breakdown
+| Category | Relevancy | Faithfulness |
+|----------|-----------|--------------|
+| Neuroscience (3) | 0.88 | 0.83 |
+| Philosophy (3) | 0.61 | 1.00 |
+| Cross_Domain (9) | 0.62 | 1.00 |
+
+### Key Learning
+[Add notes about this run manually]
+
+
+---
+
+## Run 11: RAG_contextual_embed3large_v1
+
+**Date:** January 04, 2026
+**File:** `data/evaluation/ragas_results/eval_20260104_190159.json`
+
+### Configuration
+- **Collection:** RAG_contextual_embed3large_v1
+- **Search Type:** Hybrid
+- **Alpha:** 0.5
+- **Top-K:** 20
+- **Reranking:** Yes
+- **Preprocessing:** graphrag
+- **Generation Model:** deepseek/deepseek-v3.2
+- **Evaluation Model:** openai/gpt-4o-mini
+
+### Results
+| Metric | Score |
+|--------|-------|
+| Faithfulness | 1.000 |
+| Relevancy | 0.722 |
+| Context Precision | 0.942 |
+| Failures | 2/15 (13%) |
+
+### Category Breakdown
+| Category | Relevancy | Faithfulness |
+|----------|-----------|--------------|
+| Neuroscience (3) | 0.88 | 1.00 |
+| Philosophy (3) | 0.95 | 1.00 |
+| Cross_Domain (9) | 0.59 | 1.00 |
+
+### Key Learning
+[Add notes about this run manually]
+

@@ -1,57 +1,62 @@
-# Preprocessing Strategies
+# Query-Time Strategies
 
-Preprocessing transforms queries before retrieval. This is a **query-time decision** — you can switch strategies without re-indexing.
+Query-time strategies transform or enhance retrieval at query time. This is a **query-time decision** — you can switch strategies without re-indexing.
 
 ---
 
-## Strategy Overview
+## Pipeline Overview
 
 ```mermaid
-flowchart TB
-    Q["User Query"] --> PREPROCESS
-
-    subgraph PREPROCESS["Preprocessing Strategy"]
-        direction LR
-        NONE["None<br/>(pass-through)"]
-        HYDE["HyDE<br/>(hypothetical answer)"]
-        DECOMP["Decomposition<br/>(sub-questions)"]
-        GRAPH["GraphRAG<br/>(entity + graph)"]
+flowchart LR
+    subgraph PRE["1. Preprocessing"]
+        NONE["None"]
+        HYDE["HyDE"]
+        DECOMP["Decomposition"]
+        GRAPH["GraphRAG"]
     end
 
-    PREPROCESS --> SEARCH["Weaviate Search<br/>(keyword or hybrid)"]
-    SEARCH --> CHUNKS["Retrieved Chunks"]
+    subgraph SEARCH["2. Search"]
+        KW["Keyword<br/>(BM25)"]
+        HYB["Hybrid<br/>(Vector+BM25)"]
+    end
 
-    style NONE fill:#e8f5e9,stroke:#2e7d32
+    subgraph POST["3. Reranking"]
+        RERANK["Cross-Encoder<br/>(optional)"]
+    end
+
+    Q["Query"] --> PRE --> SEARCH --> POST --> OUT["Ranked Chunks"]
+
     style HYDE fill:#ede7f6,stroke:#512da8
-    style DECOMP fill:#fff3e0,stroke:#ef6c00
     style GRAPH fill:#e3f2fd,stroke:#1565c0
+    style RERANK fill:#fff3e0,stroke:#ef6c00
 ```
 
----
-
-## Search Type vs Preprocessing
-
-RAG retrieval has two orthogonal configuration axes:
-
-| Axis | What It Controls | Options |
-|------|-----------------|---------|
-| **Search Type** | HOW Weaviate searches | `keyword` (BM25), `hybrid` (vector + BM25) |
-| **Preprocessing** | Query transformation BEFORE search | `none`, `hyde`, `decomposition`, `graphrag` |
-
-Any preprocessing works with any search type:
-- `hyde` + `keyword`: Hypothetical answer → BM25 search
-- `decomposition` + `hybrid`: Sub-questions → vector+keyword each
+**Three stages:**
+1. **Preprocessing** — Transform query before search (HyDE, Decomposition, GraphRAG)
+2. **Search** — Retrieve candidates from Weaviate (keyword or hybrid)
+3. **Reranking** — Re-score candidates with cross-encoder (optional)
 
 ---
 
 ## Strategy Comparison
 
+### Preprocessing (Before Search)
+
 | Strategy | Paper | LLM Calls | Latency | Best For |
 |----------|-------|-----------|---------|----------|
-| [**None**](none) | — | 0 | ~0ms | Baseline, simple factual queries |
+| **None** | — | 0 | ~0ms | Baseline, simple factual queries |
 | [**HyDE**](hyde.md) | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) | 1-2 | ~500ms | Cross-domain stability, vague queries |
 | [**Decomposition**](query-decomposition.md) | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) | 1 | ~500ms | Multi-step within single domain |
 | [**GraphRAG**](graphrag.md) | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | 1+ | ~1-2s | Cross-domain correctness, entity relations |
+
+### Reranking (After Search)
+
+| Strategy | Model | Latency | Best For |
+|----------|-------|---------|----------|
+| **None** | — | 0ms | Speed, debugging |
+| [**Cross-Encoder**](reranking.md) | mxbai-rerank-large-v1 | ~1s CPU / ~0.1s GPU | Production accuracy |
+
+Anthropic found that **hybrid search + reranking reduces retrieval failures by 67%** compared to vector-only search.
 
 ---
 
@@ -75,25 +80,21 @@ From comprehensive evaluation across 102 configurations:
 
 ## Trade-offs
 
-### None (Baseline)
-- **Pros**: Zero latency, no API cost, deterministic
-- **Cons**: Query-document vocabulary mismatch hurts recall
-- **Use when**: Simple factual queries, debugging, latency-critical
+### Preprocessing
 
-### HyDE
-- **Pros**: Bridges semantic gap, best cross-domain stability
-- **Cons**: LLM latency (~500ms), hypothetical may mismatch corpus
-- **Use when**: Vague queries, vocabulary mismatch, simple infrastructure
+| Strategy | Pros | Cons | Use When |
+|----------|------|------|----------|
+| **None** | Zero latency, deterministic | Vocabulary mismatch | Simple factual queries |
+| **HyDE** | Best cross-domain stability | LLM latency | Vague queries, no Neo4j |
+| **Decomposition** | Best single-domain precision | Fails cross-domain | "What, then how?" |
+| **GraphRAG** | Best cross-domain correctness | Requires Neo4j | Entity relationships |
 
-### Decomposition
-- **Pros**: Best precision on single-domain multi-step questions
-- **Cons**: Fails on cross-domain (-30.4% recall drop)
-- **Use when**: "What, then how, then why?" within single domain
+### Reranking
 
-### GraphRAG
-- **Pros**: Best cross-domain correctness, entity relationships
-- **Cons**: Requires Neo4j, complex setup, ~1-2s latency
-- **Use when**: Cross-document synthesis, "How does X relate to Y?"
+| Strategy | Pros | Cons | Use When |
+|----------|------|------|----------|
+| **None** | Fast, no model load | Lower precision | Evaluation, debugging |
+| **Cross-Encoder** | +20-35% precision | +1s latency, 1.2GB model | Production Q&A |
 
 ---
 
@@ -104,7 +105,7 @@ User Query
     │
     ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  PREPROCESSING STRATEGY                                      │
+│  1. PREPROCESSING                                            │
 │                                                              │
 │  none:          query → query (unchanged)                    │
 │  hyde:          query → hypothetical_passage(s)              │
@@ -114,15 +115,25 @@ User Query
     │
     ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  SEARCH TYPE (Weaviate)                                      │
+│  2. SEARCH (Weaviate)                                        │
 │                                                              │
 │  keyword:  BM25 only (pure term matching)                    │
 │  hybrid:   BM25 + Vector (alpha controls balance)            │
+│  candidates: 50 if reranking, else top_k                     │
 └─────────────────────────────────────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  MERGING (if multi-query)                                    │
+│  3. RERANKING (optional)                                     │
+│                                                              │
+│  disabled:  Return search results directly                   │
+│  enabled:   Cross-encoder scores 50 → top_k                  │
+│             Model: mxbai-rerank-large-v1 (560M params)       │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│  4. MERGING (if multi-query)                                 │
 │                                                              │
 │  Single query:  Return directly                              │
 │  Multi-query:   RRF merge (decomposition)                    │
@@ -138,21 +149,24 @@ Ranked Chunks → Generation
 ## Running Strategies
 
 ```bash
-# Via CLI
+# Preprocessing strategies
 python -m src.stages.run_stage_7_evaluation --preprocessing none
 python -m src.stages.run_stage_7_evaluation --preprocessing hyde
 python -m src.stages.run_stage_7_evaluation --preprocessing decomposition
 python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 
+# With reranking (slower, more accurate)
+python -m src.stages.run_stage_7_evaluation --preprocessing hyde --reranking
+
 # Combined with search type
 python -m src.stages.run_stage_7_evaluation --search-type keyword --preprocessing hyde
-python -m src.stages.run_stage_7_evaluation --search-type hybrid --alpha 0.7 --preprocessing decomposition
+python -m src.stages.run_stage_7_evaluation --search-type hybrid --alpha 0.7
 
-# Grid search all combinations
+# Grid search (reranking disabled for speed)
 python -m src.stages.run_stage_7_evaluation --comprehensive
 ```
 
-Via UI: Select strategy in Streamlit sidebar dropdown.
+Via UI: Select preprocessing in dropdown, toggle reranking checkbox.
 
 ---
 
@@ -161,22 +175,26 @@ Via UI: Select strategy in Streamlit sidebar dropdown.
 ```
 Query type:
     │
-    ├── Simple factual? ───────────────────► None
+    ├── Simple factual? ───────────────────► None + Hybrid
     │
-    ├── Vague/contextual? ─────────────────► HyDE
+    ├── Vague/contextual? ─────────────────► HyDE + Hybrid
     │
     ├── Multi-step, single domain?
     │       │
-    │       └── "What, then how?" ─────────► Decomposition
+    │       └── "What, then how?" ─────────► Decomposition + Hybrid
     │
     └── Cross-domain synthesis?
             │
-            ├── No Neo4j available? ───────► HyDE
+            ├── No Neo4j available? ───────► HyDE + Hybrid
             │
-            └── Best correctness needed? ──► GraphRAG
+            └── Best correctness needed? ──► GraphRAG + Hybrid
+
+Production deployment? ─────────────────────► Add Reranking
 ```
 
-**Anti-Pattern:** Don't use Decomposition for cross-domain queries. It fragments the synthesis and loses bridging chunks.
+**Anti-Patterns:**
+- Don't use Decomposition for cross-domain queries (fragments synthesis)
+- Don't enable reranking for grid search evaluation (too slow)
 
 ---
 

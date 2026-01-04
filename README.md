@@ -1,76 +1,66 @@
 # RAGLab
 
-This an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
+This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
 
-I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worring main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
+I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying main schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
 
-I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
+I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
 So trying to improve the RAG system performance I ended up testing some of the recent improvements in RAG techniques and discovered how difficult it really is, the complexity to find the proper configuration over the great amount of tuning posibilities and over all, had lot of fun getting interesting insights about human behavour.
 
-I cannot publish the dataset nor database (weaviate, neo4j) data as the books have intelectual property protection, but publish the project code and the insights extracted from my humble point of view.
+I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the insights extracted from my humble point of view.
 
-### Arquitecture
+### Architecture
 
 ```mermaid
-flowchart TB
-    subgraph UI["UI Layer"]
-        ST["Streamlit App"]
+flowchart LR
+    subgraph USER["User"]
+        U["Query"]
     end
 
-    subgraph CORE["Core Modules"]
-        direction LR
-        subgraph PREP["content_preparation/"]
-            P1["extraction"]
-            P2["cleaning"]
-            P3["segmentation"]
-        end
-        subgraph RAG["rag_pipeline/"]
-            R1["chunking"]
-            R2["embedding"]
-            R3["indexing"]
-            R4["retrieval"]
-            R5["generation"]
-        end
-        subgraph GR["graph/"]
-            G1["extractor"]
-            G2["community"]
-            G3["query"]
-        end
-        EVAL["evaluation/"]
+    subgraph UI["Interface"]
+        ST["Streamlit"]
     end
 
-    subgraph INFRA["Infrastructure"]
-        subgraph DBS["Databases"]
-            WV[("Weaviate<br/>Vector + BM25")]
-            N4J[("Neo4j<br/>Graph")]
-        end
-        subgraph EXT["External APIs"]
-            OR["OpenRouter<br/>LLM + Embeddings"]
-        end
+    subgraph CORE["RAG Pipeline"]
+        direction TB
+        PRE["Query Preprocessing<br/>(HyDE, Decomposition, GraphRAG)"]
+        SEARCH["Search & Retrieval"]
+        RERANK["Reranking<br/>(Cross-Encoder)"]
+        GEN["Answer Generation"]
+        PRE --> SEARCH --> RERANK --> GEN
     end
 
-    subgraph DATA["Data Layer"]
-        PDF["PDF Corpus"]
-        PROC["Processed Files<br/>(markdown, chunks)"]
+    subgraph DBS["Databases"]
+        WV[("Weaviate<br/>Vectors + BM25")]
+        N4J[("Neo4j<br/>Knowledge Graph")]
     end
 
-    %% Connections
-    ST --> R4 & R5
-    ST --> EVAL
-    R3 --> WV
-    R4 --> WV
-    GR --> N4J
-    R2 --> OR
-    R5 --> OR
-    PREP --> PROC
-    PDF --> PREP
+    subgraph EXT["External"]
+        OR["OpenRouter"]
+        LLM["LLM"]
+        OR --> LLM
+    end
+
+    %% User flow
+    U --> ST --> PRE
+
+    %% Core to databases
+    SEARCH --> WV
+    SEARCH -.->|GraphRAG| N4J
+
+    %% Core to LLM
+    PRE -.->|HyDE, Decomposition| OR
+    GEN --> OR
+
+    %% Output
+    GEN --> ST
 
     %% Styling
     style ST fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
     style WV fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
     style N4J fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
-    style OR fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style LLM fill:#ede7f6,stroke:#512da8,stroke-width:2px
 ```
 
 ### Workflow

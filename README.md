@@ -48,15 +48,28 @@ The data workflow starts with  books in PDF and follows the standard RAG pipelin
 
 ### Corpus
 
-The dataset is componsed of a set of books:
-
-| Domain | Books | Est. Tokens | Questions | Source Type |
-|--------|-------|-------------|-----------|-------------|
-| Neuroscience | ~10 | ~400k | 8 | Academic/popular science books |
-| Philosophy | ~9 | ~300k | 7 | Classical texts + modern interpretations |
-
-
-**Total**: 19 books, ~700k tokens, 15-45 questions
+| Book | Author | Category | Tokens |
+|------|--------|----------|--------|
+| Cognitive Neuroscience: The Biology of the Mind | Michael Gazzaniga | Neuroscience | 455,433 |
+| Brain and Behavior | David Eagleman, Jonathan Downar | Neuroscience | 370,663 |
+| Biopsychology | John Pinel, Steven Barnes | Neuroscience | 326,159 |
+| Behave | Robert M. Sapolsky | Neuroscience | 276,948 |
+| Psychobiology of Behaviour | K. Fountoulakis, I. Nimatoudis | Neuroscience | 197,404 |
+| Determined | Robert M. Sapolsky | Neuroscience | 194,134 |
+| Fundamentals of Cognitive Neuroscience | Nicole M. Gage, Bernard Baars | Neuroscience | 152,365 |
+| Cognitive Biology | Luca Tommasi et al. | Neuroscience | 146,231 |
+| Letters from a Stoic | Seneca | Philosophy/Wisdom | 281,487 |
+| Thinking Fast and Slow | Daniel Kahneman | Philosophy/Wisdom | 204,286 |
+| Essays and Aphorisms | Arthur Schopenhauer | Philosophy/Wisdom | 102,616 |
+| The Meditations | Marcus Aurelius | Philosophy/Wisdom | 88,693 |
+| The Enchiridion | Epictetus | Philosophy/Wisdom | 88,466 |
+| The Analects | Confucius | Philosophy/Wisdom | 77,862 |
+| The Pocket Oracle | Baltasar Gracián | Philosophy/Wisdom | 54,819 |
+| Counsels and Maxims | Arthur Schopenhauer | Philosophy/Wisdom | 54,649 |
+| The Wisdom of Life | Arthur Schopenhauer | Philosophy/Wisdom | 51,641 |
+| The Art of Living | Epictetus | Philosophy/Wisdom | 23,660 |
+| Tao Te Ching | Lao Tzu | Philosophy/Wisdom | 20,415 |
+| **Total** | **19 books** | | **3.17M** |
 
 ---
 

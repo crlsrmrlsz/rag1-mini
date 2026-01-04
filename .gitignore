@@ -51,7 +51,12 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# db
+# Database volumes (Docker)
+.data/*
+!.data/README.md
+!.data/.gitkeep
+
+# Legacy db paths (for safety)
 weaviate_data/
 neo4j_data/
 neo4j_logs/
@@ -59,3 +64,6 @@ neo4j_plugins/
 
 # mcp
 .serena/
+
+# Internal developer instructions
+CLAUDE.md

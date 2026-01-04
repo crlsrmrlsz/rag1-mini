@@ -30,16 +30,13 @@ import streamlit as st
 from src.config import (
     get_collection_name,
     DEFAULT_TOP_K,
+    RERANK_INITIAL_K,
 )
 from src.shared.files import setup_logging
 
 logger = setup_logging(__name__)
 from src.rag_pipeline.indexing import get_client, query_similar, query_hybrid, SearchResult
 from src.rag_pipeline.retrieval.reranking_utils import apply_reranking_with_metadata
-
-# Default number of candidates to retrieve before reranking
-# Higher = more accurate but slower (50 is a good balance)
-RERANK_INITIAL_K = 50
 
 # Import RRF for multi-query merging
 from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion, RRFResult

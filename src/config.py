@@ -176,6 +176,22 @@ OPENROUTER_BASE_URL = os.getenv('OPENROUTER_BASE_URL')
 EMBEDDING_MODEL_ID = os.getenv('EMBEDDING_MODEL_ID')
 
 
+def validate_api_key() -> None:
+    """Validate that OPENROUTER_API_KEY is set.
+
+    Raises:
+        ValueError: If OPENROUTER_API_KEY environment variable is not set.
+
+    Note:
+        Call this function at the start of any stage that requires API access.
+    """
+    if not OPENROUTER_API_KEY:
+        raise ValueError(
+            "OPENROUTER_API_KEY environment variable not set. "
+            "Copy .env.example to .env and add your API key."
+        )
+
+
 # ============================================================================
 # WEAVIATE SETTINGS
 # ============================================================================
@@ -249,6 +265,9 @@ def get_community_collection_name(chunking_strategy: str = None) -> str:
 # Search UI defaults
 DEFAULT_TOP_K = 10
 MAX_TOP_K = 20
+
+# Reranking: Retrieve more candidates than final top_k for cross-encoder to rerank
+RERANK_INITIAL_K = 50
 
 
 # ============================================================================

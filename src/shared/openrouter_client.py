@@ -43,6 +43,11 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 
+from src.shared.files import setup_logging
+
+logger = setup_logging(__name__)
+
+
 class OpenRouterError(Exception):
     """Base exception for OpenRouter API errors."""
     pass
@@ -101,9 +106,6 @@ def call_chat_completion(
         >>> print(response)
         "4"
     """
-    from .files import setup_logging
-    logger = setup_logging(__name__)
-
     if not OPENROUTER_API_KEY:
         raise OpenRouterError("OPENROUTER_API_KEY not set in environment")
 
@@ -174,7 +176,7 @@ def call_chat_completion(
             # Non-retryable client errors
             try:
                 error_detail = response.json().get("error", {}).get("message", response.text)
-            except Exception:
+            except (ValueError, KeyError):
                 error_detail = response.text
             raise APIError(f"API error {response.status_code}: {error_detail}")
 
@@ -278,10 +280,6 @@ def call_structured_completion(
         >>> result.answer
         "Hello!"
     """
-    from .files import setup_logging
-
-    logger = setup_logging(__name__)
-
     if not OPENROUTER_API_KEY:
         raise OpenRouterError("OPENROUTER_API_KEY not set in environment")
 
@@ -357,7 +355,7 @@ def call_structured_completion(
             # Non-retryable client errors
             try:
                 error_detail = response.json().get("error", {}).get("message", response.text)
-            except Exception:
+            except (ValueError, KeyError):
                 error_detail = response.text
             raise APIError(f"API error {response.status_code}: {error_detail}")
 

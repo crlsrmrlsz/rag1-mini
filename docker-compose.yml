@@ -37,7 +37,7 @@ services:
     # Maps a folder on your machine to a folder inside the container
     # Format: ./local_path:/container_path
     volumes:
-      - ./weaviate_data:/var/lib/weaviate
+      - ./.data/weaviate:/var/lib/weaviate
     
     # Restart policy
     # on-failure:0 = don't restart on failure (good for debugging)
@@ -103,9 +103,9 @@ services:
       - "7687:7687"   # Bolt (Python driver)
 
     volumes:
-      - ./neo4j_data:/data
-      - ./neo4j_logs:/logs
-      - ./neo4j_plugins:/plugins
+      - ./.data/neo4j/data:/data
+      - ./.data/neo4j/logs:/logs
+      - ./.data/neo4j/plugins:/plugins
 
     environment:
       # Accept enterprise license (required for GDS)

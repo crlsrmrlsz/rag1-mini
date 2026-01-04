@@ -52,6 +52,7 @@ from dataclasses import dataclass, replace, field
 
 from sentence_transformers import CrossEncoder
 
+from src.config import RERANK_INITIAL_K
 from src.rag_pipeline.indexing.weaviate_query import SearchResult
 from src.shared.files import setup_logging
 
@@ -87,9 +88,7 @@ class RerankResult:
 RERANK_MODEL = "mixedbread-ai/mxbai-rerank-large-v1"
 
 # Default number of candidates to retrieve before reranking
-# Higher = more accurate but slower
-# Recommendation: 50-100 for best accuracy, 20-30 for speed
-DEFAULT_INITIAL_K = 50
+# (configured in src/config.py as RERANK_INITIAL_K)
 
 # Singleton to hold loaded model (avoids reloading 1.2GB model on each call)
 _reranker: Optional[CrossEncoder] = None
@@ -289,6 +288,6 @@ def get_model_info() -> dict:
     return {
         "model_name": RERANK_MODEL,
         "loaded": _reranker is not None,
-        "default_initial_k": DEFAULT_INITIAL_K,
+        "default_initial_k": RERANK_INITIAL_K,
         "description": "Cross-encoder reranker for two-stage retrieval",
     }

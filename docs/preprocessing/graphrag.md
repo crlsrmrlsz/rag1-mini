@@ -26,50 +26,224 @@ No single chunk contains this answer. Traditional RAG would retrieve random chun
 
 ## The Solution
 
-### Two-Phase Architecture
+### Indexing Pipeline (Offline)
 
+```mermaid
+flowchart TB
+    subgraph INPUT["Stage 4 Output"]
+        CHUNKS["Chunked Documents<br/>(~5000 chunks)"]
+    end
+
+    subgraph AUTOTUNE["Stage 4.5: Auto-Tuning"]
+        direction TB
+
+        subgraph EXTRACT["Per-Chunk Extraction"]
+            LLM1["LLM Call<br/>(structured output)"]
+            ENT["Entities +<br/>Relationships"]
+        end
+
+        AGG["Aggregate<br/>Entity Types"]
+
+        subgraph CONSOLIDATE["Type Consolidation"]
+            LLM2["LLM Call<br/>(stratified merge)"]
+            TYPES["discovered_types.json<br/>(15-25 entity types)"]
+        end
+    end
+
+    subgraph NEO4J_UPLOAD["Stage 6b: Neo4j Upload"]
+        direction TB
+
+        subgraph MERGE_OPS["MERGE Operations"]
+            NORM["Normalize Names<br/>(deduplication)"]
+            MENT["MERGE Entities<br/>(Cypher)"]
+            MREL["MERGE Relationships<br/>(Cypher)"]
+        end
+
+        IDX["Create Indexes<br/>(name, type, chunk_id)"]
+    end
+
+    subgraph LEIDEN["Leiden Community Detection"]
+        direction TB
+        GDS["GDS Projection<br/>(undirected graph)"]
+        ALGO["Leiden Algorithm<br/>(seed=42, deterministic)"]
+        CKPT["leiden_checkpoint.json"]
+        WRITE["Write community_id<br/>to Entity nodes"]
+    end
+
+    subgraph SUMMARIZE["Community Summarization"]
+        direction TB
+
+        subgraph PER_COMM["For Each Community"]
+            MEMBERS["Get Members +<br/>Relationships<br/>(Cypher)"]
+            LLM3["LLM Call<br/>(generate summary)"]
+            EMB["Embed Summary<br/>(OpenRouter)"]
+        end
+
+        WV_UP["Upload to Weaviate<br/>(atomic, HNSW)"]
+    end
+
+    subgraph OUTPUT["Final Storage"]
+        N4J[("Neo4j<br/>Entities + Relations<br/>+ community_id")]
+        WV[("Weaviate<br/>Community Summaries<br/>+ Embeddings")]
+    end
+
+    %% Flow
+    CHUNKS --> LLM1 --> ENT --> AGG
+    AGG --> LLM2 --> TYPES
+    TYPES --> NORM --> MENT --> MREL --> IDX
+    IDX --> N4J
+    N4J --> GDS --> ALGO --> CKPT
+    ALGO --> WRITE --> N4J
+    N4J --> MEMBERS --> LLM3 --> EMB --> WV_UP --> WV
+
+    %% Styling
+    style LLM1 fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style LLM2 fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style LLM3 fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style EMB fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style N4J fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style WV fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style ALGO fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
-═══════════════════════════════════════════════════════════════
-                    INDEXING PHASE (Offline)
-═══════════════════════════════════════════════════════════════
 
-[Source Documents]
-        │
-        ▼
-[Text Chunks] (section chunker output)
-        │
-        ▼
-[Entity & Relationship Extraction] ← LLM with structured output
-        │
-        ▼
-[Knowledge Graph Construction] ← Neo4j
-        │
-        ▼
-[Community Detection] ← Leiden Algorithm (hierarchical)
-        │
-        ▼
-[Community Summarization] ← LLM generates report-like summaries
+**LLM Calls (purple):** 4 types during indexing
+1. **Entity extraction** - Per chunk, extracts entities + relationships
+2. **Type consolidation** - Merges similar types, balances domains
+3. **Community summary** - Generates thematic description per community
+4. **Summary embedding** - Converts summary to vector for retrieval
 
-═══════════════════════════════════════════════════════════════
-                    QUERY PHASE (Online)
-═══════════════════════════════════════════════════════════════
+---
 
-[User Query]
-        │
-        ▼
-[Extract Query Entities]
-        │
-        ▼
-┌───────────────────────────────────────────────────────────┐
-│ HYBRID RETRIEVAL                                          │
-│                                                           │
-│  1. Vector Search → top-k chunks by embedding similarity  │
-│  2. Graph Traversal → chunk IDs from entity neighbors     │
-│  3. Boost & Reorder → graph-matched chunks ranked higher  │
-└───────────────────────────────────────────────────────────┘
-        │
-        ▼
-[Generation with mixed context: chunks + community summaries]
+### Query Pipeline (Online)
+
+```mermaid
+flowchart TB
+    subgraph INPUT["User Input"]
+        QUERY["User Query"]
+    end
+
+    subgraph ENTITY_EXT["Entity Extraction"]
+        LLM1["LLM Call<br/>(extract entities)"]
+        Q_ENT["Query Entities<br/>[dopamine, reward]"]
+    end
+
+    subgraph PARALLEL["Parallel Retrieval"]
+        direction LR
+
+        subgraph WEAVIATE["Weaviate Search"]
+            direction TB
+            SEARCH_TYPE{"Search Type?"}
+            HYBRID["Hybrid Search<br/>(α·vector + (1-α)·BM25)"]
+            KEYWORD["Keyword Search<br/>(BM25 only)"]
+            VEC_RES["Vector Results<br/>(top-20 chunks)"]
+        end
+
+        subgraph NEO4J["Neo4j Graph Search"]
+            direction TB
+            MATCH["MATCH entities<br/>(normalized name)"]
+            TRAVERSE["Graph Traversal<br/>(2-hop neighbors)"]
+            CHUNK_IDS["Extract chunk_ids<br/>from graph context"]
+        end
+    end
+
+    subgraph COMMUNITY["Community Retrieval"]
+        COMM_EMB["Embed Query"]
+        COMM_SEARCH["Weaviate HNSW<br/>(top-3 communities)"]
+        COMM_SUM["Community Summaries<br/>(thematic context)"]
+    end
+
+    subgraph MERGE["Merge Strategy"]
+        BOOST["Mark graph-matched<br/>chunks as boosted"]
+        REORDER["Reorder:<br/>boosted first,<br/>then by score"]
+        MERGED["Merged Results<br/>(top-k)"]
+    end
+
+    subgraph RERANK["Optional Reranking"]
+        CE["Cross-Encoder<br/>(mxbai-rerank-large)"]
+    end
+
+    subgraph GENERATION["Answer Generation"]
+        CTX["Format Context:<br/>• Chunks<br/>• Community summaries<br/>• Related entities"]
+        LLM2["LLM Call<br/>(generate answer)"]
+        ANS["Answer +<br/>Citations"]
+    end
+
+    %% Flow
+    QUERY --> LLM1 --> Q_ENT
+    Q_ENT --> SEARCH_TYPE
+    SEARCH_TYPE -->|hybrid| HYBRID --> VEC_RES
+    SEARCH_TYPE -->|keyword| KEYWORD --> VEC_RES
+    Q_ENT --> MATCH --> TRAVERSE --> CHUNK_IDS
+
+    QUERY --> COMM_EMB --> COMM_SEARCH --> COMM_SUM
+
+    VEC_RES --> BOOST
+    CHUNK_IDS --> BOOST
+    BOOST --> REORDER --> MERGED
+
+    MERGED --> CE --> CTX
+    COMM_SUM --> CTX
+    CTX --> LLM2 --> ANS
+
+    %% Styling
+    style LLM1 fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style LLM2 fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style COMM_EMB fill:#ede7f6,stroke:#512da8,stroke-width:2px
+    style CE fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style HYBRID fill:#e0f2f1,stroke:#00695c
+    style KEYWORD fill:#e0f2f1,stroke:#00695c
+    style MATCH fill:#fff3e0,stroke:#ef6c00
+    style TRAVERSE fill:#fff3e0,stroke:#ef6c00
+    style COMM_SEARCH fill:#fff3e0,stroke:#ef6c00
+```
+
+**LLM Calls (purple):** 3 types during query
+1. **Entity extraction** - Identifies entities mentioned in query
+2. **Query embedding** - Converts query to vector for community search
+3. **Answer generation** - Synthesizes answer from retrieved context
+
+**Database Operations:**
+- **Weaviate (teal):** Hybrid/keyword search on chunks, HNSW search on communities
+- **Neo4j (orange):** Entity matching, 2-hop graph traversal
+
+---
+
+### Neo4j Graph Schema
+
+```mermaid
+erDiagram
+    Entity {
+        string name
+        string normalized_name
+        string entity_type
+        string description
+        string source_chunk_id
+        int community_id
+    }
+
+    Entity ||--o{ Entity : "RELATED_TO"
+
+    RELATED_TO {
+        string type
+        string description
+        float weight
+        string source_chunk_id
+    }
+```
+
+**Cypher Queries:**
+```cypher
+-- Entity lookup (case-insensitive)
+MATCH (e:Entity)
+WHERE toLower(e.normalized_name) = toLower($name)
+RETURN e
+
+-- 2-hop traversal
+MATCH path = (start:Entity {normalized_name: $name})-[*1..2]-(neighbor)
+WHERE start <> neighbor
+RETURN DISTINCT neighbor, length(path) as hops
+ORDER BY hops
+LIMIT 50
 ```
 
 ### Key Components

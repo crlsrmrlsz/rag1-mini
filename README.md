@@ -7,9 +7,9 @@
 ![Weaviate](https://img.shields.io/badge/weaviate-vector_db-00C29A)
 ![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
-![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
 ![RAGAS](https://img.shields.io/badge/RAGAS-evaluation-09B3AF)
 ![scispaCy](https://img.shields.io/badge/scispaCy-NLP-1A9CFC?logo=spacy&logoColor=white)
+![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
@@ -81,14 +81,62 @@ List of books used to get an idea of the scope and amount of tokens to search ov
 
 The evaluation of RAG system can be done in two ways:
 
-- Streamlit UI allows to change the configuration: embedding collection from the ones in Weaviate, preprocessing technique applied (HyDE, Query Decomposition, GraphRAG), search type (keyword, hybrid or pure semantic) and if reranking is used or not.
+- **Streamlit UI**. It allows to change the configuration and see the intermediate and final results. From the UI you can choose:
 
-    In the UI you can see the chunks retrieved, the score of each chunk, the intermediante LLM interactions for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
+    - embedding collection from the ones in Weaviate,
+    - search type (keyword, hybrid with specific alpha or pure semantic) and top k,
+    - reranking used or not, and
+    - preprocessing technique applied (HyDE, Query Decomposition, GraphRAG).
 
-- In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions.
+    You can write a question and see all the pipeline inermediate results, the chunks retrieved, the score of each chunk, the intermediante LLM interactions (for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
 
+    ![Streamlit UI](assets/streamlit_ui.png)
+
+- **Running python code**. In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions. 
+
+
+Sample answer:
+
+<small>
+    <small>
+    config: RAPTOR (Hierarchical) | hybrid (α=0.5) | hyde | 10 results | 28,607ms
+    Model: openai/gpt-4o-mini     
+    </small>
+
+
+- Question: why do humans care so much about others opinion?
+- Answer: 
+    Humans care deeply about others' opinions for several intertwined biological, psychological, and social reasons, as highlighted in the provided sources.
+
+    *Social Status and Hierarchies*: Humans are inherently social animals, and our brains are finely tuned to navigate complex social hierarchies. We monitor status differences among individuals, which is crucial for our survival and social cohesion. The amygdala, a brain region associated with emotional responses, becomes particularly active when status relations are ambiguous or shifting, indicating that our emotional well-being is closely tied to how we perceive our standing in social contexts [1]. This suggests that we are not only aware of our own status but are also acutely sensitive to how others perceive us, as these perceptions can influence our social standing and, consequently, our mental health.
+
+    *Theory of Mind and Reputation*: The ability to understand others' thoughts and feelings—known as Theory of Mind—is essential for social interactions. This cognitive skill allows us to gauge how we are viewed by others, which is critical for maintaining our social reputation [6]. Studies have shown that reflecting on one's reputation activates specific brain regions, such as the medial prefrontal cortex, which is involved in self-referential processing and social cognition [6]. Thus, our concern for others' opinions is not merely a social nicety; it is a fundamental aspect of how we navigate our social world.
+
+    *Emotional and Motivational Drivers*: Our emotional responses to social feedback are powerful motivators. For instance, social criticism can activate the amygdala, particularly in individuals with social anxiety, highlighting the distress that negative evaluations can cause [6]. Conversely, positive social feedback can enhance feelings of reward and motivation, reinforcing our desire to be viewed favorably by others [6]. This interplay between social feedback and emotional response underscores why we are so invested in how others perceive us.
+
+    *Cultural and Evolutionary Factors*: From an evolutionary perspective, being attuned to others' opinions has conferred survival advantages. Humans have historically relied on social bonds for cooperation, resource sharing, and protection against threats. Our ability to form complex social structures and maintain relationships is a hallmark of our species, and caring about others' opinions facilitates these connections [10]. This social nature has likely shaped our cognitive processes, making us more sensitive to social cues and evaluations.
+
+    *Philosophical Insights*: Philosophically, thinkers like Epictetus emphasize the importance of understanding our roles and duties within the social fabric. He suggests that our moral intuitions and connections to others guide our actions, indicating that our concern for others' opinions is not merely about social standing but also about fulfilling our responsibilities to those around us [4][9]. This perspective encourages a balance between caring for others' views and maintaining our moral integrity.
+
+    In summary, humans care about others' opinions due to a complex interplay of biological imperatives, cognitive processes, emotional responses, and philosophical understandings of our social roles. This multifaceted concern is deeply embedded in our nature as social beings, shaping our interactions and influencing our mental health and well-being.
+
+    References
+
+    [1] Behave, The_Biology of Humans at Our Best Worst — Robert M. Sapolsky, Section: SUMMARY AND CONCLUSIONS
+
+    [4] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Our Duties Are Revealed by Our Relations with-One Another
+
+    [6] Brain and behavior, a cognitive neuroscience perspective — David Eagleman, Jonathan Downar, Section: Social Reward and Social Aversion
+
+    [9] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Trust Your Moral Intuitions
+
+    [10] Fundamentals of Cognitive Neuroscience, A_Beginners Guide — Nicole M. Gage Bernard, Section: Our Social Nature
+
+</small>
 
 ## Techniques Implemented
+
+Apart form standard RAG techniques, searching for improvements that could lead to better answers to cross domain open questions, these techniques were tested:
 
 | Technique | Paper | What It Does |
 |-----------|-------|--------------|
@@ -99,30 +147,8 @@ The evaluation of RAG system can be done in two ways:
 | **GraphRAG** | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | Knowledge graph + Leiden communities for cross-document reasoning |
 | **GraphRAG Auto-Tuning** | [MS Research](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) | Discovers entity types from corpus content (per-book resumable) |
 
-Plus: Hybrid search (BM25 + vector), cross-encoder reranking, structured LLM outputs, and RAGAS evaluation framework.
 
-## Quick Start
 
-```bash
-docker compose up -d              # Start Weaviate + Neo4j
-streamlit run src/ui/app.py       # Open http://localhost:8501
-```
-
-See [Getting Started](docs/getting-started.md) for full pipeline commands.
-
-## Technologies
-
-| Category | Tools |
-|----------|-------|
-| **Vector Database** | Weaviate (HNSW + BM25 hybrid) |
-| **Graph Database** | Neo4j (GDS plugin for Leiden communities) |
-| **LLM API** | OpenRouter (GPT-4, Claude, embeddings) |
-| **NLP** | spaCy (en_core_sci_sm), tiktoken |
-| **PDF Processing** | Docling |
-| **Data Validation** | Pydantic (structured LLM outputs) |
-| **UI** | Streamlit |
-| **Evaluation** | RAGAS framework |
-| **Infrastructure** | Docker, Conda |
 
 ## Documentation
 
@@ -147,6 +173,3 @@ Building this pipeline taught me that RAG is deceptively complex:
 
 **GraphRAG complexity is justified.** The knowledge graph + Leiden communities approach seemed over-engineered at first, but it handles cross-document reasoning that vector search alone cannot.
 
-## License
-
-MIT

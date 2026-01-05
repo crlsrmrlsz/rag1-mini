@@ -51,7 +51,7 @@ docker compose up -d
 
 ## Database Setup
 
-The project uses two databases, both running in Docker:
+The project uses two databases, both running in Docker. No manual installation required - everything is configured in `docker-compose.yml`:
 
 **Weaviate** (vector database) - Required for all pipelines
 - Stores chunk embeddings for semantic search
@@ -66,12 +66,24 @@ The project uses two databases, both running in Docker:
 # Start both databases
 docker compose up -d
 
+# Check status
+docker compose ps
+
+# View logs
+docker compose logs -f weaviate
+docker compose logs -f neo4j
+
 # Verify Weaviate is running
 curl http://localhost:8080/v1/.well-known/ready
 
 # Access Neo4j browser (optional)
 # Open http://localhost:7474 (user: neo4j, password: raglab_graphrag)
+
+# Stop databases
+docker compose down
 ```
+
+See `docker-compose.yml` for detailed configuration options and comments.
 
 ---
 

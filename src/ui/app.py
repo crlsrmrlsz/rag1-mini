@@ -457,26 +457,23 @@ if use_reranking:
 # ============================================================================
 
 # Header with logo
-header_col1, header_col2 = st.columns([3, 1])
+header_col1, header_col2 = st.columns([1, 1])
 with header_col1:
     st.title("RAGLab Search")
     st.markdown("Search across 19 books combining neuroscience and philosophy.")
+    # Show connection error if any
+    if st.session_state.connection_error:
+        st.error(f"Connection Error: {st.session_state.connection_error}")
+        st.info("Make sure Weaviate is running: `docker compose up -d`")
+    # Query input
+    query = st.text_input(
+        "Enter your question:",
+        placeholder="e.g., What is the relationship between emotions and decision-making?",
+    )
+    # Search button
+    search_clicked = st.button("Search", type="primary", disabled=not query)
 with header_col2:
     st.image("assets/raglab_logo.png", use_container_width=True)
-
-# Show connection error if any
-if st.session_state.connection_error:
-    st.error(f"Connection Error: {st.session_state.connection_error}")
-    st.info("Make sure Weaviate is running: `docker compose up -d`")
-
-# Query input
-query = st.text_input(
-    "Enter your question:",
-    placeholder="e.g., What is the relationship between emotions and decision-making?",
-)
-
-# Search button
-search_clicked = st.button("Search", type="primary", disabled=not query)
 
 # Execute search
 if search_clicked and query:
@@ -589,8 +586,8 @@ if search_clicked and query:
 # ============================================================================
 
 if st.session_state.search_results:
-    st.divider()
-    st.subheader(f"Results for: \"{st.session_state.last_query}\"")
+    #st.divider()
+    #st.subheader(f"Results for: \"{st.session_state.last_query}\"")
 
     # Create tabs for different views
     tab_answer, tab_log = st.tabs(["Answer", "Pipeline Log"])

@@ -456,8 +456,13 @@ if use_reranking:
 # MAIN CONTENT
 # ============================================================================
 
-st.title("RAGLab Search")
-st.markdown("Search across 19 books combining neuroscience and philosophy.")
+# Header with logo
+header_col1, header_col2 = st.columns([3, 1])
+with header_col1:
+    st.title("RAGLab Search")
+    st.markdown("Search across 19 books combining neuroscience and philosophy.")
+with header_col2:
+    st.image("assets/raglab_logo.png", use_container_width=True)
 
 # Show connection error if any
 if st.session_state.connection_error:

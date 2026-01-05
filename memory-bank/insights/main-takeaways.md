@@ -157,7 +157,32 @@ Search Type:    Hybrid (or semantic if cross-domain heavy)
 | Semantic 0.75 chunking | Loose threshold creates incoherent chunks | Worst on all metrics |
 | Keyword search alone | Vocabulary mismatch kills precision | 10+ points below hybrid/semantic |
 | Optimizing for precision over recall | High precision doesn't translate to answer quality | Semantic 0.3: best precision, 4th correctness |
+| **GraphRAG + Reranking** | Conflicting objectives destroy graph-derived diversity | **-26.7% AC degradation** |
+| **HyDE + Reranking** | Semantic drift compounds | -8% to -16% AC degradation |
 
 ---
 
-*Generated: 2026-01-04 | Analysis: 4 parallel subagents with deep logical reasoning*
+## 6. Reranking: Precision vs Coverage Tradeoff (Updated 2026-01-05)
+
+**Statistical Evidence:**
+| Configuration | Context Precision | Answer Correctness | Delta AC |
+|---------------|-------------------|-------------------|----------|
+| Contextual + GraphRAG + Hybrid (baseline) | 88.3% | **60.2%** | - |
+| Contextual + GraphRAG + Hybrid + Rerank | **94.2%** | 44.1% | **-26.7%** |
+| Section + HyDE + Semantic (baseline) | 87.6% | **60.6%** | - |
+| Section + HyDE + Semantic + Rerank | **90.1%** | 54.3% | **-10.4%** |
+
+**Logical Explanation:**
+Cross-encoder reranking optimizes for **query-chunk textual similarity**. This conflicts with preprocessing strategies that retrieve chunks based on different criteria:
+
+- **GraphRAG** retrieves chunks via **graph structure** (entity relationships, community membership). These chunks are topically important but may use different vocabulary than the query. Reranking demotes them, destroying the diversity GraphRAG created.
+
+- **HyDE** retrieves chunks similar to **hypothetical answers**, not the original query. Reranking then evaluates against the original query, penalizing chunks that matched the hypotheticals.
+
+The fundamental problem: **reranking optimizes for precision at the cost of coverage**. The generator can filter noise (low precision is recoverable) but cannot invent missing information (low recall is unrecoverable).
+
+**Design Principle:** *Avoid reranking with GraphRAG and HyDE. If reranking is required, use semantic search (alpha=1.0) which aligns with the cross-encoder's semantic paradigm.*
+
+---
+
+*Generated: 2026-01-04, Updated: 2026-01-05 | Analysis: 4 parallel subagents with deep logical reasoning + reranking evaluation*

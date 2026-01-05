@@ -9,6 +9,7 @@
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
 ![RAGAS](https://img.shields.io/badge/RAGAS-evaluation-09B3AF)
 ![scispaCy](https://img.shields.io/badge/scispaCy-NLP-1A9CFC?logo=spacy&logoColor=white)
+![Docling](https://img.shields.io/badge/docling-PDF_extraction-052FAD)
 ![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
@@ -36,7 +37,23 @@ This are the main components of the application.
 
 ![RAGlab arquitecture](assets/arquitecture.png)
 
+
 ---
+### Techniques Implemented
+
+Apart form standard RAG techniques, searching for improvements that could lead to better answers to cross domain open questions, these techniques were tested:
+
+| Technique | Paper | What It Does |
+|-----------|-------|--------------|
+| **HyDE** | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) | Generates hypothetical answers for semantic matching |
+| **Query Decomposition** | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) | Breaks complex questions into sub-queries with RRF merging |
+| **Contextual Chunking** | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) | LLM-generated context prepended to chunks (-35% retrieval failures) |
+| **RAPTOR** | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) | Hierarchical summarization tree with UMAP + GMM clustering |
+| **GraphRAG** | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | Knowledge graph + Leiden communities for cross-document reasoning |
+| **GraphRAG Auto-Tuning** | [MS Research](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) | Discovers entity types from corpus content (per-book resumable) |
+
+---
+
 
 
 ### Workflow
@@ -46,6 +63,17 @@ The data workflow starts with  books in PDF and follows the standard RAG pipelin
 
 ![RAGlab workflow](assets/workflow.png)
 
+---
+### Documentation
+
+For implementation details, design decisions, and code walkthroughs:
+
+- **[Getting Started](docs/getting-started.md)** — Installation, prerequisites, commands
+- **[Architecture](docs/architecture.md)** — Pipeline diagram, project structure
+- **[Content Preparation](docs/content-preparation/)** — PDF extraction, cleaning
+- **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
+- **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
+- **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
 ---
 
 ### Corpus
@@ -92,17 +120,10 @@ The evaluation of RAG system can be done in two ways:
 
     ![Streamlit UI](assets/streamlit_ui.png)
 
-- **Running python code**. In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept questions and cross domain questions. 
+- **Running python code**. In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept and cross domain questions. 
 
 
-Sample answer:
-
-<small>
-    <small>
-    config: RAPTOR (Hierarchical) | hybrid (α=0.5) | hyde | 10 results | 28,607ms
-    Model: openai/gpt-4o-mini     
-    </small>
-
+Sample question & answer:
 
 - Question: why do humans care so much about others opinion?
 - Answer: 
@@ -122,44 +143,19 @@ Sample answer:
 
     References
 
-    [1] Behave, The_Biology of Humans at Our Best Worst — Robert M. Sapolsky, Section: SUMMARY AND CONCLUSIONS
+    *[1] Behave, The_Biology of Humans at Our Best Worst — Robert M. Sapolsky, Section: SUMMARY AND CONCLUSIONS*
 
-    [4] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Our Duties Are Revealed by Our Relations with-One Another
+    *[4] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Our Duties Are Revealed by Our Relations with-One Another*
 
-    [6] Brain and behavior, a cognitive neuroscience perspective — David Eagleman, Jonathan Downar, Section: Social Reward and Social Aversion
+    *[6] Brain and behavior, a cognitive neuroscience perspective — David Eagleman, Jonathan Downar, Section: Social Reward and Social Aversion*
 
-    [9] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Trust Your Moral Intuitions
+    *[9] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Trust Your Moral Intuitions*
 
-    [10] Fundamentals of Cognitive Neuroscience, A_Beginners Guide — Nicole M. Gage Bernard, Section: Our Social Nature
+    *[10] Fundamentals of Cognitive Neuroscience, A_Beginners Guide — Nicole M. Gage Bernard, Section: Our Social Nature*
 
-</small>
-
-## Techniques Implemented
-
-Apart form standard RAG techniques, searching for improvements that could lead to better answers to cross domain open questions, these techniques were tested:
-
-| Technique | Paper | What It Does |
-|-----------|-------|--------------|
-| **HyDE** | [arXiv:2212.10496](https://arxiv.org/abs/2212.10496) | Generates hypothetical answers for semantic matching |
-| **Query Decomposition** | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) | Breaks complex questions into sub-queries with RRF merging |
-| **Contextual Chunking** | [Anthropic Blog](https://www.anthropic.com/news/contextual-retrieval) | LLM-generated context prepended to chunks (-35% retrieval failures) |
-| **RAPTOR** | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) | Hierarchical summarization tree with UMAP + GMM clustering |
-| **GraphRAG** | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | Knowledge graph + Leiden communities for cross-document reasoning |
-| **GraphRAG Auto-Tuning** | [MS Research](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) | Discovers entity types from corpus content (per-book resumable) |
+    *config: RAPTOR (Hierarchical) | hybrid (α=0.5) | hyde | 10 results | 28,607ms  | Model: openai/gpt-4o-mini*
 
 
-
-
-## Documentation
-
-For implementation details, design decisions, and code walkthroughs:
-
-- **[Getting Started](docs/getting-started.md)** — Installation, prerequisites, commands
-- **[Architecture](docs/architecture.md)** — Pipeline diagram, project structure
-- **[Content Preparation](docs/content-preparation/)** — PDF extraction, cleaning
-- **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
-- **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
-- **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
 
 ## Key Insights
 

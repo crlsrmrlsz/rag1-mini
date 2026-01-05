@@ -11,22 +11,21 @@
 ![RAGAS](https://img.shields.io/badge/RAGAS-evaluation-09B3AF)
 ![scispaCy](https://img.shields.io/badge/scispaCy-NLP-1A9CFC?logo=spacy&logoColor=white)
 ![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface)
-![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
-This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  an [Andrej Karpathy talk in youtube](https://youtu.be/fqVLjtvWgq8).
+This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  an [Andrej Karpathy talk on YouTube](https://youtu.be/fqVLjtvWgq8).
 
-I love also practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles worrying some schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriging human behaviour to me.
+I also love practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles that concerned some schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriguing human behaviour to me.
 
-I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a RAG simple system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
+I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a simple RAG system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
 So trying to improve the RAG system performance I ended up building a customized evaluation framework to test some of the recent improvements in RAG techniques. I created an user interface to easily tune (embedding collection, preprocessing technique, type of search) and inspect each step result (chunks retrieved, LLM call and responses and final answer) and compare results with different configurations to get an intuition of the effect of each one.
 
-To get more consistent results it runs a comprehensive evaluation using each possible hyperparameter combination (102 cases) over a handcrafted set of test questions that cover both single concept and cross domain concepts. All details are accesible through the links at the end of this README file.
+To get more consistent results it runs a comprehensive evaluation using each possible hyperparameter combination (102 cases) over a handcrafted set of test questions that cover both single concept and cross domain concepts. All details are accessible through the links at the end of this README file.
 
-This is custom and simple evaluation framewrok tailored to this specific project and does not aim to be used as a general framework. There are professional frameworks out there for that purpose, but nowadays it is quite easy to construct something like this using the power of coding agents. I did this using Claude Code and Opus 4.5.
+This is custom and simple evaluation framework tailored to this specific project and does not aim to be used as a general framework. There are professional frameworks out there for that purpose, but nowadays it is quite easy to construct something like this with coding agents. I built this using Claude Code and Opus 4.5.
 
-I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the technical insights and intuitions extracted from my non expert point of view.
+I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intellectual property protection, but I publish the project code and the technical insights and intuitions extracted from my non expert point of view.
 
 ## Project scope
 
@@ -38,7 +37,7 @@ The code in this project covers the complete data workflow. Starts with processi
 
 ## Architecture 
 
-This are the main components of the application. 
+These are the main components of the application. 
 
 
 ![RAGlab arquitecture](assets/arquitecture.png)
@@ -84,14 +83,14 @@ The evaluation of RAG system can be done in two ways:
     - reranking used or not, and
     - preprocessing technique applied (HyDE, Query Decomposition, GraphRAG).
 
-    You can write a question and see all the pipeline inermediate results, the chunks retrieved, the score of each chunk, the intermediante LLM interactions (for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
+    You can write a question and see all the pipeline intermediate results, the chunks retrieved, the score of each chunk, the intermediate LLM interactions (for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
 
     ![Streamlit UI](assets/streamlit_ui.png)
 
-- **Running python code**. In addition to user direct evaluation at UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept and cross domain questions. 
+- **Running python code**. In addition to direct evaluation through the UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept and cross domain questions. 
 
 
-Sample question & answer:
+#### Sample question & answer:
 
 - Question: why do humans care so much about others opinion?
 - Answer: 
@@ -157,7 +156,7 @@ List of books used to get an idea of the scope and amount of tokens to search ov
 
 Building this pipeline and manually testing I got this main takeaways:
 
-**Data preparation is harder than expected.** Scientific PDF books with complex layouts, figures, and footnotes break naive extraction. It may seem that nowadays this is a solved problem but even with Docling from IBM, that supposed a major improvement in quality compared to other open source libraries, a significant amount of semi-manual cleaning was necessary. This was a small dataset, but doing this at scale requires specific tecniques.
+**Data preparation is harder than expected.** Scientific PDF books with complex layouts, figures, and footnotes break naive extraction. It may seem that nowadays this is a solved problem but even with Docling from IBM, which represented a major improvement in quality compared to other open source libraries, a significant amount of semi-manual cleaning was necessary. This was a small dataset, but doing this at scale requires specific techniques.
 
 **Prompts make or break LLM-based techniques.** HyDE, RAPTOR summarization, and entity extraction all depend heavily on prompt engineering. Small wording changes dramatically affect output quality.
 

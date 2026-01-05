@@ -4,13 +4,13 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/streamlit-app-FF4B4B?logo=streamlit&logoColor=white)
+![Docling](https://img.shields.io/badge/docling-PDF_extraction-052FAD?logo=ibm&logoColor=white)
 ![Weaviate](https://img.shields.io/badge/weaviate-vector_db-00C29A)
 ![Neo4j](https://img.shields.io/badge/neo4j-graph_db-4581C3?logo=neo4j&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/openrouter-LLM_gateway-6366F1)
 ![RAGAS](https://img.shields.io/badge/RAGAS-evaluation-09B3AF)
 ![scispaCy](https://img.shields.io/badge/scispaCy-NLP-1A9CFC?logo=spacy&logoColor=white)
-![Docling](https://img.shields.io/badge/docling-PDF_extraction-052FAD)
-![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface&logoColor=black)
+![mxbai-rerank](https://img.shields.io/badge/mxbai--rerank-reranking-FFD21E?logo=huggingface)
 ![RAG](https://img.shields.io/badge/RAG-pipeline-purple)
 ![Built with Claude Code](https://img.shields.io/badge/built_with-Claude_Code-CC785C?logo=anthropic&logoColor=white)
 
@@ -28,9 +28,15 @@ This is custom and simple evaluation framewrok tailored to this specific project
 
 I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from Knowledge Graph) data as the books have intelectual property protection, but I publish the project code and the technical insights and intuitions extracted from my non expert point of view.
 
----
+## Project scope
 
-### Architecture
+The code in this project covers the complete data workflow. Starts with processing books in PDF and follows the standard RAG pipeline. It allows to test different RAG improvement techniques both alone and combined to see the effect of each possible combination chunking strategy/query preprocessing and search type.
+
+
+![RAGlab workflow](assets/workflow.png)
+
+
+## Architecture 
 
 This are the main components of the application. 
 
@@ -38,10 +44,9 @@ This are the main components of the application.
 ![RAGlab arquitecture](assets/arquitecture.png)
 
 
----
-### Techniques Implemented
 
-Apart form standard RAG techniques, searching for improvements that could lead to better answers to cross domain open questions, these techniques were tested:
+## RAG improvement techniques tested
+Apart form standard RAG techniques, searching for improvements that could lead to better answers to cross domain open questions, these techniques are implemented in the different components:
 
 | Technique | Paper | What It Does |
 |-----------|-------|--------------|
@@ -52,19 +57,10 @@ Apart form standard RAG techniques, searching for improvements that could lead t
 | **GraphRAG** | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | Knowledge graph + Leiden communities for cross-document reasoning |
 | **GraphRAG Auto-Tuning** | [MS Research](https://www.microsoft.com/en-us/research/blog/graphrag-auto-tuning-provides-rapid-adaptation-to-new-domains/) | Discovers entity types from corpus content (per-book resumable) |
 
----
 
 
 
-### Workflow
-
-The data workflow starts with  books in PDF and follows the standard RAG pipeline. It allows to test different RAG improvement techniques both alone and combined to see the effect of each possible combination chunking strategy/query preprocessing and search type.
-
-
-![RAGlab workflow](assets/workflow.png)
-
----
-### Documentation
+## Documentation
 
 For implementation details, design decisions, and code walkthroughs:
 
@@ -74,38 +70,10 @@ For implementation details, design decisions, and code walkthroughs:
 - **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
 - **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
 - **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
----
 
-### Corpus
 
-List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. The tokens are calculated with *tiktoken* with *cl100k_base encoding* (GPT-4 / *text-embedding-3-large* tokenizer).
 
-| Book | Author | Category | Tokens |
-|------|--------|----------|--------|
-| Cognitive Neuroscience: The Biology of the Mind | Michael Gazzaniga | Neuroscience | 455,433 |
-| Brain and Behavior | David Eagleman, Jonathan Downar | Neuroscience | 370,663 |
-| Biopsychology | John Pinel, Steven Barnes | Neuroscience | 326,159 |
-| Behave | Robert M. Sapolsky | Neuroscience | 276,948 |
-| Psychobiology of Behaviour | K. Fountoulakis, I. Nimatoudis | Neuroscience | 197,404 |
-| Determined | Robert M. Sapolsky | Neuroscience | 194,134 |
-| Fundamentals of Cognitive Neuroscience | Nicole M. Gage, Bernard Baars | Neuroscience | 152,365 |
-| Cognitive Biology | Luca Tommasi et al. | Neuroscience | 146,231 |
-| Letters from a Stoic | Seneca | Philosophy/Wisdom | 281,487 |
-| Thinking Fast and Slow | Daniel Kahneman | Philosophy/Wisdom | 204,286 |
-| Essays and Aphorisms | Arthur Schopenhauer | Philosophy/Wisdom | 102,616 |
-| The Meditations | Marcus Aurelius | Philosophy/Wisdom | 88,693 |
-| The Enchiridion | Epictetus | Philosophy/Wisdom | 88,466 |
-| The Analects | Confucius | Philosophy/Wisdom | 77,862 |
-| The Pocket Oracle | Baltasar Gracián | Philosophy/Wisdom | 54,819 |
-| Counsels and Maxims | Arthur Schopenhauer | Philosophy/Wisdom | 54,649 |
-| The Wisdom of Life | Arthur Schopenhauer | Philosophy/Wisdom | 51,641 |
-| The Art of Living | Epictetus | Philosophy/Wisdom | 23,660 |
-| Tao Te Ching | Lao Tzu | Philosophy/Wisdom | 20,415 |
-| **Total** | **19 books** | | **3.17M** |
-
----
-
-### Evaluation
+## Usage for evaluation
 
 The evaluation of RAG system can be done in two ways:
 
@@ -157,11 +125,39 @@ Sample question & answer:
 
 
 
+## Corpus
+
+List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. The tokens are calculated with *tiktoken* with *cl100k_base encoding* (GPT-4 / *text-embedding-3-large* tokenizer).
+
+| Book | Author | Category | Tokens |
+|------|--------|----------|--------|
+| Cognitive Neuroscience: The Biology of the Mind | Michael Gazzaniga | Neuroscience | 455,433 |
+| Brain and Behavior | David Eagleman, Jonathan Downar | Neuroscience | 370,663 |
+| Biopsychology | John Pinel, Steven Barnes | Neuroscience | 326,159 |
+| Behave | Robert M. Sapolsky | Neuroscience | 276,948 |
+| Psychobiology of Behaviour | K. Fountoulakis, I. Nimatoudis | Neuroscience | 197,404 |
+| Determined | Robert M. Sapolsky | Neuroscience | 194,134 |
+| Fundamentals of Cognitive Neuroscience | Nicole M. Gage, Bernard Baars | Neuroscience | 152,365 |
+| Cognitive Biology | Luca Tommasi et al. | Neuroscience | 146,231 |
+| Letters from a Stoic | Seneca | Philosophy/Wisdom | 281,487 |
+| Thinking Fast and Slow | Daniel Kahneman | Philosophy/Wisdom | 204,286 |
+| Essays and Aphorisms | Arthur Schopenhauer | Philosophy/Wisdom | 102,616 |
+| The Meditations | Marcus Aurelius | Philosophy/Wisdom | 88,693 |
+| The Enchiridion | Epictetus | Philosophy/Wisdom | 88,466 |
+| The Analects | Confucius | Philosophy/Wisdom | 77,862 |
+| The Pocket Oracle | Baltasar Gracián | Philosophy/Wisdom | 54,819 |
+| Counsels and Maxims | Arthur Schopenhauer | Philosophy/Wisdom | 54,649 |
+| The Wisdom of Life | Arthur Schopenhauer | Philosophy/Wisdom | 51,641 |
+| The Art of Living | Epictetus | Philosophy/Wisdom | 23,660 |
+| Tao Te Ching | Lao Tzu | Philosophy/Wisdom | 20,415 |
+| **Total** | **19 books** | | **3.17M** |
+
+
 ## Key Insights
 
-Building this pipeline taught me that RAG is deceptively complex:
+Building this pipeline and manually testing I got this main takeaways:
 
-**PDF parsing is harder than expected.** Scientific books with complex layouts, figures, and footnotes break naive extraction. Docling helped, but significant cleaning was still needed.
+**Data preparation is harder than expected.** Scientific PDF books with complex layouts, figures, and footnotes break naive extraction. It may seem that nowadays this is a solved problem but even with Docling from IBM, that supposed a major improvement in quality compared to other open source libraries, a significant amount of semi-manual cleaning was necessary. This was a small dataset, but doing this at scale requires specific tecniques.
 
 **Prompts make or break LLM-based techniques.** HyDE, RAPTOR summarization, and entity extraction all depend heavily on prompt engineering. Small wording changes dramatically affect output quality.
 

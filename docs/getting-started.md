@@ -49,6 +49,55 @@ docker compose up -d
 
 ---
 
+## Database Setup
+
+The project uses two databases, both running in Docker:
+
+**Weaviate** (vector database) - Required for all pipelines
+- Stores chunk embeddings for semantic search
+- Ports: 8080 (REST), 50051 (gRPC)
+
+**Neo4j** (graph database) - Required only for GraphRAG
+- Stores knowledge graph entities and relationships
+- Includes GDS plugin for Leiden community detection
+- Ports: 7474 (browser), 7687 (Bolt)
+
+```bash
+# Start both databases
+docker compose up -d
+
+# Verify Weaviate is running
+curl http://localhost:8080/v1/.well-known/ready
+
+# Access Neo4j browser (optional)
+# Open http://localhost:7474 (user: neo4j, password: raglab_graphrag)
+```
+
+---
+
+## Configuration
+
+Key settings are in `src/config.py`. Important parameters:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `MAX_CHUNK_TOKENS` | 800 | Target chunk size |
+| `OVERLAP_SENTENCES` | 2 | Sentence overlap between chunks |
+| `DEFAULT_TOP_K` | 10 | Chunks to retrieve per query |
+| `PREPROCESSING_MODEL` | gpt-4o-mini | Model for HyDE/decomposition |
+| `GENERATION_MODEL` | gpt-4o-mini | Model for answer generation |
+| `RERANK_MODEL` | mxbai-rerank-xsmall-v1 | Cross-encoder for reranking |
+
+Database connections can be configured via environment variables in `.env`:
+```
+WEAVIATE_HOST=localhost
+WEAVIATE_HTTP_PORT=8080
+NEO4J_URI=bolt://localhost:7687
+NEO4J_PASSWORD=raglab_graphrag
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -106,6 +155,35 @@ When you run the pipeline, data flows through these folders:
 | 7 | `python -m src.stages.run_stage_7_evaluation` | RAGAS evaluation |
 
 **Note:** Stages 4.5a, 4.5b, and 6b are optional advanced techniques. The basic pipeline is stages 1-6.
+
+---
+
+## Advanced Pipelines
+
+### RAPTOR (Hierarchical Summarization)
+
+RAPTOR builds a tree of summaries enabling both detailed and thematic retrieval.
+
+```bash
+# After running stages 1-4
+python -m src.stages.run_stage_4_5_raptor      # Build summary tree
+python -m src.stages.run_stage_5_embedding --strategy raptor
+python -m src.stages.run_stage_6_weaviate --strategy raptor
+```
+
+### GraphRAG (Knowledge Graph + Communities)
+
+GraphRAG extracts entities and relationships, detects communities via Leiden algorithm, and enables cross-document reasoning.
+
+```bash
+# After running stages 1-4
+python -m src.stages.run_stage_4_5_autotune    # Discover entity types + extract
+python -m src.stages.run_stage_6b_neo4j        # Upload to Neo4j + run Leiden
+
+# Then use --preprocessing graphrag in evaluation or UI
+```
+
+**Requires:** Neo4j running (`docker compose up -d neo4j`)
 
 ---
 

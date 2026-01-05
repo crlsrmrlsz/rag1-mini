@@ -18,7 +18,7 @@ New here? Start with **[Getting Started](getting-started.md)** for installation,
 ## Quick Commands
 
 ```bash
-# Run the full pipeline
+# Basic pipeline (stages 1-6)
 python -m src.stages.run_stage_1_extraction    # PDF → Markdown
 python -m src.stages.run_stage_2_processing    # Clean markdown
 python -m src.stages.run_stage_3_segmentation  # Sentence segmentation
@@ -26,8 +26,15 @@ python -m src.stages.run_stage_4_chunking      # Create chunks
 python -m src.stages.run_stage_5_embedding     # Generate embeddings
 python -m src.stages.run_stage_6_weaviate      # Upload to Weaviate
 
+# RAPTOR (hierarchical summarization)
+python -m src.stages.run_stage_4_5_raptor      # Build summary tree
+
+# GraphRAG (knowledge graph + communities)
+python -m src.stages.run_stage_4_5_autotune    # Extract entities
+python -m src.stages.run_stage_6b_neo4j        # Upload to Neo4j + Leiden
+
 # Launch the UI
 streamlit run src/ui/app.py
 ```
 
-See [Getting Started](getting-started.md) for complete stage reference and setup instructions.
+See [Getting Started](getting-started.md) for installation, database setup, and configuration.

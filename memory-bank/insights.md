@@ -296,3 +296,33 @@ The recall advantage is modest because vector search already finds relevant chun
 | Answer Correctness | 56.2% | 47.8% | -14.9% |
 
 Cross-domain questions are fundamentally harder: they require retrieving evidence from 4-6 different books and synthesizing concepts that span neuroscience and philosophy vocabularies.
+
+---
+
+## Key Takeaways (Portfolio Summary)
+
+*This project evaluated 102 RAG configurations across a mixed neuroscience/philosophy corpus. While the small test set (15 questions) and specific domain limit generalizability, the evaluation revealed consistent patterns that informed my understanding of RAG system design.*
+
+### 1. Foundational Choices Matter More Than Runtime Tuning
+
+**Intuition:** How you chunk your documents has ~4x more impact on retrieval quality than runtime parameters like top_k.
+
+Measured by Cohen's d effect sizes: chunking strategy (d=2.66) vs top_k (d=0.70) represents a 3.8x difference in effect magnitude. In absolute terms, switching from semantic chunking (loose threshold) to contextual chunking improved cross-domain recall by 23.8 percentage points—while doubling top_k from 10 to 20 only improved recall by 7.9 percentage points. This suggests that for practitioners building RAG systems, investing time in document preparation yields higher returns than optimizing query-time parameters.
+
+*Caveat: Tested on a neuroscience + philosophy corpus; generalization to other domains needs validation.*
+
+### 2. Cross-Domain Synthesis Is a Distinct Challenge
+
+**Intuition:** Questions requiring information from multiple knowledge domains consistently underperform single-source questions, regardless of configuration.
+
+Across 102 configurations, cross-domain questions showed 22.5% lower context recall than single-concept questions. No technique eliminated this gap—HyDE reduced it to 10.5%, but decomposition made it worse (30.4% degradation). This points to a fundamental challenge in RAG: retrieving coherent evidence across conceptual boundaries is harder than retrieving from a single domain, and some strategies (query decomposition) actively harm synthesis tasks.
+
+*Caveat: Based on 15 hand-crafted questions; larger test sets needed for statistical confidence.*
+
+### 3. Retrieval Quality ≠ Answer Quality
+
+**Intuition:** Improving retrieval metrics doesn't guarantee better final answers—different strategies optimize different outcomes.
+
+The configuration with best cross-domain recall (contextual + HyDE, 89.5%) ranked outside the top 5 for answer correctness. Conversely, the best answer correctness (raptor + none, 59.5%) had only 79.7% recall. GraphRAG showed a unique pattern: modest recall improvement but highest answer correctness, suggesting the knowledge graph helps synthesis more than retrieval. This highlights that RAG evaluation requires measuring both retrieval and generation quality.
+
+*Caveat: Answer correctness is partly dependent on generation model capability, not just retrieval.*

@@ -95,27 +95,47 @@
 
 ---
 
-## Best and Worst Configurations
+## Best Configurations by Metric
 
-### Top 5 for Cross-Domain Context Recall
+### Best 5 for Cross-Domain Context Recall
 
-| Collection | Strategy | Search | TopK | Cross Recall | Cross Correctness |
-|------------|----------|--------|------|--------------|-------------------|
-| contextual | hyde | semantic | 10 | 89.4% | 55.3% |
-| raptor | none | hybrid | 20 | 89.3% | 55.3% |
-| contextual | graphrag | keyword | 20 | 88.6% | 48.4% |
-| contextual | hyde | semantic | 20 | 87.7% | 45.8% |
-| contextual | hyde | hybrid | 20 | 87.7% | 47.0% |
+| Rank | Collection | Strategy | Search | TopK | Cross Recall | Cross Correctness |
+|------|------------|----------|--------|------|--------------|-------------------|
+| 1 | contextual | hyde | semantic | 10 | 89.5% | 55.3% |
+| 2 | raptor | none | hybrid | 20 | 89.3% | 55.3% |
+| 3 | contextual | graphrag | keyword | 20 | 88.6% | 48.4% |
+| 4 | contextual | hyde | semantic | 20 | 87.7% | 45.8% |
+| 5 | contextual | hyde | hybrid | 20 | 87.7% | 47.0% |
 
-### Bottom 5 for Cross-Domain Context Recall
+### Best 5 for Cross-Domain Answer Correctness
 
-| Collection | Strategy | Search | TopK | Cross Recall | Cross Correctness |
-|------------|----------|--------|------|--------------|-------------------|
-| semantic_0_75 | decomposition | keyword | 10 | 40.4% | 35.3% |
-| semantic_0_75 | decomposition | semantic | 10 | 46.5% | 53.0% |
-| semantic_0_75 | decomposition | semantic | 20 | 46.7% | 56.6% |
-| semantic_0_75 | none | semantic | 10 | 49.9% | 40.0% |
-| semantic_0_75 | none | keyword | 20 | 50.0% | 42.1% |
+| Rank | Collection | Strategy | Search | TopK | Cross Correctness | Cross Recall |
+|------|------------|----------|--------|------|-------------------|--------------|
+| 1 | raptor | none | semantic | 20 | 59.5% | 79.7% |
+| 2 | contextual | graphrag | semantic | 10 | 59.4% | 73.3% |
+| 3 | section | hyde | semantic | 20 | 57.5% | 83.8% |
+| 4 | semantic_0_75 | decomposition | semantic | 20 | 56.5% | 46.7% |
+| 5 | raptor | none | semantic | 10 | 56.4% | 69.9% |
+
+### Best 5 for Single-Concept Context Recall
+
+| Rank | Collection | Strategy | Search | TopK | Single Recall | Single Correctness |
+|------|------------|----------|--------|------|---------------|-------------------|
+| 1 | contextual | graphrag | keyword | 20 | 100.0% | 67.5% |
+| 2 | contextual | graphrag | hybrid | 20 | 100.0% | 68.6% |
+| 3 | contextual | none | semantic | 20 | 100.0% | 58.7% |
+| 4 | raptor | hyde | hybrid | 10 | 100.0% | 48.9% |
+| 5 | section | graphrag | keyword | 20 | 100.0% | 55.3% |
+
+### Best 5 for Single-Concept Answer Correctness
+
+| Rank | Collection | Strategy | Search | TopK | Single Correctness | Single Recall |
+|------|------------|----------|--------|------|-------------------|---------------|
+| 1 | contextual | decomposition | keyword | 20 | 72.3% | 100.0% |
+| 2 | contextual | graphrag | hybrid | 20 | 68.6% | 100.0% |
+| 3 | raptor | decomposition | keyword | 10 | 68.2% | 100.0% |
+| 4 | contextual | graphrag | keyword | 20 | 67.5% | 100.0% |
+| 5 | semantic_0_75 | hyde | keyword | 10 | 66.8% | 60.0% |
 
 **Search type legend:** keyword (alpha=0.0, BM25 only), hybrid (alpha=0.5, balanced), semantic (alpha=1.0, vector only)
 

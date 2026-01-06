@@ -1,0 +1,199 @@
+# RAG Evaluation Analysis: Key Insights from 102 Configuration Combinations
+
+**Analysis Date:** 2026-01-06
+**Data Sources:**
+- `comprehensive_20260101_164236.json` - 102 grid search configurations (no reranking)
+- `eval_20260104_*.json` - 5 single-run evaluations with reranking
+
+**Test Set:** 15 curated questions (5 single-concept, 10 cross-domain)
+
+---
+
+## Insight 1: Preprocessing Strategy Has the Largest Impact on Cross-Domain Retrieval
+
+**Statistical Evidence:**
+
+| Strategy | Cross-Domain Recall | Degradation vs Single | N |
+|----------|--------------------|-----------------------|---|
+| **HyDE** | **78.8%** | **-10.5%** | 30 |
+| GraphRAG | 76.1% | -21.4% | 12 |
+| None | 70.5% | -21.8% | 30 |
+| Decomposition | 65.6% | **-30.4%** | 30 |
+
+**Cohen's d (HyDE vs Decomposition) = 1.31 (large effect)**
+
+**Interpretation:** HyDE generates hypothetical answer passages that contain domain-appropriate vocabulary, bridging the semantic gap between question phrasing and document content. Decomposition fragments cross-domain questions into sub-queries that each target one domain—but RRF merging cannot reconstruct the synthesis the original question required. The 13.2 percentage point difference (78.8% vs 65.6%) represents retrieving ~1.3 more relevant ground-truth passages on average per question.
+
+**Recommendation for cross-domain queries:** Use HyDE. Avoid decomposition unless questions are purely multi-step within a single domain.
+
+---
+
+## Insight 2: Chunking Strategy Determines the Ceiling for Cross-Domain Performance
+
+**Statistical Evidence:**
+
+| Collection | Cross-Domain Recall | Degradation vs Single | N |
+|------------|--------------------|-----------------------|---|
+| **Contextual** | **79.4%** | -16.8% | 24 |
+| Raptor | 76.4% | -19.7% | 18 |
+| Section | 76.3% | -16.6% | 24 |
+| Semantic_0.3 | 69.3% | -24.0% | 18 |
+| Semantic_0.75 | 55.6% | **-30.5%** | 18 |
+
+**Cohen's d (Contextual vs Semantic_0.75) = 2.66 (very large effect)**
+
+**Interpretation:** Contextual chunking prepends LLM-generated summaries to each chunk, disambiguating "what this chunk is about." This helps embeddings correctly associate abstract philosophical discussions with their topics. Semantic chunking with loose threshold (0.75) creates weakly-coherent chunks that fall apart under cross-domain retrieval. The 23.8 percentage point gap is the largest measured effect—chunking choice matters more than any runtime parameter.
+
+**Recommendation:** Contextual chunking is essential for mixed-domain corpora. Semantic chunking with loose thresholds should be avoided.
+
+---
+
+## Insight 3: Retrieval Depth (top_k) Matters More for Cross-Domain Than Single-Concept
+
+**Statistical Evidence:**
+
+| Top_K | Single-Concept Recall | Cross-Domain Recall | Cross-Domain Degradation |
+|-------|----------------------|--------------------|--------------------------|
+| 10 | 91.8% | 68.2% | -23.5% |
+| **20** | 94.5% | **76.1%** | -18.4% |
+
+**Cohen's d (top_k=20 vs 10) = 0.70 (medium effect)**
+
+**Interpretation:** Cross-domain questions require evidence from multiple sources (avg. 4-6 expected books per question). With top_k=10, only ~68% of ground truth is retrieved because relevant passages from secondary sources get cut off. Increasing to top_k=20 captures more diverse sources. Single-concept questions already achieve near-ceiling recall (92-95%) because they need only one source.
+
+**Recommendation:** For cross-domain synthesis, use top_k>=20. The computational cost is justified by the 7.9 percentage point recall improvement.
+
+---
+
+## Insight 4: Answer Correctness Remains the Persistent Bottleneck (~48% Cross-Domain)
+
+**Statistical Evidence:**
+
+| Metric | Single-Concept | Cross-Domain | Best Observed |
+|--------|---------------|--------------|---------------|
+| Context Recall | 93.1% +/-8.7% | 72.2% +/-11.9% | 89.4% |
+| **Answer Correctness** | 56.2% +/-7.0% | **47.8% +/-5.1%** | **59.5%** |
+
+**Variance Analysis:**
+- Context recall range: 0.344 - 0.894 (55 pt spread)
+- Answer correctness range: 0.353 - 0.595 (24 pt spread)
+
+**Interpretation:** Even when retrieval improves dramatically (top configurations achieve 89% cross-domain recall), answer correctness plateaus around 48-50%. The narrow variance in correctness (5.1% std for cross-domain) suggests the generation LLM, not retrieval, is the limiting factor. This is expected: RAGAS answer_correctness compares generated answers to reference paragraphs spanning 4-7 books—a synthesis task that exceeds current model capabilities.
+
+**Recommendation:** Further optimization should focus on generation prompts, answer synthesis strategies, or model selection rather than retrieval tuning. Retrieval improvements alone cannot push correctness beyond ~60%.
+
+---
+
+## Summary of Effect Sizes
+
+| Comparison | Cohen's d | Interpretation |
+|------------|-----------|----------------|
+| HyDE vs Decomposition | 1.31 | **Large**: Preprocessing choice dominates |
+| Contextual vs Semantic_0.75 | 2.66 | **Very Large**: Chunking is foundational |
+| Top_k 20 vs 10 | 0.70 | **Medium**: Worth optimizing |
+| Keyword vs Hybrid | 0.02 | **Negligible**: No significant difference |
+
+---
+
+## Best and Worst Configurations
+
+### Top 5 for Cross-Domain Context Recall
+
+| Collection | Strategy | Search | Alpha | TopK | Cross Recall | Cross Correctness |
+|------------|----------|--------|-------|------|--------------|-------------------|
+| contextual | hyde | hybrid | 1.0 | 10 | 89.4% | 55.3% |
+| raptor | none | hybrid | 0.5 | 20 | 89.3% | 55.3% |
+| contextual | graphrag | keyword | 0.0 | 20 | 88.6% | 48.4% |
+| contextual | hyde | hybrid | 1.0 | 20 | 87.7% | 45.8% |
+| contextual | hyde | hybrid | 0.5 | 20 | 87.7% | 47.0% |
+
+### Bottom 5 for Cross-Domain Context Recall
+
+| Collection | Strategy | Search | Alpha | TopK | Cross Recall | Cross Correctness |
+|------------|----------|--------|-------|------|--------------|-------------------|
+| semantic_0_75 | decomposition | keyword | 0.0 | 10 | 40.4% | 35.3% |
+| semantic_0_75 | decomposition | hybrid | 1.0 | 10 | 46.5% | 53.0% |
+| semantic_0_75 | decomposition | hybrid | 1.0 | 20 | 46.7% | 56.6% |
+| semantic_0_75 | none | hybrid | 1.0 | 10 | 49.9% | 40.0% |
+| semantic_0_75 | none | keyword | 0.0 | 20 | 50.0% | 42.1% |
+
+---
+
+## Interaction Effects
+
+### Preprocessing Strategy x Search Type (Cross-Domain Recall)
+
+| Strategy | Keyword | Hybrid | Delta |
+|----------|---------|--------|-------|
+| none | 69.6% | 71.0% | +1.4% |
+| hyde | 79.5% | 78.5% | -0.9% |
+| decomposition | 66.2% | 65.3% | -0.9% |
+| graphrag | 76.9% | 75.7% | -1.2% |
+
+**Observation:** Search type (keyword vs hybrid) has negligible effect on cross-domain recall. The BM25 component does not meaningfully help cross-domain retrieval.
+
+### Collection x Strategy (Cross-Domain Recall)
+
+| Collection | none | hyde | decomp | graphrag |
+|------------|------|------|--------|----------|
+| contextual | 80.9% | 85.4% | 73.9% | 77.5% |
+| raptor | 79.5% | 82.9% | 66.8% | - |
+| section | 76.7% | 82.4% | 71.5% | 74.7% |
+| semantic_0_3 | 66.3% | 76.4% | 65.2% | - |
+| semantic_0_75 | 49.2% | 67.0% | 50.5% | - |
+
+**Observation:** HyDE consistently improves cross-domain recall across all chunking strategies (avg. +8.4 pp). The improvement is largest for weaker chunking strategies (semantic_0_75: +17.8 pp).
+
+---
+
+## Problematic Questions
+
+### Consistently Low Recall Across All Configurations
+
+| Question ID | Mean Recall | Issue |
+|-------------|-------------|-------|
+| cross_freewill_01 | 37.5% | Requires integration of neuroscience determinism + Stoic philosophy on control |
+| cross_selfcontrol_01 | 60-100% | High variance; depends on configuration |
+| cross_procrastination_01 | 50-100% | High variance |
+| cross_empathy_01 | 66.7-75% | Moderate variance |
+
+**cross_freewill_01 Analysis:** This question ("What determines human choices and actions, and to what extent can we control our own decisions?") requires ground truth from 6 books spanning neuroscience (Sapolsky's Determined, Gazzaniga's Cognitive Neuroscience) and philosophy (Epictetus, Marcus Aurelius, Tao Te Ching). The 37.5% recall ceiling across ALL configurations suggests either:
+1. Corpus gaps (missing key passages)
+2. Fundamental embedding space distance between neuroscience and philosophy vocabularies
+
+---
+
+## Limitations
+
+1. **Small question set (n=15)**: Per-question metrics have high variance; aggregate statistics are more reliable than individual question analysis.
+2. **Specific corpus**: Results reflect a neuroscience + philosophy mixed corpus; generalization to other domains requires validation.
+3. **No reranking in grid search**: Reranking evaluations were single-run; comparison across configurations requires caution.
+4. **One question consistently fails**: `cross_freewill_01` achieves only 37.5% recall across ALL configurations.
+
+---
+
+## Actionable Recommendations (Priority Order)
+
+1. **Always use Contextual chunking** for mixed-domain corpora (Cohen's d = 2.66)
+2. **Use HyDE preprocessing** for cross-domain queries (Cohen's d = 1.31)
+3. **Set top_k >= 20** for cross-domain retrieval (Cohen's d = 0.70)
+4. **Avoid Decomposition** for questions requiring multi-source synthesis
+5. **Accept ~50% correctness ceiling** as a generation-side limitation
+
+---
+
+## Key Takeaway
+
+Foundational decisions (chunking strategy) have 2-4x larger effect sizes than runtime parameters (preprocessing, top_k). For a new RAG system, invest effort in chunking design first, then optimize preprocessing strategy second. Retrieval tuning cannot compensate for poor chunking choices.
+
+---
+
+## Cross-Domain Degradation Summary
+
+| Metric | Single-Concept Mean | Cross-Domain Mean | Degradation |
+|--------|---------------------|-------------------|-------------|
+| Context Recall | 93.1% | 72.2% | **-22.5%** |
+| Answer Relevancy | 89.1% | 65.6% | -26.4% |
+| Answer Correctness | 56.2% | 47.8% | -14.9% |
+
+Cross-domain questions are fundamentally harder: they require retrieving evidence from 4-6 different books and synthesizing concepts that span neuroscience and philosophy vocabularies.

@@ -91,7 +91,7 @@
 | HyDE vs Decomposition | 1.31 | **Large**: Preprocessing choice dominates |
 | Contextual vs Semantic_0.75 | 2.66 | **Very Large**: Chunking is foundational |
 | Top_k 20 vs 10 | 0.70 | **Medium**: Worth optimizing |
-| Keyword vs Hybrid | 0.02 | **Negligible**: No significant difference |
+| Keyword vs Semantic | 0.02 | **Negligible**: No significant difference |
 
 ---
 
@@ -99,23 +99,25 @@
 
 ### Top 5 for Cross-Domain Context Recall
 
-| Collection | Strategy | Search | Alpha | TopK | Cross Recall | Cross Correctness |
-|------------|----------|--------|-------|------|--------------|-------------------|
-| contextual | hyde | hybrid | 1.0 | 10 | 89.4% | 55.3% |
-| raptor | none | hybrid | 0.5 | 20 | 89.3% | 55.3% |
-| contextual | graphrag | keyword | 0.0 | 20 | 88.6% | 48.4% |
-| contextual | hyde | hybrid | 1.0 | 20 | 87.7% | 45.8% |
-| contextual | hyde | hybrid | 0.5 | 20 | 87.7% | 47.0% |
+| Collection | Strategy | Search | TopK | Cross Recall | Cross Correctness |
+|------------|----------|--------|------|--------------|-------------------|
+| contextual | hyde | semantic | 10 | 89.4% | 55.3% |
+| raptor | none | hybrid | 20 | 89.3% | 55.3% |
+| contextual | graphrag | keyword | 20 | 88.6% | 48.4% |
+| contextual | hyde | semantic | 20 | 87.7% | 45.8% |
+| contextual | hyde | hybrid | 20 | 87.7% | 47.0% |
 
 ### Bottom 5 for Cross-Domain Context Recall
 
-| Collection | Strategy | Search | Alpha | TopK | Cross Recall | Cross Correctness |
-|------------|----------|--------|-------|------|--------------|-------------------|
-| semantic_0_75 | decomposition | keyword | 0.0 | 10 | 40.4% | 35.3% |
-| semantic_0_75 | decomposition | hybrid | 1.0 | 10 | 46.5% | 53.0% |
-| semantic_0_75 | decomposition | hybrid | 1.0 | 20 | 46.7% | 56.6% |
-| semantic_0_75 | none | hybrid | 1.0 | 10 | 49.9% | 40.0% |
-| semantic_0_75 | none | keyword | 0.0 | 20 | 50.0% | 42.1% |
+| Collection | Strategy | Search | TopK | Cross Recall | Cross Correctness |
+|------------|----------|--------|------|--------------|-------------------|
+| semantic_0_75 | decomposition | keyword | 10 | 40.4% | 35.3% |
+| semantic_0_75 | decomposition | semantic | 10 | 46.5% | 53.0% |
+| semantic_0_75 | decomposition | semantic | 20 | 46.7% | 56.6% |
+| semantic_0_75 | none | semantic | 10 | 49.9% | 40.0% |
+| semantic_0_75 | none | keyword | 20 | 50.0% | 42.1% |
+
+**Search type legend:** keyword (alpha=0.0, BM25 only), hybrid (alpha=0.5, balanced), semantic (alpha=1.0, vector only)
 
 ---
 
@@ -123,14 +125,14 @@
 
 ### Preprocessing Strategy x Search Type (Cross-Domain Recall)
 
-| Strategy | Keyword | Hybrid | Delta |
-|----------|---------|--------|-------|
+| Strategy | Keyword | Semantic/Hybrid | Delta |
+|----------|---------|-----------------|-------|
 | none | 69.6% | 71.0% | +1.4% |
 | hyde | 79.5% | 78.5% | -0.9% |
 | decomposition | 66.2% | 65.3% | -0.9% |
 | graphrag | 76.9% | 75.7% | -1.2% |
 
-**Observation:** Search type (keyword vs hybrid) has negligible effect on cross-domain recall. The BM25 component does not meaningfully help cross-domain retrieval.
+**Observation:** Search type (keyword vs semantic) has negligible effect on cross-domain recall. The BM25 component does not meaningfully help cross-domain retrieval.
 
 ### Collection x Strategy (Cross-Domain Recall)
 
@@ -219,8 +221,7 @@ When comparing identical configurations (same collection, search, alpha, top_k):
 
 ```
 Collection: contextual
-Search: hybrid
-Alpha: 1.0 (pure semantic)
+Search: semantic (alpha=1.0)
 Top_K: 10
 
 Cross-Domain Correctness: 59.4%

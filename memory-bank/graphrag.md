@@ -108,8 +108,6 @@ RETURN e.community_id, count(*) as size ORDER BY size DESC
 | Phase 3 | Verification and Documentation | COMPLETE |
 | Phase 4 | Crash-Proof Design + Weaviate Storage | COMPLETE |
 
-**Tests:** 30 passing (`pytest tests/ -v`)
-
 ### Key Improvements Implemented
 
 1. **Entity Resolution** (Phase 1)

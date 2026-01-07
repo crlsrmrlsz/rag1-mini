@@ -17,7 +17,7 @@ You can use this project to:
 
 - **Python 3.10+**
 - **Docker & Docker Compose** (for Weaviate and Neo4j)
-- **OpenRouter API key** (for embeddings and LLM calls) - get one at [openrouter.ai](https://openrouter.ai)
+- **OpenRouter API key** (for embeddings and LLM calls) 
 
 ---
 

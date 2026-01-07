@@ -55,6 +55,7 @@ The project uses two databases, both running in Docker. No manual installation r
 
 **Weaviate** (vector database) - Required for all pipelines
 - Stores chunk embeddings for semantic search
+- Stores GraphRAG community summaries for global context retrieval
 - Ports: 8080 (REST), 50051 (gRPC)
 
 **Neo4j** (graph database) - Required only for GraphRAG
@@ -125,6 +126,10 @@ src/
 ├── evaluation/             # RAGAS evaluation framework
 ├── ui/                     # Streamlit application
 └── stages/                 # CLI entry points for each stage
+
+.data/                          # Database storage (Docker volumes, gitignored)
+├── weaviate/                   # Weaviate vector database files
+└── neo4j/                      # Neo4j graph database files
 
 data/
 ├── raw/                    # Your source PDFs go here

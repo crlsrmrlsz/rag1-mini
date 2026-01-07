@@ -2,7 +2,7 @@
 
 > **Stages:** 1-2 of 8 | Converts PDFs to clean Markdown ready for chunking
 
-This document covers the complete workflow for preparing text content from PDF books: pre-cleaning, PDF-to-markdown conversion, and automated text cleaning.
+This document covers the complete workflow for preparing content from PDF books to generate clean markdown files ready to chunk.
 
 ## Overview
 
@@ -43,7 +43,7 @@ Neuroscience textbooks present unique extraction challenges:
 - **Inline equations** mixed with body text
 - **Dense figure placement** interrupting paragraphs
 
-Pre-cleaning reduces the complexity that automated tools must handle, significantly improving downstream extraction quality.
+Pre-cleaning reduces the complexity that automated tools must handle and also ease the following automated pattern cleaning. I included this initial PDF page removal after realizing the complexity of parsing scientific books in order to simplify as much as possible from the start. This phase was done with [PDF24](https://www.pdf24.org/).
 
 ---
 
@@ -51,7 +51,7 @@ Pre-cleaning reduces the complexity that automated tools must handle, significan
 
 ### Initial Approach: PyMuPDF4LLM
 
-First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter.
+First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter. P
 
 ```python
 import pymupdf4llm

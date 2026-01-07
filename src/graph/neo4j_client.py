@@ -402,6 +402,8 @@ def find_entity_neighbors(
     """Find entities connected to a given entity within N hops.
 
     Used for local graph retrieval during query processing.
+    Pre-normalizes the entity name using the same Python logic as upload
+    (Unicode NFKC, lowercase, edge stopword removal, punctuation stripping).
 
     Args:
         driver: Neo4j driver instance.
@@ -417,8 +419,13 @@ def find_entity_neighbors(
         >>> for n in neighbors:
         ...     print(n["name"], n["path_length"])
     """
+    from src.graph.schemas import GraphEntity
+
+    # Pre-normalize using same logic as upload (fixes normalization mismatch)
+    normalized_name = GraphEntity(name=entity_name, entity_type="").normalized_name()
+
     query = f"""
-    MATCH (start:Entity {{normalized_name: toLower(trim($entity_name))}})
+    MATCH (start:Entity {{normalized_name: $normalized_name}})
     MATCH path = (start)-[*1..{max_hops}]-(neighbor:Entity)
     WHERE start <> neighbor
     RETURN DISTINCT
@@ -431,7 +438,7 @@ def find_entity_neighbors(
     LIMIT $limit
     """
 
-    result = driver.execute_query(query, entity_name=entity_name, limit=limit)
+    result = driver.execute_query(query, normalized_name=normalized_name, limit=limit)
     return [dict(r) for r in result.records]
 
 
@@ -442,6 +449,8 @@ def find_entities_by_names(
     """Find entities by a list of names.
 
     Used to locate entities mentioned in a query.
+    Pre-normalizes entity names using the same Python logic as upload
+    (Unicode NFKC, lowercase, edge stopword removal, punctuation stripping).
 
     Args:
         driver: Neo4j driver instance.
@@ -450,11 +459,18 @@ def find_entities_by_names(
     Returns:
         List of matching entity dicts.
     """
+    from src.graph.schemas import GraphEntity
+
+    # Pre-normalize all names using same logic as upload (fixes normalization mismatch)
+    normalized_names = [
+        GraphEntity(name=name, entity_type="").normalized_name()
+        for name in entity_names
+    ]
+
     query = """
-    UNWIND $names AS name
+    UNWIND $normalized_names AS norm_name
     MATCH (e:Entity)
-    WHERE toLower(trim(e.name)) = toLower(trim(name))
-       OR toLower(trim(e.normalized_name)) = toLower(trim(name))
+    WHERE e.normalized_name = norm_name
     RETURN DISTINCT
         e.name as name,
         e.entity_type as entity_type,
@@ -462,5 +478,5 @@ def find_entities_by_names(
         e.source_chunk_id as source_chunk_id
     """
 
-    result = driver.execute_query(query, names=entity_names)
+    result = driver.execute_query(query, normalized_names=normalized_names)
     return [dict(r) for r in result.records]

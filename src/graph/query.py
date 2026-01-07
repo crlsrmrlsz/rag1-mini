@@ -8,22 +8,23 @@ GraphRAG combines two retrieval methods:
 
 The hybrid approach uses RRF (Reciprocal Rank Fusion) to merge:
 - Vector search results (semantic similarity)
-- Graph traversal results (relationship-based)
+- Graph traversal results (relationship-based via chunk lookup)
 - Community summaries (thematic context)
 
 ## Library Usage
 
 Uses existing infrastructure:
 - Neo4j for graph queries
-- Weaviate for vector search
+- Weaviate for vector search and chunk fetching
 - RRF from src/rag_pipeline/retrieval/rrf.py
 
 ## Data Flow
 
-1. Query → Extract entity mentions
-2. Match entities in Neo4j → Traverse graph → Get related chunks
+1. Query → Extract entity mentions (LLM + Neo4j validation)
+2. Match entities in Neo4j → Traverse graph → Get related chunk IDs
 3. Vector search in Weaviate → Get similar chunks
-4. RRF merge both result sets → Return top-k chunks
+4. Fetch graph-only chunks from Weaviate (not in vector results)
+5. RRF merge vector + graph result sets → Return top-k chunks
 """
 
 from typing import Any, Optional
@@ -39,8 +40,10 @@ from src.config import (
     GRAPHRAG_EXTRACTION_MODEL,
     GRAPHRAG_ENTITY_TYPES,
     GRAPHRAG_QUERY_EXTRACTION_PROMPT,
+    GRAPHRAG_RRF_K,
     DIR_GRAPH_DATA,
     get_community_collection_name,
+    get_collection_name,
 )
 from src.shared.files import setup_logging
 from src.shared.openrouter_client import call_structured_completion
@@ -49,6 +52,8 @@ from src.rag_pipeline.indexing.weaviate_client import (
     get_client as get_weaviate_client,
     query_communities_by_vector,
 )
+from src.rag_pipeline.indexing.weaviate_query import SearchResult
+from src.rag_pipeline.retrieval.rrf import reciprocal_rank_fusion
 from .neo4j_client import find_entity_neighbors, find_entities_by_names
 from .community import load_communities
 from .schemas import Community, QueryEntities
@@ -254,6 +259,75 @@ def get_chunk_ids_from_graph(
         if entity.get("source_chunk_id"):
             chunk_ids.add(entity["source_chunk_id"])
     return list(chunk_ids)
+
+
+def fetch_chunks_by_ids(
+    chunk_ids: list[str],
+    collection_name: Optional[str] = None,
+) -> list[SearchResult]:
+    """Fetch specific chunks from Weaviate by chunk_id.
+
+    Used to retrieve graph-discovered chunks that weren't in vector results.
+    Returns SearchResult objects for RRF compatibility.
+
+    Uses batch filtering (ContainsAny) for efficient retrieval instead of
+    individual queries per chunk.
+
+    Args:
+        chunk_ids: List of chunk IDs to fetch.
+        collection_name: Weaviate collection name (default: from config).
+
+    Returns:
+        List of SearchResult objects for found chunks.
+
+    Example:
+        >>> chunks = fetch_chunks_by_ids(["book::chunk_42", "book::chunk_43"])
+        >>> for c in chunks:
+        ...     print(c.chunk_id, c.text[:50])
+    """
+    from weaviate.classes.query import Filter
+
+    if not chunk_ids:
+        return []
+
+    collection_name = collection_name or get_collection_name()
+    client = get_weaviate_client()
+
+    try:
+        collection = client.collections.get(collection_name)
+        results = []
+
+        # Use batch filter (ContainsAny) for efficient retrieval
+        # instead of N+1 individual queries
+        try:
+            response = collection.query.fetch_objects(
+                filters=Filter.by_property("chunk_id").contains_any(chunk_ids),
+                limit=len(chunk_ids),
+            )
+
+            for obj in response.objects:
+                props = obj.properties
+                results.append(
+                    SearchResult(
+                        chunk_id=props.get("chunk_id", ""),
+                        book_id=props.get("book_id", ""),
+                        section=props.get("section", ""),
+                        context=props.get("context", ""),
+                        text=props.get("text", ""),
+                        token_count=props.get("token_count", 0),
+                        score=0.0,  # No vector score for graph-only chunks
+                        is_summary=props.get("is_summary", False),
+                        tree_level=props.get("tree_level", 0),
+                    )
+                )
+        except Exception as e:
+            logger.warning(f"Batch fetch failed: {e}, returning empty list")
+
+        logger.info(f"Fetched {len(results)} graph-only chunks from Weaviate")
+        return results
+
+    finally:
+        client.close()
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -492,28 +566,79 @@ def enrich_results_with_graph(
     return vector_results, graph_only
 
 
+def _build_graph_ranked_list(
+    graph_context: list[dict[str, Any]],
+    fetched_chunks: list[SearchResult],
+) -> list[SearchResult]:
+    """Build a ranked list of graph results ordered by path_length.
+
+    Shorter path_length = closer to query entity = higher rank.
+    This list is used for RRF merging with vector results.
+
+    Args:
+        graph_context: List of entities with path_length and source_chunk_id.
+        fetched_chunks: SearchResult objects fetched from Weaviate.
+
+    Returns:
+        List of SearchResult ordered by graph relevance (path_length ascending).
+    """
+    # Build chunk_id -> minimum path_length mapping
+    # A chunk might be reached via multiple entities; use shortest path
+    chunk_path_lengths: dict[str, int] = {}
+    for entity in graph_context:
+        chunk_id = entity.get("source_chunk_id")
+        path_len = entity.get("path_length", 999)
+        if chunk_id:
+            if chunk_id not in chunk_path_lengths:
+                chunk_path_lengths[chunk_id] = path_len
+            else:
+                chunk_path_lengths[chunk_id] = min(chunk_path_lengths[chunk_id], path_len)
+
+    # Create lookup for fetched chunks
+    fetched_by_id = {c.chunk_id: c for c in fetched_chunks}
+
+    # Build ranked list: sort by path_length (ascending)
+    ranked_chunk_ids = sorted(chunk_path_lengths.keys(), key=lambda x: chunk_path_lengths[x])
+
+    # Create SearchResult list in ranked order
+    ranked_results = []
+    for chunk_id in ranked_chunk_ids:
+        if chunk_id in fetched_by_id:
+            ranked_results.append(fetched_by_id[chunk_id])
+
+    return ranked_results
+
+
 def hybrid_graph_retrieval(
     query: str,
     driver: Driver,
     vector_results: list[dict[str, Any]],
     top_k: int = 10,
+    collection_name: Optional[str] = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Merge vector search results with graph traversal.
+    """Merge vector search results with graph traversal using RRF.
 
     Enhances vector search with knowledge graph context:
-    1. Traverses graph from query entities to find related chunks
-    2. Boosts vector results that also appear in graph traversal
-    3. Adds community summaries for thematic context
+    1. Traverses graph from query entities to find related chunk IDs
+    2. Fetches ALL graph-discovered chunks from Weaviate
+    3. Ranks graph chunks by path_length (closer to query entity = higher rank)
+    4. Uses RRF to merge vector list + graph list (chunks in both get boosted)
+    5. Adds community summaries for thematic context
+
+    The key insight: RRF boosts chunks that appear in BOTH lists. A chunk
+    with vector_rank=5 and graph_rank=3 gets score = 1/(k+5) + 1/(k+3),
+    higher than a chunk appearing in only one list.
 
     Args:
         query: User query string.
         driver: Neo4j driver instance.
         vector_results: Results from Weaviate vector search (list of dicts).
         top_k: Number of results to return.
+        collection_name: Weaviate collection (default: from config).
 
     Returns:
         Tuple of:
-        - Merged results (graph-boosted results first, then others)
+        - RRF-merged results (vector + graph sources combined)
         - Metadata dict with entities, graph context, and communities
 
     Example:
@@ -541,28 +666,95 @@ def hybrid_graph_retrieval(
         logger.info("No graph chunks found, returning vector results only")
         return vector_results[:top_k], metadata
 
-    # Enrich vector results with graph boost flag
-    enriched, graph_only_ids = enrich_results_with_graph(
-        vector_results, graph_chunk_ids, community_context
-    )
+    # Convert vector_results (dicts) to SearchResult objects for RRF
+    vector_chunk_ids = {r.get("chunk_id") for r in vector_results if r.get("chunk_id")}
+    vector_search_results = []
+    for r in vector_results:
+        vector_search_results.append(
+            SearchResult(
+                chunk_id=r.get("chunk_id", ""),
+                book_id=r.get("book_id", ""),
+                section=r.get("section", ""),
+                context=r.get("context", ""),
+                text=r.get("text", ""),
+                token_count=r.get("token_count", 0),
+                score=r.get("similarity", 0.0),
+                is_summary=r.get("is_summary", False),
+                tree_level=r.get("tree_level", 0),
+            )
+        )
 
-    # Sort: graph-boosted results first, then by original score
-    # This is a simple boost strategy; could use RRF for more sophistication
-    boosted = [r for r in enriched if r.get("graph_boost")]
-    non_boosted = [r for r in enriched if not r.get("graph_boost")]
+    # Fetch ALL graph-discovered chunks from Weaviate (not just graph-only)
+    # This enables proper RRF boosting for chunks in both lists
+    all_graph_chunks = fetch_chunks_by_ids(graph_chunk_ids, collection_name)
 
-    # Combine: boosted first (preserving their order), then non-boosted
-    merged = boosted + non_boosted
+    if all_graph_chunks:
+        # Build graph-ranked list ordered by path_length (shorter = higher rank)
+        graph_context = graph_meta.get("graph_context", [])
+        graph_ranked_results = _build_graph_ranked_list(graph_context, all_graph_chunks)
+
+        # RRF merge: chunks in BOTH lists get boosted
+        # e.g., chunk at vector_rank=5, graph_rank=3 gets score = 1/(k+5) + 1/(k+3)
+        rrf_result = reciprocal_rank_fusion(
+            result_lists=[vector_search_results, graph_ranked_results],
+            query_types=["vector", "graph"],
+            k=GRAPHRAG_RRF_K,
+            top_k=top_k,
+        )
+        merged_results = rrf_result.results
+
+        # Count overlaps for logging
+        graph_chunk_set = set(graph_chunk_ids)
+        overlap_count = sum(1 for r in vector_search_results if r.chunk_id in graph_chunk_set)
+        graph_only_count = len(graph_chunk_set - vector_chunk_ids)
+
+        logger.info(
+            f"RRF merge: {len(vector_search_results)} vector + "
+            f"{len(graph_ranked_results)} graph (path-ranked) -> "
+            f"{len(merged_results)} results ({overlap_count} overlapping, {graph_only_count} graph-only)"
+        )
+    else:
+        # No graph chunks fetched (Weaviate empty or error), use vector results
+        merged_results = vector_search_results[:top_k]
+        graph_chunk_set = set(graph_chunk_ids)
+        overlap_count = 0
+        graph_only_count = len(graph_chunk_ids)
+        logger.info(f"No graph chunks fetched, using {len(merged_results)} vector results")
+
+    # Mark which results came from graph traversal (for visibility/debugging)
+    merged_dicts = []
+    for r in merged_results:
+        result_dict = {
+            "chunk_id": r.chunk_id,
+            "book_id": r.book_id,
+            "section": r.section,
+            "context": r.context,
+            "text": r.text,
+            "token_count": r.token_count,
+            "similarity": r.score,  # Now contains RRF score
+            "is_summary": r.is_summary,
+            "tree_level": r.tree_level,
+        }
+        # Mark if this chunk was found via graph traversal
+        if r.chunk_id in graph_chunk_set:
+            result_dict["graph_found"] = True
+        # Mark if this was ONLY in graph results (not in original vector results)
+        if r.chunk_id not in vector_chunk_ids:
+            result_dict["graph_only"] = True
+        merged_dicts.append(result_dict)
+
+    # Update metadata
+    metadata["overlap_count"] = overlap_count
+    metadata["graph_only_count"] = graph_only_count
+    metadata["graph_fetched"] = len(all_graph_chunks) if all_graph_chunks else 0
+    metadata["rrf_merged"] = bool(all_graph_chunks)
 
     logger.info(
-        f"Hybrid retrieval: {len(boosted)} graph-boosted, "
-        f"{len(non_boosted)} vector-only, {len(graph_only_ids)} graph-only (not fetched)"
+        f"Hybrid retrieval: {overlap_count} in both lists (RRF boosted), "
+        f"{graph_only_count} graph-only, {metadata['graph_fetched']} total fetched"
     )
 
-    metadata["boosted_count"] = len(boosted)
-    metadata["graph_only_count"] = len(graph_only_ids)
-
-    return merged[:top_k], metadata
+    return merged_dicts, metadata
 
 
 def format_graph_context_for_generation(

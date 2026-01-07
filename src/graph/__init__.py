@@ -21,8 +21,9 @@ GraphRAG enables global queries ("What are the main themes across all documents?
 ## Data Flow
 
 1. Section chunks → Entity extraction → Neo4j upload
-2. Neo4j graph → Leiden communities → Community summaries
-3. Query → Graph traversal + Vector search → RRF merge → Answer
+2. Neo4j graph → Leiden communities → Community summaries (stored in Weaviate)
+3. Query → LLM entity extraction → Graph traversal → Chunk ID discovery
+4. Vector search (Weaviate) + Fetch graph-only chunks → RRF merge → Answer
 """
 
 from .schemas import (
@@ -54,6 +55,8 @@ from .query import (
     retrieve_graph_context,
     retrieve_community_context,
     format_graph_context_for_generation,
+    fetch_chunks_by_ids,
+    hybrid_graph_retrieval,
 )
 
 __all__ = [
@@ -82,4 +85,6 @@ __all__ = [
     "retrieve_graph_context",
     "retrieve_community_context",
     "format_graph_context_for_generation",
+    "fetch_chunks_by_ids",
+    "hybrid_graph_retrieval",
 ]

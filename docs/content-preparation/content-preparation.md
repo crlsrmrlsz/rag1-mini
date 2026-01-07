@@ -69,6 +69,8 @@ md_text = pymupdf4llm.to_markdown(pdf_file, header=False, footer=False)
 - Optional [PyMuPDF-Layout](https://pymupdf.readthedocs.io/en/latest/pymupdf-layout/index.html) extension adds AI-based detection (1.3-1.8M parameters)
 - K-means clustering can detect column structures
 
+> **GNN vs Vision models:** PyMuPDF-Layout uses a Graph Neural Network (GNN) that treats text blocks as nodes and spatial relationships as edges, learning patterns directly from PDF structure (fonts, coordinates, spacing). Vision models like Docling render the page to an image and analyze pixels. GNN is 10× faster (CPU-only, 1.3M params vs 20M) but struggles with visual elements; vision models handle complex layouts better but require more compute.
+
 **Challenges with neuroscience books:**
 
 | Issue | Description |

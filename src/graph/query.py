@@ -524,48 +524,6 @@ def get_graph_chunk_ids(
     return chunk_ids, metadata
 
 
-def enrich_results_with_graph(
-    vector_results: list[dict[str, Any]],
-    graph_chunk_ids: list[str],
-    community_context: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], set[str]]:
-    """Enrich vector results with graph-derived chunk IDs.
-
-    Adds graph_boost flag to vector results that also appear in graph traversal.
-    Returns set of graph-only chunk IDs not in vector results.
-
-    Args:
-        vector_results: List of chunks from vector search.
-        graph_chunk_ids: Chunk IDs from graph traversal.
-        community_context: Community summaries for context.
-
-    Returns:
-        Tuple of:
-        - Enriched vector results with graph_boost flag
-        - Set of graph-only chunk IDs (for potential fetch)
-
-    Example:
-        >>> enriched, extras = enrich_results_with_graph(results, graph_ids, [])
-        >>> for r in enriched:
-        ...     if r.get("graph_boost"):
-        ...         print("Boosted:", r["chunk_id"])
-    """
-    # Create set of vector result chunk IDs for fast lookup
-    vector_chunk_ids = {r.get("chunk_id") for r in vector_results if r.get("chunk_id")}
-    graph_set = set(graph_chunk_ids)
-
-    # Mark vector results that also appear in graph
-    for result in vector_results:
-        chunk_id = result.get("chunk_id")
-        if chunk_id and chunk_id in graph_set:
-            result["graph_boost"] = True
-
-    # Find graph-only chunks not in vector results
-    graph_only = graph_set - vector_chunk_ids
-
-    return vector_results, graph_only
-
-
 def _build_graph_ranked_list(
     graph_context: list[dict[str, Any]],
     fetched_chunks: list[SearchResult],

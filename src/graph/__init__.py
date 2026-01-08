@@ -51,7 +51,6 @@ from .community import (
 )
 from .query import (
     get_graph_chunk_ids,
-    enrich_results_with_graph,
     retrieve_graph_context,
     retrieve_community_context,
     format_graph_context_for_generation,
@@ -81,7 +80,6 @@ __all__ = [
     "load_communities",
     # Query
     "get_graph_chunk_ids",
-    "enrich_results_with_graph",
     "retrieve_graph_context",
     "retrieve_community_context",
     "format_graph_context_for_generation",

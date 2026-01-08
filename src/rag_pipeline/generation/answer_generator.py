@@ -113,6 +113,7 @@ def generate_answer(
     chunks: list[dict[str, Any]],
     model: Optional[str] = None,
     temperature: float = 0.3,
+    graph_context: Optional[str] = None,
 ) -> GeneratedAnswer:
     """Generate an answer from retrieved chunks using an LLM.
 
@@ -125,6 +126,9 @@ def generate_answer(
             Each chunk should have 'text', 'book_id', and optionally 'section'.
         model: Override model (defaults to GENERATION_MODEL from config).
         temperature: Sampling temperature (higher = more creative).
+        graph_context: Optional GraphRAG context (community summaries and
+            entity relationships) to provide thematic background. Generated
+            by format_graph_context_for_generation() from graph metadata.
 
     Returns:
         GeneratedAnswer with the answer text and metadata.
@@ -151,8 +155,20 @@ def generate_answer(
     # Format context from chunks
     context = _format_context(chunks)
 
-    # Build messages
-    user_message = f"""Context:
+    # Build user message with optional graph context
+    if graph_context:
+        # Include community summaries and entity relationships as background
+        user_message = f"""Background (corpus themes and related concepts):
+{graph_context}
+
+Retrieved Passages:
+{context}
+
+Question: {query}
+
+Please answer based on the context above, citing sources by number [1], [2], etc. Use the background themes to provide broader context where relevant."""
+    else:
+        user_message = f"""Context:
 {context}
 
 Question: {query}

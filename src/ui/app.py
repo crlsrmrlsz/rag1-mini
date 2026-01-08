@@ -40,6 +40,7 @@ from src.config import (
 from src.ui.services.search import search_chunks, get_available_collections, CollectionInfo
 from src.rag_pipeline.retrieval.preprocessing import preprocess_query
 from src.rag_pipeline.generation.answer_generator import generate_answer
+from src.graph.query import format_graph_context_for_generation
 
 
 # ============================================================================
@@ -553,10 +554,17 @@ if search_clicked and query:
         if st.session_state.search_results:
             with st.spinner("Stage 4: Generating answer..."):
                 try:
+                    # Format graph context if GraphRAG was used successfully
+                    graph_context = None
+                    graph_meta = st.session_state.graph_metadata
+                    if graph_meta and not graph_meta.get("error"):
+                        graph_context = format_graph_context_for_generation(graph_meta)
+
                     answer = generate_answer(
                         query=query,
                         chunks=st.session_state.search_results,
                         model=GENERATION_MODEL,
+                        graph_context=graph_context,
                     )
                     st.session_state.generated_answer = answer
                 except Exception as e:

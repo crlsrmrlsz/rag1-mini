@@ -22,9 +22,8 @@ Each phase addresses specific challenges encountered with complex academic texts
 
 ## Phase 1: PDF Pre-Cleaning
 
-Before any automated extraction, PDFs are manually cleaned using PDF editing tools (e.g., Adobe Acrobat, PDF-XChange Editor).
+Before any automated extraction, PDFs are manually cleaned using PDF editing tools to remove the pages that contain these elements:
 
-### Elements Removed
 
 | Element | Why Remove |
 |---------|------------|
@@ -32,18 +31,14 @@ Before any automated extraction, PDFs are manually cleaned using PDF editing too
 | Glossary | Alphabetical lists extract poorly |
 | Index | Page number lists are noise |
 | Acknowledgments | Not core content |
-| Notes sections | Often formatted as footnotes |
+| Notes sections | Often formatted as footnotes, sometimes at the end of chapters or end of book |
 | Appendices | Supplementary material, separate handling needed |
 
 ### Why This Matters
 
-Neuroscience textbooks present unique extraction challenges:
-- **Multi-column layouts** with figures spanning columns
-- **Case study boxes** highlighted in different colors
-- **Inline equations** mixed with body text
-- **Dense figure placement** interrupting paragraphs
+Pre-cleaning reduces the complexity for the next phases and contributes to the quality of the data downstream. I included this initial manual cleaning after realizing the complexity of getting clean markdown for scientific style books, but for a bigger project this won't scale.  Anyway, with the expected future improvements in PDF text extractor models, this cleaning could be done during the own text extraction or afterwards over a properly structured markdown, removing unnecesary sections.
 
-Pre-cleaning reduces the complexity that automated tools must handle and also ease the following automated pattern cleaning. I included this initial PDF page removal after realizing the complexity of parsing scientific books in order to simplify as much as possible from the start. This phase was done with [PDF24](https://www.pdf24.org/).
+This phase was done with [PDF24](https://www.pdf24.org/).
 
 ---
 

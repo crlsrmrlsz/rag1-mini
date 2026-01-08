@@ -214,26 +214,27 @@ GraphRAG operates in two distinct phases:
 ║                                      │                                    ║
 ║                                      ▼                                    ║
 ║   ┌─────────────────────────────────────────────────────────────────────┐ ║
-║   │ HYBRID MERGE                                                        │ ║
+║   │ RRF MERGE (Reciprocal Rank Fusion)                                  │ ║
 ║   │                                                                     │ ║
-║   │ 1. Mark vector results that also appear in graph as "boosted"       │ ║
-║   │ 2. Sort: boosted results first, then remaining by score             │ ║
-║   │ 3. Include community summaries as thematic context                  │ ║
+║   │ 1. Fetch ALL graph-discovered chunks from Weaviate                  │ ║
+║   │ 2. Rank graph chunks by path_length (shorter = higher rank)         │ ║
+║   │ 3. Apply RRF: score = 1/(k+rank_vector) + 1/(k+rank_graph)          │ ║
+║   │ 4. Chunks in BOTH lists get boosted scores                          │ ║
 ║   │                                                                     │ ║
-║   │ Result: [chunk_12★, chunk_45★, chunk_78, chunk_33, ...]            │ ║
-║   │         (★ = graph-boosted)                                         │ ║
+║   │ Result: [chunk_12, chunk_33, chunk_45, chunk_78, ...]              │ ║
+║   │         (sorted by RRF score, not just vector similarity)           │ ║
 ║   └───────────────────────────────────┬─────────────────────────────────┘ ║
 ║                                       │                                   ║
 ║                                       ▼                                   ║
 ║   ┌─────────────────────────────────────────────────────────────────────┐ ║
 ║   │ ANSWER GENERATION                                                   │ ║
 ║   │                                                                     │ ║
-║   │ Context includes:                                                   │ ║
-║   │ - Retrieved chunks (graph-boosted first)                            │ ║
-║   │ - Community summaries (thematic context)                            │ ║
-║   │ - Entity relationships (from graph)                                 │ ║
+║   │ Prompt includes:                                                    │ ║
+║   │ - Background: community summaries + entity relationships            │ ║
+║   │ - Retrieved Passages: RRF-merged chunks                             │ ║
+║   │ - Question: original query                                          │ ║
 ║   │                                                                     │ ║
-║   │ LLM generates comprehensive answer                                  │ ║
+║   │ LLM generates comprehensive answer with thematic context            │ ║
 ║   └─────────────────────────────────────────────────────────────────────┘ ║
 ║                                                                           ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
@@ -428,7 +429,7 @@ Summary:"""
 
 GRAPHRAG_TOP_COMMUNITIES = 3        # Communities to retrieve
 GRAPHRAG_TRAVERSE_DEPTH = 2         # Max hops from query entities
-GRAPHRAG_RRF_K = 60                 # RRF constant (not currently used)
+GRAPHRAG_RRF_K = 60                 # RRF constant for hybrid merge (k in 1/(k+rank))
 ```
 
 **Traverse depth explained:**
@@ -1290,8 +1291,12 @@ Extracted entities: ["Sapolsky", "dopamine", "stress"]
 def find_entity_neighbors(driver, entity_name, max_hops=2, limit=50):
     """Find entities connected within N hops."""
 
+    # Pre-normalize in Python to match upload normalization
+    # (Unicode, stopwords, punctuation - same as GraphEntity.normalized_name())
+    normalized_name = GraphEntity(name=entity_name, entity_type="").normalized_name()
+
     query = f"""
-    MATCH (start:Entity {{normalized_name: toLower(trim($entity_name))}})
+    MATCH (start:Entity {{normalized_name: $normalized_name}})
     MATCH path = (start)-[*1..{max_hops}]-(neighbor:Entity)
     WHERE start <> neighbor
     RETURN DISTINCT
@@ -1304,7 +1309,7 @@ def find_entity_neighbors(driver, entity_name, max_hops=2, limit=50):
     LIMIT $limit
     """
 
-    result = driver.execute_query(query, entity_name=entity_name, limit=limit)
+    result = driver.execute_query(query, normalized_name=normalized_name, limit=limit)
     return [dict(r) for r in result.records]
 ```
 
@@ -1331,56 +1336,61 @@ Depth: 2
 Collected chunk IDs from all visited entities
 ```
 
-### Hybrid Merge Logic
+### Hybrid Merge Logic (RRF)
 
 ```python
-# src/graph/query.py, lines 330-399
+# src/graph/query.py - hybrid_graph_retrieval()
 
-def hybrid_graph_retrieval(query, driver, vector_results, top_k=10):
-    """Merge vector search results with graph traversal."""
+def hybrid_graph_retrieval(query, driver, vector_results, top_k=10, collection_name=None):
+    """Merge vector search results with graph traversal using RRF."""
 
     # 1. Get graph chunk IDs via traversal
     graph_chunk_ids, graph_meta = get_graph_chunk_ids(query, driver)
 
-    # 2. Get community context for thematic enrichment
+    # 2. Fetch ALL graph chunks from Weaviate (not just overlapping ones)
+    all_graph_chunks = fetch_chunks_by_ids(graph_chunk_ids, collection_name)
+
+    # 3. Build ranked graph list (shorter path_length = higher rank)
+    graph_ranked_results = _build_graph_ranked_list(
+        graph_meta["graph_context"], all_graph_chunks
+    )
+
+    # 4. Get community context for thematic enrichment
     community_context = retrieve_community_context(query)
 
-    # 3. Mark vector results that also appear in graph
-    graph_set = set(graph_chunk_ids)
-    for result in vector_results:
-        if result.get("chunk_id") in graph_set:
-            result["graph_boost"] = True
+    # 5. Apply RRF to merge vector and graph results
+    rrf_result = reciprocal_rank_fusion(
+        result_lists=[vector_results, graph_ranked_results],
+        query_types=["vector", "graph"],
+        k=GRAPHRAG_RRF_K,  # Default: 60
+        top_k=top_k,
+    )
 
-    # 4. Sort: boosted first, then by original score
-    boosted = [r for r in vector_results if r.get("graph_boost")]
-    non_boosted = [r for r in vector_results if not r.get("graph_boost")]
-
-    merged = boosted + non_boosted
-
-    return merged[:top_k], {
+    return rrf_result.results, {
         "query_entities": graph_meta["query_entities"],
         "graph_context": graph_meta["graph_context"],
         "community_context": community_context,
-        "boosted_count": len(boosted),
+        "graph_chunk_count": len(all_graph_chunks),
     }
 ```
 
-**Merge example:**
+**RRF Merge example:**
 ```
-Vector Search Results          Graph Chunk IDs
-═══════════════════            ═══════════════
-1. chunk_12 (score: 0.85)      chunk_12 ← Match!
-2. chunk_45 (score: 0.82)      chunk_33
-3. chunk_78 (score: 0.79)      chunk_67
-4. chunk_23 (score: 0.75)      chunk_12
+Vector Search (ranked)         Graph Traversal (ranked by path_length)
+══════════════════════         ════════════════════════════════════════
+Rank 1: chunk_12 (0.85)        Rank 1: chunk_33 (path_length=1)
+Rank 2: chunk_45 (0.82)        Rank 2: chunk_12 (path_length=2)
+Rank 3: chunk_78 (0.79)        Rank 3: chunk_67 (path_length=2)
+Rank 4: chunk_23 (0.75)
 
-
-After Hybrid Merge:
+RRF Scores (k=60):
 ══════════════════
-1. chunk_12 ★ (boosted - in both)
-2. chunk_45
-3. chunk_78
-4. chunk_23
+chunk_12: 1/(60+1) + 1/(60+2) = 0.0164 + 0.0161 = 0.0325  ← BOOSTED (in both)
+chunk_33: 0 + 1/(60+1) = 0.0164                            ← Graph-only
+chunk_45: 1/(60+2) + 0 = 0.0161
+chunk_78: 1/(60+3) + 0 = 0.0159
+
+Final Order: [chunk_12, chunk_33, chunk_45, chunk_78, ...]
 
 ★ = Found via both vector search AND graph traversal
 ```
@@ -1830,36 +1840,41 @@ Complete trace from PDF to query response:
 │                                        │                                    │
 │                                        ▼                                    │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ HYBRID MERGE                                                        │   │
+│  │ RRF MERGE                                                           │   │
 │  │                                                                     │   │
-│  │ Vector: [12, 45, 78]    Graph: [12, 33, 67]                        │   │
+│  │ Vector: [12, 45, 78]    Graph: [33, 12, 67] (ranked by path_length)│   │
 │  │                                                                     │   │
-│  │ chunk_12 in BOTH → graph_boost = True                              │   │
+│  │ Fetch ALL graph chunks from Weaviate (including graph-only: 33,67) │   │
 │  │                                                                     │   │
-│  │ Result: [chunk_12★, chunk_45, chunk_78, chunk_33, ...]             │   │
+│  │ RRF scores: chunk_12 = 0.0325 (in both, boosted)                   │   │
+│  │             chunk_33 = 0.0164 (graph-only, now included!)           │   │
+│  │             chunk_45 = 0.0161                                       │   │
+│  │                                                                     │   │
+│  │ Result: [chunk_12, chunk_33, chunk_45, chunk_78, ...]              │   │
 │  │                                                                     │   │
 │  │ Metadata:                                                           │   │
 │  │ - query_entities: ["dopamine", "decision-making"]                  │   │
 │  │ - community_context: [3 summaries]                                  │   │
-│  │ - boosted_count: 1                                                  │   │
+│  │ - graph_chunk_count: 3                                              │   │
 │  └──────────────────────────────┬──────────────────────────────────────┘   │
 │                                 │                                          │
 │                                 ▼                                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ ANSWER GENERATION                                                   │   │
+│  │ ANSWER GENERATION (with graph context)                              │   │
 │  │                                                                     │   │
-│  │ Context:                                                            │   │
-│  │ "## Relevant Themes (from document corpus)                         │   │
+│  │ Prompt:                                                             │   │
+│  │ "Background (corpus themes and related concepts):                  │   │
+│  │  ## Relevant Themes (from document corpus)                         │   │
 │  │  This community centers on the neurobiology of reward...           │   │
 │  │                                                                     │   │
 │  │  ## Related Concepts (from knowledge graph)                        │   │
 │  │  - dopamine: Neurotransmitter involved in reward                   │   │
 │  │  - prefrontal cortex: Executive function                           │   │
 │  │                                                                     │   │
-│  │  ## Retrieved Passages                                             │   │
+│  │  Retrieved Passages:                                                │   │
 │  │  [1] From Behave: Dopamine plays a crucial role in..."             │   │
 │  │                                                                     │   │
-│  │ → LLM generates comprehensive answer                               │   │
+│  │ → LLM generates comprehensive answer with thematic context          │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘

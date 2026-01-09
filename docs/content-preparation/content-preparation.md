@@ -4,8 +4,6 @@
 
 This document covers the complete workflow for preparing content from PDF books to generate clean markdown files ready to chunk.
 
-## Overview
-
 Content preparation follows three phases:
 
 ```
@@ -34,71 +32,31 @@ Before any automated extraction, PDFs are manually cleaned using PDF editing too
 | Notes sections | Often formatted as footnotes, sometimes at the end of chapters or end of book |
 | Appendices | Supplementary material, separate handling needed |
 
-### Why This Matters
-
 Pre-cleaning reduces the complexity for the next phases and contributes to the quality of the data downstream. I included this initial manual cleaning after realizing the complexity of getting clean markdown for scientific style books, but for a bigger project this won't scale.  Anyway, with the expected future improvements in PDF text extractor models, this cleaning could be done during the own text extraction or afterwards over a properly structured markdown, removing unnecesary sections.
 
 This phase was done with [PDF24](https://www.pdf24.org/).
 
----
+
 
 ## Phase 2: PDF to Markdown Conversion
 
-### Initial Approach: PyMuPDF4LLM
+This phase took quite more effort than expected.
 
-First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter. P
+First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter. But for scientific books, it does not work fine with multicolumn, specially when images appear mid-paragraph. [PyMuPDF-Layout](https://pymupdf.readthedocs.io/en/latest/pymupdf-layout/index.html) extension adds AI-based layout detection and that improves a lot but still not enough. 
 
-```python
-import pymupdf4llm
-
-# Basic conversion
-md_text = pymupdf4llm.to_markdown(pdf_file)
-
-# With header/footer removal
-md_text = pymupdf4llm.to_markdown(pdf_file, header=False, footer=False)
-```
-
-**How PyMuPDF4LLM detects layout:**
-- Extracts text blocks with coordinates from PDF structure
-- Uses heuristics based on font size, position, and spacing
-- Optional [PyMuPDF-Layout](https://pymupdf.readthedocs.io/en/latest/pymupdf-layout/index.html) extension adds AI-based detection (1.3-1.8M parameters)
-- K-means clustering can detect column structures
-
-> **GNN vs Vision models:** PyMuPDF-Layout uses a Graph Neural Network (GNN) that treats text blocks as nodes and spatial relationships as edges, learning patterns directly from PDF structure (fonts, coordinates, spacing). Vision models like Docling render the page to an image and analyze pixels. GNN is 10× faster (CPU-only, 1.3M params vs 20M) but struggles with visual elements; vision models handle complex layouts better but require more compute.
-
-**Challenges with neuroscience books:**
-
-| Issue | Description |
-|-------|-------------|
-| Multi-column merging | Text blocks from different columns merged incorrectly |
-| Figure interruption | Reading order jumbled when figures appear mid-paragraph |
-| Case study boxes | Highlighted sections extracted out of order or merged with surrounding text |
-| Tables | Extracted as garbled text, losing all structure |
-| Mathematical notation | Unicode escape sequences, garbled symbols |
-| Footnotes | Mixed into body text, breaking sentence flow |
-
-These issues required extensive manual cleanup, making PyMuPDF4LLM impractical for our corpus.
 
 ### Solution: Docling
 
-[Docling](https://github.com/docling-project/docling) (IBM Research) uses AI vision models for layout understanding, solving the problems PyMuPDF4LLM couldn't handle.
+[Docling](https://github.com/docling-project/docling) (IBM Research) uses AI vision models for layout understanding, solving many of the problems PyMuPDF4LLM couldn't handle. i didn't need tables or images, that are possible the most difficult elements to extract so I couln't test it thorougly.
 
-**How Docling differs:**
+Most of the cases worked well with multicolumn, but edge cases like this one, still failed and mixed columns.
 
-| Aspect | PyMuPDF4LLM | Docling |
-|--------|-------------|---------|
-| Layout method | PDF coordinates + heuristics | Vision AI model (DocLayNet) |
-| Parameters | 1.3-1.8M | 20M+ |
-| Speed | Fast (~1 sec/page) | Slower (~4 sec/page) |
-| Tables | Poor extraction | Excellent structure preservation |
-| Complex layouts | Struggles with multi-column, figures | Handles well |
-| Element classification | Manual regex | Native labels (CAPTION, FOOTNOTE, etc.) |
+ ![Multi column page](assets/page_columns.png)
 
-**Key Docling advantages:**
-- **DocLayNet**: Vision model trained on diverse document layouts
-- **TableFormer**: Dedicated model for table structure recognition
-- **Native element labels**: Automatically classifies CAPTION, FOOTNOTE, TABLE, PICTURE, etc.
-- **Reading order**: Correctly sequences text across complex layouts
+<img src="assets/page1.png" alt="Edge case multicolumn" width="600">
+
+It allows you to directly remove some elements like captions, tables, figures, headers or footer that simplify next cleaning phase.
+
 
 ### Implementation
 
@@ -145,18 +103,6 @@ def extract_pdf(pdf_path: Path) -> str:
     return doc.export_to_markdown()
 ```
 
-### Removed Elements
-
-| Element | Why Removed |
-|---------|-------------|
-| `CAPTION` | Figure captions without figures are noise |
-| `FOOTNOTE` | Disrupts text flow, often references |
-| `PAGE_HEADER` | Running headers with chapter titles |
-| `PAGE_FOOTER` | Page numbers, publisher info |
-| `TABLE` | Complex structure requires separate handling |
-| `PICTURE` | Images don't translate to text; children (labels like "a", "b") removed too |
-
----
 
 ## Phase 3: Markdown Cleaning
 
@@ -167,11 +113,14 @@ After Docling extraction, two cleaning steps refine the output.
 Location: `data/processed/02_manual_review/`
 
 Purpose: Catch extraction errors before automated cleaning:
-- Verify heading hierarchy
+- Solve multicolumn errors (more than 40 pages with this problem, lot of manual work, not scalable)
+- Verify heading hierarchy (all headers were second level markdown header, did not get proper hierarchy)
 - Fix obvious extraction failures
 - Remove any remaining artifacts
 
 ### Automated Cleaning
+
+After manual inspection, some common patterns were identified for automated cleaning using regex patterns. Each book had different specific random errors from conversion, so this again was a very manual task not scalable. 
 
 The automated cleaner applies regex patterns to remove common artifacts.
 
@@ -186,23 +135,6 @@ Full lines matching these patterns are deleted:
 | `SINGLE_CHAR` | "a" (isolated line) | Remove OCR noise, diagram labels |
 | `HEADING_SINGLE_NUMBER` | "## 5" | Remove meaningless number-only headings |
 
-```python
-# From src/config.py
-LINE_REMOVAL_PATTERNS = [
-    # Figure/Table captions starting with uppercase after number
-    (r'^\s*(#+\s*)?([Ff][Ii][Gg]([Uu][Rr][Ee])?|[Tt][Aa][Bb]([Ll][Ee])?)\.?\s+[\w\.\-]+\s+[A-Z]',
-     'FIGURE_TABLE_CAPTION'),
-
-    # Learning objectives
-    (r'^\s*(##\s*)?LO\s+\d', 'LEARNING_OBJECTIVE'),
-
-    # Single character lines
-    (r'^\s*[a-zA-Z0-9\.\|\-]\s*$', 'SINGLE_CHAR'),
-
-    # Headings with only numbers
-    (r'^\s*##\s+\d+\s*$', 'HEADING_SINGLE_NUMBER'),
-]
-```
 
 #### Inline Removal Patterns
 
@@ -214,19 +146,7 @@ Text within lines matching these patterns is removed:
 | `FOOTNOTE_MARKER` | "fn3" | Remove footnote markers mid-sentence |
 | `TRAILING_NUMBER` | ". 81 We" → ". We" | Remove page numbers between sentences |
 
-```python
-INLINE_REMOVAL_PATTERNS = [
-    # Figure/table references in parentheses
-    (r'\(\s*([Ff][Ii][Gg]([Uu][Rr][Ee])?|[Tt][Aa][Bb]([Ll][Ee])?)\.?\s*[\d\.\-]+[a-zA-Z]?\s*\)',
-     'FIG_TABLE_REF'),
 
-    # Footnote markers
-    (r'\bfn\d+\b\s*', 'FOOTNOTE_MARKER'),
-
-    # Page numbers after sentence punctuation
-    (r'(?<=[.!?\"\'])\s+\d+\s+(?=[A-Z])', 'TRAILING_NUMBER'),
-]
-```
 
 #### Character Substitutions
 

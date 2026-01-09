@@ -58,7 +58,7 @@ python -m src.stages.run_stage_4_5_autotune --strategy section
 python -m src.stages.run_stage_4_5_autotune --reconsolidate stratified
 
 # Step 2: Upload + Leiden + Summarization + Entity Embeddings
-python -m src.stages.run_stage_6b_neo4j --embed-entities
+python -m src.stages.run_stage_6b_neo4j
 
 # Step 3: Query
 python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
@@ -66,11 +66,14 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag
 
 ### Crash Recovery
 
-Stage 6b is crash-proof. Resume anytime:
+Stage 6b is crash-proof. Resume from any phase:
 
 ```bash
-# Resume after crash (checks Weaviate for existing communities)
-python -m src.stages.run_stage_6b_neo4j --resume
+# Resume from Leiden (graph already uploaded)
+python -m src.stages.run_stage_6b_neo4j --from leiden
+
+# Resume from summaries (Leiden done, regenerate summaries using checkpoint)
+python -m src.stages.run_stage_6b_neo4j --from summaries
 
 # Full re-run (deterministic Leiden guarantees same IDs)
 python -m src.stages.run_stage_6b_neo4j

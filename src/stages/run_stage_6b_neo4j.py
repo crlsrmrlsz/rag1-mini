@@ -6,54 +6,37 @@ This stage uploads extracted entities and relationships to Neo4j,
 then runs Leiden community detection to identify clusters of
 related entities. Community summaries enable global queries.
 
+## Pipeline Phases
+
+1. **Upload**: Load entities/relationships from extraction_results.json → Neo4j
+2. **Leiden**: Run Leiden algorithm → assign community IDs + compute PageRank
+3. **Summaries**: Generate community summaries → upload to Weaviate
+4. **Entities**: Embed entity descriptions → upload to Weaviate
+
 ## Crash-Proof Design
 
-Stage 6b is designed to handle crashes during the ~10 hour summarization:
-
-1. **Deterministic Leiden**: Uses randomSeed=42 + concurrency=1
-   - Same graph + same seed = same community assignments (guaranteed)
-   - Enables resume after Neo4j reset without ID mismatches
-
-2. **Weaviate Storage**: Community embeddings stored in Weaviate
-   - Efficient HNSW vector search (O(log n) vs O(n) for JSON file)
-   - ~12MB total vs 383MB JSON with inline embeddings
-
-3. **Atomic Uploads**: Each community uploaded to Weaviate immediately
-   - Resume skips existing communities (checks Weaviate)
-   - No data loss on crash
-
-## Data Flow
-
-Input: Extraction results from Stage 4.6 (data/processed/07_graph/extraction_results.json)
-Output:
-- Neo4j graph with entities, relationships, and community IDs
-- Weaviate collection with community embeddings (Community_section800_v1)
-- Leiden checkpoint (data/processed/07_graph/leiden_checkpoint.json)
-- Backup JSON (data/processed/07_graph/communities.json)
-
-## Prerequisites
-
-1. Neo4j must be running: docker compose up -d neo4j
-2. Weaviate must be running: docker compose up -d weaviate
-3. Stage 4.6 must be complete (extraction results exist)
+- **Deterministic Leiden**: Uses seed=42 + concurrency=1 (same results on re-run)
+- **Checkpoint**: Hierarchy saved to leiden_checkpoint.json for resume
+- **Atomic uploads**: Each community uploaded to Weaviate immediately
+- **Resume mode**: Skips existing communities in Weaviate
 
 ## Usage
 
 ```bash
-# Full pipeline: upload + Leiden + summarization
+# Full pipeline (all 4 phases)
 python -m src.stages.run_stage_6b_neo4j
 
-# Upload only (skip Leiden)
-python -m src.stages.run_stage_6b_neo4j --upload-only
+# Resume from Leiden (graph already uploaded)
+python -m src.stages.run_stage_6b_neo4j --from leiden
 
-# Leiden only (assumes graph exists)
-python -m src.stages.run_stage_6b_neo4j --leiden-only
+# Resume from summaries (Leiden done, regenerate summaries)
+python -m src.stages.run_stage_6b_neo4j --from summaries
 
-# Clear graph before upload
+# Skip entity embeddings (faster if already done)
+python -m src.stages.run_stage_6b_neo4j --skip-entity-embeddings
+
+# Clear graph and start fresh
 python -m src.stages.run_stage_6b_neo4j --clear
-
-# Resume after crash (skip Leiden, continue from Weaviate checkpoint)
-python -m src.stages.run_stage_6b_neo4j --resume
 ```
 """
 
@@ -104,7 +87,7 @@ def load_extraction_results(
     if not input_path.exists():
         raise FileNotFoundError(
             f"Extraction results not found: {input_path}\n"
-            "Run Stage 4.6 first: python -m src.stages.run_stage_4_6_graph_extract"
+            "Run Stage 4.5 first: python -m src.stages.run_stage_4_5_autotune"
         )
 
     with open(input_path, "r", encoding="utf-8") as f:
@@ -116,9 +99,6 @@ def upload_entity_embeddings_to_weaviate(driver) -> int:
 
     Reads entities from Neo4j, embeds their descriptions, and uploads to
     a Weaviate collection for fast semantic search at query time.
-
-    This implements the Microsoft GraphRAG reference approach where entity
-    extraction uses embedding similarity instead of LLM calls.
 
     Args:
         driver: Neo4j driver for reading entities.
@@ -208,14 +188,11 @@ def main():
         description="Stage 6b: Upload to Neo4j and run Leiden community detection"
     )
     parser.add_argument(
-        "--upload-only",
-        action="store_true",
-        help="Only upload entities/relationships, skip Leiden",
-    )
-    parser.add_argument(
-        "--leiden-only",
-        action="store_true",
-        help="Only run Leiden (assumes graph exists)",
+        "--from",
+        dest="start_from",
+        choices=["upload", "leiden", "summaries"],
+        default="upload",
+        help="Start from phase: upload (default), leiden, or summaries",
     )
     parser.add_argument(
         "--clear",
@@ -229,26 +206,22 @@ def main():
         help=f"LLM model for community summarization (default: {GRAPHRAG_SUMMARY_MODEL})",
     )
     parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Resume after crash: skip Leiden, generate missing summaries (checks Weaviate)",
-    )
-    parser.add_argument(
-        "--embed-entities",
-        action="store_true",
-        help="Upload entity description embeddings to Weaviate for embedding-based extraction",
-    )
-    parser.add_argument(
         "--skip-entity-embeddings",
         action="store_true",
-        help="Skip entity embedding upload (faster if already done)",
+        help="Skip entity embedding upload to Weaviate",
     )
 
     args = parser.parse_args()
 
+    # Determine which phases to run
+    run_upload = args.start_from == "upload"
+    run_leiden = args.start_from in ("upload", "leiden")
+    skip_leiden = args.start_from == "summaries"
+
     logger.info("=" * 60)
     logger.info("STAGE 6b: NEO4J UPLOAD + LEIDEN COMMUNITIES")
     logger.info("=" * 60)
+    logger.info(f"Starting from: {args.start_from}")
 
     start_time = time.time()
 
@@ -262,32 +235,33 @@ def main():
         raise
 
     try:
-        # Validate prerequisites for resume mode
-        if args.resume:
+        # Validate prerequisites for non-upload starts
+        if not run_upload:
             logger.info("-" * 60)
-            logger.info("RESUME MODE: Validating prerequisites")
+            logger.info("VALIDATING PREREQUISITES")
             logger.info("-" * 60)
 
-            # Check entities exist
             stats = get_graph_stats(driver)
             if stats["node_count"] == 0:
                 raise ValueError(
-                    "Cannot resume: no entities in Neo4j. "
+                    f"Cannot start from {args.start_from}: no entities in Neo4j. "
                     "Run full pipeline first: python -m src.stages.run_stage_6b_neo4j"
                 )
 
-            # Check community_ids exist (Leiden must have completed)
-            community_ids = get_community_ids_from_neo4j(driver)
-            if not community_ids:
-                raise ValueError(
-                    "Cannot resume: no community_ids found in Neo4j. "
-                    "Leiden may not have completed. Run full pipeline first."
-                )
+            if skip_leiden:
+                # Check community_ids exist for summaries-only mode
+                community_ids = get_community_ids_from_neo4j(driver)
+                if not community_ids:
+                    raise ValueError(
+                        "Cannot start from summaries: no community_ids in Neo4j. "
+                        "Run with --from leiden first."
+                    )
+                logger.info(f"Found {len(community_ids)} existing communities")
 
-            logger.info(f"Validation passed: {stats['node_count']} entities, {len(community_ids)} communities")
+            logger.info(f"Validation passed: {stats['node_count']} entities")
 
-        # Phase 1: Upload to Neo4j (unless leiden-only or resume)
-        if not args.leiden_only and not args.resume:
+        # Phase 1: Upload to Neo4j
+        if run_upload:
             logger.info("-" * 60)
             logger.info("PHASE 1: UPLOAD TO NEO4J")
             logger.info("-" * 60)
@@ -316,41 +290,43 @@ def main():
         stats = get_graph_stats(driver)
         logger.info(f"Graph stats: {stats['node_count']} nodes, {stats['relationship_count']} relationships")
 
-        # Phase 2: Leiden community detection (unless upload-only)
-        if not args.upload_only:
+        # Phase 2 & 3: Leiden + Summaries
+        logger.info("-" * 60)
+        if skip_leiden:
+            logger.info("PHASE 3: COMMUNITY SUMMARIES (using checkpoint)")
+        else:
+            logger.info("PHASE 2 & 3: LEIDEN + COMMUNITY SUMMARIES")
+        logger.info("-" * 60)
+
+        if stats["node_count"] == 0:
+            logger.warning("Graph is empty, skipping Leiden")
+        else:
+            # Get GDS client
+            gds = get_gds_client(driver)
+
+            # Run Leiden and generate summaries
+            leiden_start = time.time()
+            communities = detect_and_summarize_communities(
+                driver,
+                gds,
+                model=args.model,
+                resume=skip_leiden,
+                skip_leiden=skip_leiden,
+            )
+            leiden_time = time.time() - leiden_start
+
+            # Save communities
+            output_path = save_communities(communities)
+
+            logger.info(f"Complete in {leiden_time:.1f}s")
+            logger.info(f"  Communities: {len(communities)}")
+            logger.info(f"  Total members: {sum(c.member_count for c in communities)}")
+            logger.info(f"  Output: {output_path}")
+
+        # Phase 4: Entity Embedding Upload
+        if not args.skip_entity_embeddings:
             logger.info("-" * 60)
-            logger.info("PHASE 2: LEIDEN COMMUNITY DETECTION")
-            logger.info("-" * 60)
-
-            if stats["node_count"] == 0:
-                logger.warning("Graph is empty, skipping Leiden")
-            else:
-                # Get GDS client
-                gds = get_gds_client(driver)
-
-                # Run Leiden and generate summaries
-                leiden_start = time.time()
-                communities = detect_and_summarize_communities(
-                    driver,
-                    gds,
-                    model=args.model,
-                    resume=args.resume,
-                    skip_leiden=args.resume,  # Skip Leiden if resuming (community_ids exist)
-                )
-                leiden_time = time.time() - leiden_start
-
-                # Save communities
-                output_path = save_communities(communities)
-
-                logger.info(f"Leiden complete in {leiden_time:.1f}s")
-                logger.info(f"  Communities found: {len(communities)}")
-                logger.info(f"  Total members: {sum(c.member_count for c in communities)}")
-                logger.info(f"  Output: {output_path}")
-
-        # Phase 4: Entity Embedding Upload (for embedding-based extraction)
-        if args.embed_entities and not args.skip_entity_embeddings:
-            logger.info("-" * 60)
-            logger.info("PHASE 4: ENTITY EMBEDDING UPLOAD")
+            logger.info("PHASE 4: ENTITY EMBEDDINGS")
             logger.info("-" * 60)
 
             upload_entity_embeddings_to_weaviate(driver)

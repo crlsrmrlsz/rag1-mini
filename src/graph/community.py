@@ -699,17 +699,18 @@ def detect_and_summarize_communities(
             # Reconstruct leiden_result format from checkpoint for hierarchy parsing
             logger.info(f"Loaded checkpoint with {len(checkpoint['assignments'])} assignments")
 
-            # Build node_communities and intermediate_communities from checkpoint
-            node_communities = {}
-            intermediate_communities = {}
-            for assignment in checkpoint["assignments"]:
-                node_id = assignment["node_id"]
-                node_communities[node_id] = assignment["community_id"]
-                intermediate_communities[node_id] = assignment.get("intermediate_ids", [])
+            # Build node_communities as list of dicts (same format as run_leiden output)
+            node_communities = [
+                {
+                    "node_id": a["node_id"],
+                    "community_id": a["community_id"],
+                    "intermediate_ids": a.get("intermediate_ids", []),
+                }
+                for a in checkpoint["assignments"]
+            ]
 
             leiden_result = {
                 "node_communities": node_communities,
-                "intermediate_communities": intermediate_communities,
                 "seed": checkpoint.get("seed", 42),
             }
 

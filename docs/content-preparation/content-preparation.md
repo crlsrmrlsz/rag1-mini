@@ -1,6 +1,6 @@
 # Content Preparation
 
-> **Stages:** 1-2 of 8 | Converts PDFs to clean Markdown ready for chunking
+> **Stages:** 1-3 of 8 | Converts PDFs to clean, segmented Markdown ready for chunking
 
 This document covers the complete workflow for preparing content from PDF books to generate clean markdown files ready to chunk.
 
@@ -32,7 +32,7 @@ Before any automated extraction, PDFs are manually cleaned using PDF editing too
 | Notes sections | Often formatted as footnotes, sometimes at the end of chapters or end of book |
 | Appendices | Supplementary material, separate handling needed |
 
-Pre-cleaning reduces the complexity for the next phases and contributes to the quality of the data downstream. I included this initial manual cleaning after realizing the complexity of getting clean markdown for scientific style books, but for a bigger project this won't scale.  Anyway, with the expected future improvements in PDF text extractor models, this cleaning could be done during the own text extraction or afterwards over a properly structured markdown, removing unnecesary sections.
+Pre-cleaning reduces the complexity for the next phases and contributes to the quality of the data downstream. I included this initial manual cleaning after realizing the complexity of getting clean markdown for scientific-style books, but for a bigger project this won't scale. With expected future improvements in PDF text extractor models, this cleaning could be done during text extraction itself or afterwards over a properly structured markdown, removing unnecessary sections.
 
 This phase was done with [PDF24](https://www.pdf24.org/).
 
@@ -40,16 +40,16 @@ This phase was done with [PDF24](https://www.pdf24.org/).
 
 ## Phase 2: PDF to Markdown Conversion
 
-This phase took quite more effort than expected.
+This phase took considerably more effort than expected.
 
-First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter. But for scientific books, it does not work fine with multicolumn, specially when images appear mid-paragraph. [PyMuPDF-Layout](https://pymupdf.readthedocs.io/en/latest/pymupdf-layout/index.html) extension adds AI-based layout detection and that improves a lot but still not enough. 
+First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/), a lightweight PDF-to-markdown converter. For scientific books, however, it does not work well with multicolumn layouts, especially when images appear mid-paragraph. The [PyMuPDF-Layout](https://pymupdf.readthedocs.io/en/latest/pymupdf-layout/index.html) extension adds AI-based layout detection, which improves results significantly but still not enough. 
 
 
 ### Solution: Docling
 
-[Docling](https://github.com/docling-project/docling) (IBM Research) uses AI vision models for layout understanding, solving many of the problems PyMuPDF4LLM couldn't handle. i didn't need tables or images, that are possible the most difficult elements to extract so I couln't test it thorougly.
+[Docling](https://github.com/docling-project/docling) (IBM Research) uses AI vision models for layout understanding, solving many of the problems PyMuPDF4LLM couldn't handle. I didn't need tables or images, which are possibly the most difficult elements to extract, so I couldn't test it thoroughly.
 
-Most of the cases worked well with multicolumn, but edge cases like this one, still failed and mixed columns.
+Most cases worked well with multicolumn layouts, but edge cases like this one still failed, mixing columns incorrectly.
 
  ![Multi column page](../../assets/page_columns.png)
 
@@ -118,7 +118,7 @@ Purpose: Catch extraction errors before automated cleaning:
 
 ### Automated Cleaning
 
-After manual inspection, some common patterns were identified for automated cleaning using regex patterns. Each book had different specific random errors from conversion, so this again was a very manual task not scalable. 
+After manual inspection, I identified common patterns suitable for automated cleaning using regex. Each book had different specific errors from conversion, so this was again a very manual, non-scalable task. 
 
 The automated cleaner applies regex patterns to remove common artifacts.
 
@@ -150,7 +150,7 @@ Text within lines matching these patterns is removed:
 
 | Original | Replacement | Purpose |
 |----------|-------------|---------|
-| `/u2014` | `--` | Unicode em-dash escape sequence |
+| `\u2014` | `--` | Unicode em-dash escape sequence |
 | `&amp;` | `&` | HTML entity |
 
 #### Advanced Cleaning Features

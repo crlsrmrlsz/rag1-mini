@@ -691,12 +691,37 @@ def detect_and_summarize_communities(
 
     # Run Leiden and parse hierarchy
     if skip_leiden:
-        # Use existing community IDs from Neo4j (level 0 only)
-        unique_ids = get_community_ids_from_neo4j(driver)
-        logger.info(f"Loaded {len(unique_ids)} community IDs from Neo4j (skipping Leiden)")
-        logger.warning("Hierarchy not available in skip_leiden mode - processing L0 only")
+        # Try to load hierarchy from checkpoint first
+        checkpoint = load_leiden_checkpoint()
         graph = None
-        levels = None  # No hierarchy data available
+
+        if checkpoint and checkpoint.get("assignments"):
+            # Reconstruct leiden_result format from checkpoint for hierarchy parsing
+            logger.info(f"Loaded checkpoint with {len(checkpoint['assignments'])} assignments")
+
+            # Build node_communities and intermediate_communities from checkpoint
+            node_communities = {}
+            intermediate_communities = {}
+            for assignment in checkpoint["assignments"]:
+                node_id = assignment["node_id"]
+                node_communities[node_id] = assignment["community_id"]
+                intermediate_communities[node_id] = assignment.get("intermediate_ids", [])
+
+            leiden_result = {
+                "node_communities": node_communities,
+                "intermediate_communities": intermediate_communities,
+                "seed": checkpoint.get("seed", 42),
+            }
+
+            # Parse hierarchy from checkpoint data
+            levels = parse_leiden_hierarchy(leiden_result, max_levels=hierarchy_levels)
+            logger.info(f"Parsed hierarchy from checkpoint into {hierarchy_levels} levels")
+        else:
+            # Fallback: no checkpoint, use Neo4j community IDs (L0 only)
+            unique_ids = get_community_ids_from_neo4j(driver)
+            logger.info(f"Loaded {len(unique_ids)} community IDs from Neo4j (skipping Leiden)")
+            logger.warning("No checkpoint found - processing L0 only (no hierarchy)")
+            levels = None
     else:
         # Step 1: Project graph
         graph = project_graph(gds)

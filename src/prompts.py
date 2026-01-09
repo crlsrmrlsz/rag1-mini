@@ -84,19 +84,6 @@ RAPTOR_SUMMARY_PROMPT = "Write a summary of the following, including as many key
 # GRAPHRAG PROMPTS
 # =============================================================================
 
-# Entity extraction prompt (for chunk processing)
-GRAPHRAG_EXTRACTION_PROMPT = """Extract entities and relationships from the following text.
-
-Entity types to look for: {entity_types}
-Relationship types to look for: {relationship_types}
-
-Text:
-{text}
-
-Extract all entities and relationships following the JSON schema provided.
-Be thorough but precise - only extract entities that are explicitly mentioned.
-For relationships, only include those that are clearly stated or strongly implied."""
-
 # Query-time entity extraction (simpler than chunk extraction)
 GRAPHRAG_QUERY_EXTRACTION_PROMPT = """Identify entities mentioned or implied in this query.
 

@@ -42,6 +42,7 @@ from src.config import (
     GRAPHRAG_COMMUNITY_PROMPT,
     GRAPHRAG_MAX_SUMMARY_TOKENS,
     GRAPHRAG_MAX_CONTEXT_TOKENS,
+    GRAPHRAG_MAX_HIERARCHY_LEVELS,
     DIR_GRAPH_DATA,
     get_community_collection_name,
 )
@@ -686,7 +687,7 @@ def detect_and_summarize_communities(
                 logger.info("No existing summaries found, starting fresh")
 
     # Number of hierarchy levels to process (L0=finest, L1=medium, L2=coarsest)
-    hierarchy_levels = 3
+    hierarchy_levels = GRAPHRAG_MAX_HIERARCHY_LEVELS
 
     # Run Leiden and parse hierarchy
     if skip_leiden:

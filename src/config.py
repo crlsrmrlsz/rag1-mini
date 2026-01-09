@@ -753,7 +753,6 @@ GRAPHRAG_MAX_CONTEXT_TOKENS = 6000  # Max input tokens for summarization
 
 # GraphRAG prompts are imported from src/prompts.py (see bottom of file):
 # - GRAPHRAG_COMMUNITY_PROMPT
-# - GRAPHRAG_EXTRACTION_PROMPT
 # - GRAPHRAG_QUERY_EXTRACTION_PROMPT
 
 # Graph retrieval parameters
@@ -764,11 +763,6 @@ GRAPHRAG_RRF_K = 60                 # RRF constant for score fusion
 # Hierarchical community parameters (Microsoft GraphRAG paper)
 # Level 0 (C0) = finest granularity, Level 2 (C2) = coarsest (corpus themes)
 GRAPHRAG_MAX_HIERARCHY_LEVELS = 3   # Number of levels: C0, C1, C2
-GRAPHRAG_LEVEL_MIN_SIZES = {        # Min entities per community at each level
-    0: 3,   # C0: fine-grained (3+ entities)
-    1: 5,   # C1: medium (5+ entities)
-    2: 10,  # C2: coarse (10+ entities)
-}
 
 # PageRank centrality parameters
 GRAPHRAG_PAGERANK_DAMPING = 0.85    # Standard damping factor
@@ -807,8 +801,6 @@ DIR_GRAPH_DATA = DIR_FINAL_CHUNKS / "graph"
 # Maps book filenames (stems) to corpus types for balanced entity type discovery.
 # Used by auto_tuning.py to select top entity types proportionally from each corpus,
 # preventing larger corpora from dominating the final entity type taxonomy.
-
-CORPUS_TYPES = ["neuroscience", "philosophy"]
 
 CORPUS_BOOK_MAPPING = {
     # Neuroscience books (8 books, ~4440 chunks, ~48.6K entities)
@@ -860,7 +852,6 @@ from src.prompts import (
     # RAPTOR
     RAPTOR_SUMMARY_PROMPT,
     # GraphRAG
-    GRAPHRAG_EXTRACTION_PROMPT,
     GRAPHRAG_QUERY_EXTRACTION_PROMPT,
     GRAPHRAG_COMMUNITY_PROMPT,
     # Auto-tuning

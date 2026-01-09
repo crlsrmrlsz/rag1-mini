@@ -15,7 +15,7 @@
 
 This is an investigation project started to test concepts learned in [DeepLearning.AI course about RAG](https://www.deeplearning.ai/courses/retrieval-augmented-generation-rag/) applying them to an idea I had in mind after reading the fantastic book [Brain and Behaviour, by David Eagleman and Jonathan Downar](https://eagleman.com/books/brain-and-behavior/), which I discovered thanks to  an [Andrej Karpathy talk on YouTube](https://youtu.be/fqVLjtvWgq8).
 
-I also love practical philosophy books about wisdom of life from Stoics authors, Schopenhauer, and confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles that concerned some schools of thought with the brain internal functioning, to understand the underlying why to some of the most intriguing human behaviour to me.
+I also love practical philosophy books about wisdom of life from Stoic authors, Schopenhauer, and Confucianism and had the idea to get the best of both worlds relating human traits, tendencies and usual struggles that concerned certain philosophical schools with the brain internal functioning, to understand the underlying why to some of the most intriguing human behaviour to me.
 
 I started with a simple RAG system with naive chunking and semantic search over my dataset of 19 books (some about neuroscience and some about philosophy), just to soon be aware how difficult it is to get good answers to broad open questions using a simple RAG system, even more difficult mixing two distinct fields of knowledge, one more abstract and another more technical.
 
@@ -40,7 +40,7 @@ The code in this project covers the complete data workflow. Starts with processi
 These are the main components of the application. 
 
 
-![RAGlab arquitecture](assets/arquitecture.png)
+![RAGlab architecture](assets/architecture.png)
 
 
 
@@ -74,7 +74,7 @@ For implementation details, design decisions, and code walkthroughs:
 
 ## Usage for evaluation
 
-The evaluation of RAG system can be done in two ways:
+The evaluation of the RAG system can be done in two ways:
 
 - **Streamlit UI**. It allows to change the configuration and see the intermediate and final results. From the UI you can choose:
 
@@ -90,37 +90,37 @@ The evaluation of RAG system can be done in two ways:
 - **Running python code**. In addition to direct evaluation through the UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept and cross domain questions. 
 
 
-#### Sample question & answer:
+<details>
+<summary><strong>Sample question & answer</strong> (click to expand)</summary>
 
-- Question: why do humans care so much about others opinion?
-- Answer: 
-    Humans care deeply about others' opinions for several intertwined biological, psychological, and social reasons, as highlighted in the provided sources.
+**Question:** Why do humans care so much about others' opinions?
 
-    *Social Status and Hierarchies*: Humans are inherently social animals, and our brains are finely tuned to navigate complex social hierarchies. We monitor status differences among individuals, which is crucial for our survival and social cohesion. The amygdala, a brain region associated with emotional responses, becomes particularly active when status relations are ambiguous or shifting, indicating that our emotional well-being is closely tied to how we perceive our standing in social contexts [1]. This suggests that we are not only aware of our own status but are also acutely sensitive to how others perceive us, as these perceptions can influence our social standing and, consequently, our mental health.
+**Answer:**
 
-    *Theory of Mind and Reputation*: The ability to understand others' thoughts and feelings—known as Theory of Mind—is essential for social interactions. This cognitive skill allows us to gauge how we are viewed by others, which is critical for maintaining our social reputation [6]. Studies have shown that reflecting on one's reputation activates specific brain regions, such as the medial prefrontal cortex, which is involved in self-referential processing and social cognition [6]. Thus, our concern for others' opinions is not merely a social nicety; it is a fundamental aspect of how we navigate our social world.
+Humans care deeply about others' opinions for several intertwined biological, psychological, and social reasons, as highlighted in the provided sources.
 
-    *Emotional and Motivational Drivers*: Our emotional responses to social feedback are powerful motivators. For instance, social criticism can activate the amygdala, particularly in individuals with social anxiety, highlighting the distress that negative evaluations can cause [6]. Conversely, positive social feedback can enhance feelings of reward and motivation, reinforcing our desire to be viewed favorably by others [6]. This interplay between social feedback and emotional response underscores why we are so invested in how others perceive us.
+*Social Status and Hierarchies*: Humans are inherently social animals, and our brains are finely tuned to navigate complex social hierarchies. We monitor status differences among individuals, which is crucial for our survival and social cohesion. The amygdala, a brain region associated with emotional responses, becomes particularly active when status relations are ambiguous or shifting, indicating that our emotional well-being is closely tied to how we perceive our standing in social contexts [1]. This suggests that we are not only aware of our own status but are also acutely sensitive to how others perceive us, as these perceptions can influence our social standing and, consequently, our mental health.
 
-    *Cultural and Evolutionary Factors*: From an evolutionary perspective, being attuned to others' opinions has conferred survival advantages. Humans have historically relied on social bonds for cooperation, resource sharing, and protection against threats. Our ability to form complex social structures and maintain relationships is a hallmark of our species, and caring about others' opinions facilitates these connections [10]. This social nature has likely shaped our cognitive processes, making us more sensitive to social cues and evaluations.
+*Theory of Mind and Reputation*: The ability to understand others' thoughts and feelings—known as Theory of Mind—is essential for social interactions. This cognitive skill allows us to gauge how we are viewed by others, which is critical for maintaining our social reputation [6]. Studies have shown that reflecting on one's reputation activates specific brain regions, such as the medial prefrontal cortex, which is involved in self-referential processing and social cognition [6]. Thus, our concern for others' opinions is not merely a social nicety; it is a fundamental aspect of how we navigate our social world.
 
-    *Philosophical Insights*: Philosophically, thinkers like Epictetus emphasize the importance of understanding our roles and duties within the social fabric. He suggests that our moral intuitions and connections to others guide our actions, indicating that our concern for others' opinions is not merely about social standing but also about fulfilling our responsibilities to those around us [4][9]. This perspective encourages a balance between caring for others' views and maintaining our moral integrity.
+*Emotional and Motivational Drivers*: Our emotional responses to social feedback are powerful motivators. For instance, social criticism can activate the amygdala, particularly in individuals with social anxiety, highlighting the distress that negative evaluations can cause [6]. Conversely, positive social feedback can enhance feelings of reward and motivation, reinforcing our desire to be viewed favorably by others [6]. This interplay between social feedback and emotional response underscores why we are so invested in how others perceive us.
 
-    In summary, humans care about others' opinions due to a complex interplay of biological imperatives, cognitive processes, emotional responses, and philosophical understandings of our social roles. This multifaceted concern is deeply embedded in our nature as social beings, shaping our interactions and influencing our mental health and well-being.
+*Cultural and Evolutionary Factors*: From an evolutionary perspective, being attuned to others' opinions has conferred survival advantages. Humans have historically relied on social bonds for cooperation, resource sharing, and protection against threats. Our ability to form complex social structures and maintain relationships is a hallmark of our species, and caring about others' opinions facilitates these connections [10]. This social nature has likely shaped our cognitive processes, making us more sensitive to social cues and evaluations.
 
-    References
+*Philosophical Insights*: Philosophically, thinkers like Epictetus emphasize the importance of understanding our roles and duties within the social fabric. He suggests that our moral intuitions and connections to others guide our actions, indicating that our concern for others' opinions is not merely about social standing but also about fulfilling our responsibilities to those around us [4][9]. This perspective encourages a balance between caring for others' views and maintaining our moral integrity.
 
-    *[1] Behave, The_Biology of Humans at Our Best Worst — Robert M. Sapolsky, Section: SUMMARY AND CONCLUSIONS*
+In summary, humans care about others' opinions due to a complex interplay of biological imperatives, cognitive processes, emotional responses, and philosophical understandings of our social roles. This multifaceted concern is deeply embedded in our nature as social beings, shaping our interactions and influencing our mental health and well-being.
 
-    *[4] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Our Duties Are Revealed by Our Relations with-One Another*
+**References:**
+- [1] *Behave, The Biology of Humans at Our Best Worst* — Robert M. Sapolsky, Section: SUMMARY AND CONCLUSIONS
+- [4] *The Art of Living, The Classical Manual on Virtue Happiness and Effectiveness* — Epictetus, Section: Our Duties Are Revealed by Our Relations with One Another
+- [6] *Brain and Behavior, A Cognitive Neuroscience Perspective* — David Eagleman, Jonathan Downar, Section: Social Reward and Social Aversion
+- [9] *The Art of Living, The Classical Manual on Virtue Happiness and Effectiveness* — Epictetus, Section: Trust Your Moral Intuitions
+- [10] *Fundamentals of Cognitive Neuroscience, A Beginner's Guide* — Nicole M. Gage, Bernard Baars, Section: Our Social Nature
 
-    *[6] Brain and behavior, a cognitive neuroscience perspective — David Eagleman, Jonathan Downar, Section: Social Reward and Social Aversion*
+*Config: RAPTOR (Hierarchical) | hybrid (α=0.5) | hyde | 10 results | 28,607ms | Model: openai/gpt-4o-mini*
 
-    *[9] The Art of Living ,The Classical Manual on Virtue Happiness and Effectiveness — Epictetus, Section: Trust Your Moral Intuitions*
-
-    *[10] Fundamentals of Cognitive Neuroscience, A_Beginners Guide — Nicole M. Gage Bernard, Section: Our Social Nature*
-
-    *config: RAPTOR (Hierarchical) | hybrid (α=0.5) | hyde | 10 results | 28,607ms  | Model: openai/gpt-4o-mini*
+</details>
 
 
 

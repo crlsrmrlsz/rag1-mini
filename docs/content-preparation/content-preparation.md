@@ -51,9 +51,9 @@ First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymup
 
 Most of the cases worked well with multicolumn, but edge cases like this one, still failed and mixed columns.
 
- ![Multi column page](assets/page_columns.png)
+ ![Multi column page](../../assets/page_columns.png)
 
-<img src="assets/page1.png" alt="Edge case multicolumn" width="600">
+<img src="../../assets/page1.png" alt="Edge case multicolumn" width="600">
 
 It allows you to directly remove some elements like captions, tables, figures, headers or footer that simplify next cleaning phase.
 

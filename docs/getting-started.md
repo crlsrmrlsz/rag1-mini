@@ -25,7 +25,7 @@ You can use this project to:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/raglab.git
+git clone https://github.com/crlsrmrlsz/raglab.git
 cd raglab
 
 # Create conda environment (recommended)
@@ -36,8 +36,10 @@ conda activate raglab
 pip install -e .
 
 # Install spaCy model (for sentence segmentation)
+# Use scispaCy for scientific/medical text (better boundary detection):
 pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
-# Or for general text: python -m spacy download en_core_web_sm
+# Or use standard model for general text:
+# python -m spacy download en_core_web_sm
 
 # Create .env file with your API key
 cp .env.example .env
@@ -51,7 +53,7 @@ docker compose up -d
 
 ## Database Setup
 
-The project uses two databases, both running in Docker. No manual installation required - everything is configured in `docker-compose.yml`:
+The project uses two databases, both running in Docker. No manual database installation required - everything is configured in `docker-compose.yml`:
 
 **Weaviate** (vector database) - Required for all pipelines
 - Stores chunk embeddings for semantic search
@@ -116,7 +118,7 @@ NEO4J_PASSWORD=raglab_graphrag
 ```
 src/
 ├── content_preparation/    # Stages 1-3: PDF → clean text
-├── rag_pipeline/           # Stages 4-7: chunking, embedding, retrieval, generation
+├── rag_pipeline/           # Stages 4-8: chunking, embedding, retrieval, generation
 │   ├── chunking/           # Section, contextual, semantic chunkers
 │   ├── embedding/          # OpenAI embedding API
 │   ├── indexing/           # Weaviate upload
@@ -171,7 +173,7 @@ When you run the pipeline, data flows through these folders:
 | 6b | `python -m src.stages.run_stage_6b_neo4j` | Upload to Neo4j + Leiden communities (optional) |
 | 7 | `python -m src.stages.run_stage_7_evaluation` | RAGAS evaluation |
 
-**Note:** Stages 4.5a, 4.5b, and 6b are optional advanced techniques. The basic pipeline is stages 1-6.
+**Note:** Stages 4.5a, 4.5b, and 6b are optional advanced techniques. The basic pipeline is stages 1-7.
 
 ---
 
@@ -190,7 +192,7 @@ python -m src.stages.run_stage_6_weaviate --strategy raptor
 
 ### GraphRAG (Knowledge Graph + Communities)
 
-GraphRAG extracts entities and relationships, detects communities via Leiden algorithm, and enables cross-document reasoning.
+GraphRAG extracts entities and relationships, detects communities using the Leiden algorithm, and enables cross-document reasoning.
 
 ```bash
 # After running stages 1-4

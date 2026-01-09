@@ -166,43 +166,38 @@ def decomposition_strategy(query: str, model: Optional[str] = None) -> Preproces
 def graphrag_strategy(query: str, model: Optional[str] = None) -> PreprocessedQuery:
     """GraphRAG: Hybrid graph + vector retrieval.
 
-    This strategy extracts entities from the query and sets up metadata
-    for graph traversal during retrieval. The actual graph retrieval
-    happens in the search phase (not preprocessing) where it can access
-    the Neo4j driver.
+    This strategy extracts entities from the query using embedding similarity
+    (primary) or LLM (fallback). Entities are stored in PreprocessedQuery.query_entities
+    for use during graph traversal at retrieval time.
 
-    Key insight: GraphRAG is primarily a retrieval-time strategy, not a
-    query transformation strategy. This function prepares the query with
-    entity hints that the retrieval layer uses for graph traversal.
+    Entity extraction uses the Microsoft GraphRAG reference approach:
+    - Primary: Embedding similarity search against entity descriptions (fast, ~50ms)
+    - Fallback: LLM-based extraction if embedding returns empty (~1-2s)
+
+    The actual graph retrieval happens in the search phase where it can access
+    the Neo4j driver for entity validation and traversal.
 
     Research: arXiv:2404.16130 - GraphRAG: +72-83% win rate vs baseline
 
     Args:
         query: The user's original query.
-        model: Model for entity extraction (optional).
+        model: Model for LLM fallback extraction (optional).
 
     Returns:
-        PreprocessedQuery with graphrag metadata for retrieval layer.
+        PreprocessedQuery with query_entities for retrieval layer.
     """
     start_time = time.time()
     model = model or PREPROCESSING_MODEL
 
     # Import here to avoid circular dependency
-    from src.graph.query import extract_query_entities
+    from src.graph.query_entities import extract_query_entities
 
-    # Extract entities from query (no Neo4j lookup at this stage)
+    # Extract entities using embedding similarity (primary) + LLM fallback
+    # No Neo4j validation at preprocessing - that happens during retrieval
     query_entities = extract_query_entities(query, driver=None)
     logger.info(f"[graphrag] Extracted entities: {query_entities}")
 
     elapsed_ms = (time.time() - start_time) * 1000
-
-    # Store entity hints in generated_queries for retrieval layer
-    generated_queries = [
-        {"type": "original", "query": query},
-    ]
-    # Add entity-focused queries for graph traversal hints
-    for entity in query_entities[:5]:  # Top 5 entities
-        generated_queries.append({"type": "entity", "query": entity})
 
     return PreprocessedQuery(
         original_query=query,
@@ -210,9 +205,7 @@ def graphrag_strategy(query: str, model: Optional[str] = None) -> PreprocessedQu
         strategy_used="graphrag",
         preprocessing_time_ms=elapsed_ms,
         model=model,
-        generated_queries=generated_queries,
-        # Store entity list in metadata
-        decomposition_response=f"Entities: {', '.join(query_entities)}" if query_entities else "",
+        query_entities=query_entities,  # For retrieval layer to use
     )
 
 

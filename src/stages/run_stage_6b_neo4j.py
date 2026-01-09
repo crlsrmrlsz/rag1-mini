@@ -63,7 +63,11 @@ import time
 from pathlib import Path
 
 from src.shared.files import setup_logging
-from src.config import DIR_GRAPH_DATA, GRAPHRAG_SUMMARY_MODEL
+from src.config import (
+    DIR_GRAPH_DATA,
+    GRAPHRAG_SUMMARY_MODEL,
+    get_entity_collection_name,
+)
 from src.graph.neo4j_client import (
     get_driver,
     get_gds_client,
@@ -107,6 +111,97 @@ def load_extraction_results(
         return json.load(f)
 
 
+def upload_entity_embeddings_to_weaviate(driver) -> int:
+    """Upload entity description embeddings to Weaviate for embedding-based extraction.
+
+    Reads entities from Neo4j, embeds their descriptions, and uploads to
+    a Weaviate collection for fast semantic search at query time.
+
+    This implements the Microsoft GraphRAG reference approach where entity
+    extraction uses embedding similarity instead of LLM calls.
+
+    Args:
+        driver: Neo4j driver for reading entities.
+
+    Returns:
+        Number of entities uploaded.
+    """
+    from src.rag_pipeline.embedding.embedder import embed_texts
+    from src.rag_pipeline.indexing.weaviate_client import (
+        get_client as get_weaviate_client,
+        create_entity_collection,
+        upload_entity_descriptions,
+        get_entity_collection_count,
+        delete_collection,
+    )
+
+    collection_name = get_entity_collection_name()
+    logger.info(f"Entity collection: {collection_name}")
+
+    # Read entities from Neo4j
+    query = """
+    MATCH (e:Entity)
+    WHERE e.description IS NOT NULL AND e.description <> ''
+    RETURN
+        e.name as entity_name,
+        e.normalized_name as normalized_name,
+        e.entity_type as entity_type,
+        e.description as description
+    """
+    result = driver.execute_query(query)
+    entities_from_neo4j = [dict(record) for record in result.records]
+
+    if not entities_from_neo4j:
+        logger.warning("No entities with descriptions found in Neo4j")
+        return 0
+
+    logger.info(f"Found {len(entities_from_neo4j)} entities with descriptions")
+
+    # Embed descriptions in batches
+    descriptions = [e["description"] for e in entities_from_neo4j]
+    logger.info(f"Embedding {len(descriptions)} entity descriptions...")
+
+    embed_start = time.time()
+    embeddings = embed_texts(descriptions)
+    embed_time = time.time() - embed_start
+    logger.info(f"Embedding complete in {embed_time:.1f}s")
+
+    # Add embeddings to entities
+    for entity, embedding in zip(entities_from_neo4j, embeddings):
+        entity["embedding"] = embedding
+
+    # Upload to Weaviate
+    client = get_weaviate_client()
+
+    try:
+        # Delete existing collection and recreate
+        if client.collections.exists(collection_name):
+            logger.info(f"Deleting existing collection {collection_name}")
+            delete_collection(client, collection_name)
+
+        logger.info(f"Creating collection {collection_name}")
+        create_entity_collection(client, collection_name)
+
+        # Upload entities
+        upload_start = time.time()
+        uploaded_count = upload_entity_descriptions(
+            client, collection_name, entities_from_neo4j
+        )
+        upload_time = time.time() - upload_start
+
+        logger.info(f"Upload complete in {upload_time:.1f}s")
+        logger.info(f"  Uploaded: {uploaded_count} entities")
+
+        # Verify
+        final_count = get_entity_collection_count(client, collection_name)
+        logger.info(f"  Verified: {final_count} entities in collection")
+
+        return uploaded_count
+
+    finally:
+        client.close()
+
+
 def main():
     """Run Neo4j upload and Leiden community detection."""
     parser = argparse.ArgumentParser(
@@ -137,6 +232,16 @@ def main():
         "--resume",
         action="store_true",
         help="Resume after crash: skip Leiden, generate missing summaries (checks Weaviate)",
+    )
+    parser.add_argument(
+        "--embed-entities",
+        action="store_true",
+        help="Upload entity description embeddings to Weaviate for embedding-based extraction",
+    )
+    parser.add_argument(
+        "--skip-entity-embeddings",
+        action="store_true",
+        help="Skip entity embedding upload (faster if already done)",
     )
 
     args = parser.parse_args()
@@ -241,6 +346,14 @@ def main():
                 logger.info(f"  Communities found: {len(communities)}")
                 logger.info(f"  Total members: {sum(c.member_count for c in communities)}")
                 logger.info(f"  Output: {output_path}")
+
+        # Phase 4: Entity Embedding Upload (for embedding-based extraction)
+        if args.embed_entities and not args.skip_entity_embeddings:
+            logger.info("-" * 60)
+            logger.info("PHASE 4: ENTITY EMBEDDING UPLOAD")
+            logger.info("-" * 60)
+
+            upload_entity_embeddings_to_weaviate(driver)
 
         # Final summary
         elapsed = time.time() - start_time

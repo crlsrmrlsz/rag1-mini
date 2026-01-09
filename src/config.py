@@ -779,6 +779,25 @@ GRAPHRAG_MAP_REDUCE_TOP_K = 5       # Communities for map-reduce
 GRAPHRAG_MAP_MAX_TOKENS = 300       # Max tokens per map response
 GRAPHRAG_REDUCE_MAX_TOKENS = 500    # Max tokens for reduce response
 
+# Embedding-based entity extraction (Microsoft GraphRAG reference implementation)
+# Replaces LLM extraction with embedding similarity for faster queries
+GRAPHRAG_ENTITY_EXTRACTION_TOP_K = 10   # Max entities from embedding search
+GRAPHRAG_ENTITY_MIN_SIMILARITY = 0.3    # Minimum cosine similarity threshold
+GRAPHRAG_USE_EMBEDDING_EXTRACTION = True  # Use embedding-based extraction (fallback to LLM)
+
+
+def get_entity_collection_name() -> str:
+    """Generate entity collection name for GraphRAG embedding extraction.
+
+    Uses same naming pattern as community collection for consistency.
+
+    Returns:
+        Collection name like "Entity_section800_v1".
+    """
+    strategy_safe = CHUNKING_STRATEGY_NAME.replace(".", "_")
+    return f"Entity_{strategy_safe}_{COLLECTION_VERSION}"
+
+
 # Output directory for graph data (under chunks since graph derives from chunks)
 DIR_GRAPH_DATA = DIR_FINAL_CHUNKS / "graph"
 

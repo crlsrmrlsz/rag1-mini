@@ -404,3 +404,171 @@ def query_communities_by_vector(
         })
 
     return results
+
+
+# ============================================================================
+# Entity Collection (for GraphRAG embedding-based query extraction)
+# ============================================================================
+
+
+def create_entity_collection(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+) -> None:
+    """Create a collection for GraphRAG entity description embeddings.
+
+    Stores entity descriptions with embeddings for semantic similarity search
+    at query time. This enables embedding-based entity extraction per the
+    Microsoft GraphRAG reference implementation.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Name for the entity collection.
+
+    Raises:
+        weaviate.exceptions.WeaviateBaseError: If collection creation fails.
+    """
+    client.collections.create(
+        name=collection_name,
+        vector_config=Configure.Vectors.self_provided(
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+            ),
+        ),
+        properties=[
+            Property(name="entity_name", data_type=DataType.TEXT),
+            Property(name="normalized_name", data_type=DataType.TEXT),
+            Property(name="entity_type", data_type=DataType.TEXT),
+            Property(name="description", data_type=DataType.TEXT),
+        ],
+    )
+
+
+def _generate_uuid_from_entity_name(entity_name: str) -> str:
+    """Generate deterministic UUID from entity name for idempotent uploads.
+
+    Args:
+        entity_name: Entity name (normalized).
+
+    Returns:
+        UUID string derived from entity name.
+    """
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, f"entity:{entity_name}"))
+
+
+def upload_entity_descriptions(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+    entities: list[dict[str, Any]],
+    batch_size: int = 100,
+) -> int:
+    """Upload entity descriptions with embeddings to Weaviate.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Target entity collection name.
+        entities: List of entity dicts with fields:
+            - entity_name: Original entity name
+            - normalized_name: Normalized name for matching
+            - entity_type: Entity type label
+            - description: Entity description (embedded)
+            - embedding: Pre-computed embedding vector
+        batch_size: Number of objects per batch.
+
+    Returns:
+        Number of successfully uploaded entities.
+    """
+    collection = client.collections.get(collection_name)
+    uploaded_count = 0
+
+    with collection.batch.fixed_size(batch_size=batch_size) as batch:
+        for entity in entities:
+            if not entity.get("embedding") or not entity.get("description"):
+                continue  # Skip entities without embeddings or descriptions
+
+            batch.add_object(
+                properties={
+                    "entity_name": entity["entity_name"],
+                    "normalized_name": entity["normalized_name"],
+                    "entity_type": entity.get("entity_type", "UNKNOWN"),
+                    "description": entity["description"],
+                },
+                vector=entity["embedding"],
+                uuid=_generate_uuid_from_entity_name(entity["normalized_name"]),
+            )
+            uploaded_count += 1
+
+    return uploaded_count
+
+
+def query_entities_by_vector(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+    query_embedding: list[float],
+    top_k: int = 10,
+    min_similarity: float = 0.0,
+) -> list[dict[str, Any]]:
+    """Query entities by embedding similarity.
+
+    Searches entity descriptions for semantic matches to the query embedding.
+    Used for embedding-based entity extraction per Microsoft GraphRAG reference.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Entity collection name.
+        query_embedding: Query embedding vector.
+        top_k: Maximum number of entities to return.
+        min_similarity: Minimum similarity threshold (0.0-1.0).
+
+    Returns:
+        List of dicts with entity_name, normalized_name, entity_type, description, similarity.
+    """
+    from weaviate.classes.query import MetadataQuery
+
+    if not client.collections.exists(collection_name):
+        return []
+
+    collection = client.collections.get(collection_name)
+
+    response = collection.query.near_vector(
+        near_vector=query_embedding,
+        limit=top_k,
+        return_metadata=MetadataQuery(distance=True),
+    )
+
+    results = []
+    for obj in response.objects:
+        # Convert distance to similarity (cosine distance = 1 - similarity)
+        similarity = 1.0 - obj.metadata.distance if obj.metadata.distance else 0.0
+
+        if similarity >= min_similarity:
+            results.append({
+                "entity_name": obj.properties["entity_name"],
+                "normalized_name": obj.properties["normalized_name"],
+                "entity_type": obj.properties["entity_type"],
+                "description": obj.properties["description"],
+                "similarity": similarity,
+            })
+
+    return results
+
+
+def get_entity_collection_count(
+    client: weaviate.WeaviateClient,
+    collection_name: str,
+) -> int:
+    """Get the number of entities in the collection.
+
+    Args:
+        client: Connected Weaviate client.
+        collection_name: Entity collection name.
+
+    Returns:
+        Number of entities, or 0 if collection doesn't exist.
+    """
+    if not client.collections.exists(collection_name):
+        return 0
+
+    collection = client.collections.get(collection_name)
+    result = collection.aggregate.over_all(total_count=True)
+    return result.total_count

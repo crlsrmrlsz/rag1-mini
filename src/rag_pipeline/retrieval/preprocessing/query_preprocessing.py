@@ -54,6 +54,7 @@ class PreprocessedQuery:
         sub_queries: Decomposed sub-questions (decomposition strategy).
         generated_queries: List of {type, query} dicts for multi-query retrieval.
         decomposition_response: Raw decomposition response from LLM.
+        query_entities: Entities extracted from query (graphrag strategy).
     """
 
     original_query: str
@@ -67,6 +68,8 @@ class PreprocessedQuery:
     generated_queries: list[dict[str, str]] = field(default_factory=list)
     sub_queries: list[str] = field(default_factory=list)
     decomposition_response: Optional[str] = None
+    # GraphRAG strategy fields
+    query_entities: list[str] = field(default_factory=list)
 
 
 # =============================================================================

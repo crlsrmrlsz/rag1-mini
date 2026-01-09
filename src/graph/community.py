@@ -56,6 +56,12 @@ from src.rag_pipeline.indexing.weaviate_client import (
 )
 from .schemas import Community, CommunityMember, CommunityRelationship
 from .neo4j_client import get_gds_client
+from .hierarchy import (
+    parse_leiden_hierarchy,
+    build_community_key,
+    filter_communities_by_size,
+    CommunityLevel,
+)
 
 logger = setup_logging(__name__)
 
@@ -679,12 +685,17 @@ def detect_and_summarize_communities(
             except FileNotFoundError:
                 logger.info("No existing summaries found, starting fresh")
 
-    # Get community IDs
+    # Number of hierarchy levels to process (L0=finest, L1=medium, L2=coarsest)
+    hierarchy_levels = 3
+
+    # Run Leiden and parse hierarchy
     if skip_leiden:
-        # Use existing community IDs from Neo4j
+        # Use existing community IDs from Neo4j (level 0 only)
         unique_ids = get_community_ids_from_neo4j(driver)
         logger.info(f"Loaded {len(unique_ids)} community IDs from Neo4j (skipping Leiden)")
+        logger.warning("Hierarchy not available in skip_leiden mode - processing L0 only")
         graph = None
+        levels = None  # No hierarchy data available
     else:
         # Step 1: Project graph
         graph = project_graph(gds)
@@ -706,71 +717,141 @@ def detect_and_summarize_communities(
         except Exception as e:
             logger.warning(f"PageRank computation failed: {e}")
 
-        # Step 5: Get unique community IDs
-        unique_ids = set(nc["community_id"] for nc in leiden_result["node_communities"])
+        # Step 5: Parse hierarchy into levels
+        levels = parse_leiden_hierarchy(leiden_result, max_levels=hierarchy_levels)
+        logger.info(f"Parsed hierarchy into {hierarchy_levels} levels")
 
-    # Step 6: Process each community
+    # Step 6: Process communities at each level
     communities = []
     new_summaries = 0
-    total_to_process = len(unique_ids)
+    processed_idx = 0
 
-    for idx, community_id in enumerate(sorted(unique_ids)):  # Sort for consistent ordering
-        community_key = f"community_{community_id}"
+    if levels is None:
+        # Fallback: skip_leiden mode - process L0 only using community_id
+        total_to_process = len(unique_ids)
+        for community_id in sorted(unique_ids):
+            community_key = build_community_key(0, community_id)
+            processed_idx += 1
 
-        # Skip if already in Weaviate (resume mode)
-        if community_key in existing_ids:
-            continue
+            # Skip if already in Weaviate (resume mode)
+            if community_key in existing_ids:
+                continue
 
-        # Get members
-        members = get_community_members(driver, community_id)
+            # Get members and relationships using community_id
+            members = get_community_members(driver, community_id)
+            if len(members) < min_size:
+                continue
 
-        # Skip small communities
-        if len(members) < min_size:
-            continue
+            relationships = get_community_relationships(driver, community_id)
 
-        # Get relationships
-        relationships = get_community_relationships(driver, community_id)
+            # Generate summary
+            logger.info(
+                f"[{processed_idx}/{total_to_process}] L0 community {community_id} "
+                f"({len(members)} members, {len(relationships)} relationships)"
+            )
+            summary, embedding = summarize_community(members, relationships, model=model)
 
-        # Generate summary AND embedding
-        logger.info(
-            f"[{idx + 1}/{total_to_process}] Summarizing community {community_id} "
-            f"({len(members)} members, {len(relationships)} relationships)"
-        )
-        summary, embedding = summarize_community(members, relationships, model=model)
+            # Create and store community
+            community = Community(
+                community_id=community_key,
+                level=0,
+                members=members,
+                member_count=len(members),
+                relationships=relationships,
+                relationship_count=len(relationships),
+                summary=summary,
+                embedding=embedding,
+            )
+            communities.append(community)
+            new_summaries += 1
 
-        # Create Community object with embedding and relationships
-        community = Community(
-            community_id=community_key,
-            level=0,  # Level 0 (finest granularity)
-            members=members,
-            member_count=len(members),
-            relationships=relationships,  # Store structured relationships
-            relationship_count=len(relationships),
-            summary=summary,
-            embedding=embedding,
-        )
-        communities.append(community)
-        new_summaries += 1
+            # Upload to Weaviate
+            if use_weaviate and embedding:
+                try:
+                    weaviate_upload_community(
+                        client=weaviate_client,
+                        collection_name=collection_name,
+                        community_id=community_key,
+                        summary=summary,
+                        embedding=embedding,
+                        member_count=len(members),
+                        relationship_count=len(relationships),
+                        level=0,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to upload {community_key} to Weaviate: {e}")
 
-        # Upload to Weaviate immediately (crash-proof: atomic per community)
-        if use_weaviate and embedding:
-            try:
-                weaviate_upload_community(
-                    client=weaviate_client,
-                    collection_name=collection_name,
+            save_communities(communities)
+    else:
+        # Full hierarchy mode - process all levels
+        for level_idx in range(hierarchy_levels):
+            level_data = levels[level_idx]
+            level_community_ids = filter_communities_by_size(level_data, min_size)
+            total_at_level = len(level_community_ids)
+
+            logger.info(f"Processing Level {level_idx}: {total_at_level} communities (>= {min_size} members)")
+
+            for idx, community_id in enumerate(sorted(level_community_ids)):
+                community_key = build_community_key(level_idx, community_id)
+                processed_idx += 1
+
+                # Skip if already in Weaviate (resume mode)
+                if community_key in existing_ids:
+                    continue
+
+                # Get node IDs for this community at this level
+                node_ids = level_data.communities.get(community_id, set())
+
+                if level_idx == 0:
+                    # Level 0: use community_id-based queries (more efficient)
+                    members = get_community_members(driver, community_id)
+                    relationships = get_community_relationships(driver, community_id)
+                else:
+                    # Level 1+: use node ID-based queries (aggregated communities)
+                    members = get_community_members_by_node_ids(driver, node_ids)
+                    relationships = get_community_relationships_by_node_ids(driver, node_ids)
+
+                if len(members) < min_size:
+                    continue
+
+                # Generate summary
+                logger.info(
+                    f"[L{level_idx} {idx + 1}/{total_at_level}] Community {community_id} "
+                    f"({len(members)} members, {len(relationships)} relationships)"
+                )
+                summary, embedding = summarize_community(members, relationships, model=model)
+
+                # Create and store community
+                community = Community(
                     community_id=community_key,
+                    level=level_idx,
+                    members=members,
+                    member_count=len(members),
+                    relationships=relationships,
+                    relationship_count=len(relationships),
                     summary=summary,
                     embedding=embedding,
-                    member_count=len(members),
-                    relationship_count=len(relationships),
-                    level=0,
                 )
-                logger.debug(f"Uploaded {community_key} to Weaviate")
-            except Exception as e:
-                logger.warning(f"Failed to upload {community_key} to Weaviate: {e}")
+                communities.append(community)
+                new_summaries += 1
 
-        # Also save to JSON incrementally (backup)
-        save_communities(communities)
+                # Upload to Weaviate
+                if use_weaviate and embedding:
+                    try:
+                        weaviate_upload_community(
+                            client=weaviate_client,
+                            collection_name=collection_name,
+                            community_id=community_key,
+                            summary=summary,
+                            embedding=embedding,
+                            member_count=len(members),
+                            relationship_count=len(relationships),
+                            level=level_idx,
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to upload {community_key} to Weaviate: {e}")
+
+                save_communities(communities)
 
     # Cleanup: drop graph projection (if we created one)
     if graph is not None:

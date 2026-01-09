@@ -409,22 +409,32 @@ def retrieve_contexts(
                 for r in search_results
             ]
 
-            # Merge with Neo4j graph traversal
+            # Merge with Neo4j graph traversal (with map-reduce for global queries)
             try:
                 from src.graph.neo4j_client import get_driver
-                from src.graph.query import hybrid_graph_retrieval
+                from src.graph.query import hybrid_graph_retrieval_with_map_reduce
 
                 driver = get_driver()
                 try:
-                    merged_results, graph_meta = hybrid_graph_retrieval(
+                    merged_results, graph_meta = hybrid_graph_retrieval_with_map_reduce(
                         query=preprocessed.original_query,
                         driver=driver,
                         vector_results=result_dicts,
                         top_k=initial_k,
+                        use_map_reduce=True,
                     )
 
                     boosted_count = graph_meta.get("boosted_count", 0)
-                    logger.info(f"  [graphrag] {boosted_count} graph-boosted results")
+                    query_type = graph_meta.get("query_type", "local")
+                    logger.info(f"  [graphrag] {boosted_count} graph-boosted results, query_type={query_type}")
+
+                    # Log map-reduce results for global queries
+                    if graph_meta.get("map_reduce_result"):
+                        mr = graph_meta["map_reduce_result"]
+                        logger.info(
+                            f"  [graphrag] Map-reduce: {len(mr.get('communities_used', []))} communities, "
+                            f"{mr.get('total_time_ms', 0):.0f}ms"
+                        )
 
                     # Apply reranking if enabled (on merged results)
                     if use_reranking and merged_results:

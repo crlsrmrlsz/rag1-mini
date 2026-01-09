@@ -247,19 +247,20 @@ def search_chunks(
         for r in results
     ]
 
-    # GraphRAG: Merge vector results with Neo4j graph traversal
+    # GraphRAG: Merge vector results with Neo4j graph traversal (with map-reduce for global queries)
     if strategy == "graphrag":
         try:
             from src.graph.neo4j_client import get_driver
-            from src.graph.query import hybrid_graph_retrieval
+            from src.graph.query import hybrid_graph_retrieval_with_map_reduce
 
             driver = get_driver()
             try:
-                result_dicts, graph_metadata = hybrid_graph_retrieval(
+                result_dicts, graph_metadata = hybrid_graph_retrieval_with_map_reduce(
                     query=query,
                     driver=driver,
                     vector_results=result_dicts,
                     top_k=top_k,
+                    use_map_reduce=True,
                 )
             finally:
                 driver.close()

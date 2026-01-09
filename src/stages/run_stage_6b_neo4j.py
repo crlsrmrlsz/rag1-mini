@@ -32,6 +32,9 @@ python -m src.stages.run_stage_6b_neo4j --from leiden
 # Resume from summaries (Leiden done, regenerate summaries)
 python -m src.stages.run_stage_6b_neo4j --from summaries
 
+# Resume from embeddings only (communities done, just upload entity embeddings)
+python -m src.stages.run_stage_6b_neo4j --from embeddings
+
 # Skip entity embeddings (faster if already done)
 python -m src.stages.run_stage_6b_neo4j --skip-entity-embeddings
 
@@ -190,9 +193,9 @@ def main():
     parser.add_argument(
         "--from",
         dest="start_from",
-        choices=["upload", "leiden", "summaries"],
+        choices=["upload", "leiden", "summaries", "embeddings"],
         default="upload",
-        help="Start from phase: upload (default), leiden, or summaries",
+        help="Start from phase: upload (default), leiden, summaries, or embeddings",
     )
     parser.add_argument(
         "--clear",
@@ -217,6 +220,7 @@ def main():
     run_upload = args.start_from == "upload"
     run_leiden = args.start_from in ("upload", "leiden")
     skip_leiden = args.start_from == "summaries"
+    skip_to_embeddings = args.start_from == "embeddings"
 
     logger.info("=" * 60)
     logger.info("STAGE 6b: NEO4J UPLOAD + LEIDEN COMMUNITIES")
@@ -248,7 +252,7 @@ def main():
                     "Run full pipeline first: python -m src.stages.run_stage_6b_neo4j"
                 )
 
-            if skip_leiden:
+            if skip_leiden and not skip_to_embeddings:
                 # Check community_ids exist for summaries-only mode
                 community_ids = get_community_ids_from_neo4j(driver)
                 if not community_ids:
@@ -261,7 +265,7 @@ def main():
             logger.info(f"Validation passed: {stats['node_count']} entities")
 
         # Phase 1: Upload to Neo4j
-        if run_upload:
+        if run_upload and not skip_to_embeddings:
             logger.info("-" * 60)
             logger.info("PHASE 1: UPLOAD TO NEO4J")
             logger.info("-" * 60)
@@ -290,38 +294,39 @@ def main():
         stats = get_graph_stats(driver)
         logger.info(f"Graph stats: {stats['node_count']} nodes, {stats['relationship_count']} relationships")
 
-        # Phase 2 & 3: Leiden + Summaries
-        logger.info("-" * 60)
-        if skip_leiden:
-            logger.info("PHASE 3: COMMUNITY SUMMARIES (using checkpoint)")
-        else:
-            logger.info("PHASE 2 & 3: LEIDEN + COMMUNITY SUMMARIES")
-        logger.info("-" * 60)
+        # Phase 2 & 3: Leiden + Summaries (skip if going directly to embeddings)
+        if not skip_to_embeddings:
+            logger.info("-" * 60)
+            if skip_leiden:
+                logger.info("PHASE 3: COMMUNITY SUMMARIES (using checkpoint)")
+            else:
+                logger.info("PHASE 2 & 3: LEIDEN + COMMUNITY SUMMARIES")
+            logger.info("-" * 60)
 
-        if stats["node_count"] == 0:
-            logger.warning("Graph is empty, skipping Leiden")
-        else:
-            # Get GDS client
-            gds = get_gds_client(driver)
+            if stats["node_count"] == 0:
+                logger.warning("Graph is empty, skipping Leiden")
+            else:
+                # Get GDS client
+                gds = get_gds_client(driver)
 
-            # Run Leiden and generate summaries
-            leiden_start = time.time()
-            communities = detect_and_summarize_communities(
-                driver,
-                gds,
-                model=args.model,
-                resume=skip_leiden,
-                skip_leiden=skip_leiden,
-            )
-            leiden_time = time.time() - leiden_start
+                # Run Leiden and generate summaries
+                leiden_start = time.time()
+                communities = detect_and_summarize_communities(
+                    driver,
+                    gds,
+                    model=args.model,
+                    resume=skip_leiden,
+                    skip_leiden=skip_leiden,
+                )
+                leiden_time = time.time() - leiden_start
 
-            # Save communities
-            output_path = save_communities(communities)
+                # Save communities
+                output_path = save_communities(communities)
 
-            logger.info(f"Complete in {leiden_time:.1f}s")
-            logger.info(f"  Communities: {len(communities)}")
-            logger.info(f"  Total members: {sum(c.member_count for c in communities)}")
-            logger.info(f"  Output: {output_path}")
+                logger.info(f"Complete in {leiden_time:.1f}s")
+                logger.info(f"  Communities: {len(communities)}")
+                logger.info(f"  Total members: {sum(c.member_count for c in communities)}")
+                logger.info(f"  Output: {output_path}")
 
         # Phase 4: Entity Embedding Upload
         if not args.skip_entity_embeddings:

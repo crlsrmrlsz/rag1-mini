@@ -1,13 +1,15 @@
 # GraphRAG: Knowledge Graph + Communities
 
-**Date:** 2025-12-29
-**Status:** All Phases Complete
+**Date:** 2026-01-09
+**Status:** All Phases Complete (including Paper Alignment Update)
 **Paper:** [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) (Microsoft Research, April 2024)
 
 > **Related Docs:**
 > - [Public documentation](../docs/preprocessing/graphrag.md) — User-facing implementation guide with crash-proof design
 > - [2025 SOTA Report](graphrag-sota-report.md) — Implementation landscape and benchmarks
 > - [Deep Tutorial](graphrag-tutorial.md) — Comprehensive step-by-step guide
+> - [Implementation Deep-Dive](graphrag-implementation-deep-dive.md) — Complete code-level analysis
+> - [Paper Alignment Plan](plan_correct_1.md) — Improvements to match original paper (implemented)
 
 ---
 
@@ -107,6 +109,7 @@ RETURN e.community_id, count(*) as size ORDER BY size DESC
 | Phase 2 | Community Embedding Retrieval | COMPLETE |
 | Phase 3 | Verification and Documentation | COMPLETE |
 | Phase 4 | Crash-Proof Design + Weaviate Storage | COMPLETE |
+| Phase 5 | Paper Alignment (Hierarchy, PageRank, Map-Reduce) | COMPLETE |
 
 ### Key Improvements Implemented
 
@@ -126,6 +129,12 @@ RETURN e.community_id, count(*) as size ORDER BY size DESC
    - Weaviate storage for community embeddings
    - Checkpoint file for Leiden assignments
    - Storage reduced from 383MB to ~12MB
+
+4. **Paper Alignment** (Phase 5) - NEW
+   - **Hierarchical Communities**: Multi-level (C0, C1, C2) from Leiden's `intermediateCommunityIds`
+   - **PageRank Centrality**: Computed via Neo4j GDS, used for entity importance ranking
+   - **Structured Relationships**: `CommunityRelationship` objects stored in JSON
+   - **Map-Reduce for Global Queries**: Async parallel map + reduce synthesis
 
 ---
 
@@ -186,14 +195,45 @@ Hierarchical community detection:
 **RAGLab config:**
 - `randomSeed=42`, `concurrency=1` for determinism
 - `gamma=1.0`, `maxLevels=10`
-- Level 0 used for all queries
+- Multi-level hierarchy: C0 (finest) → C1 → C2 (coarsest)
+- Level selection based on query type (local vs global)
+
+### PageRank Centrality
+
+Entity importance within communities:
+- Computed via Neo4j GDS `pageRank.stream()`
+- Stored on Entity nodes as `e.pagerank`
+- Members sorted by PageRank in community context
+- Top PageRank entities prioritized in generation prompt
+
+**Configuration:**
+- `GRAPHRAG_PAGERANK_DAMPING = 0.85`
+- `GRAPHRAG_PAGERANK_ITERATIONS = 20`
+
+### Map-Reduce for Global Queries
+
+Microsoft GraphRAG's approach to global queries:
+1. **Classify**: LLM determines if query is local or global
+2. **Map Phase**: Generate partial answer from each relevant community (async parallel)
+3. **Reduce Phase**: Synthesize partial answers into final response
+
+**Benefits:**
+- Parallelizes LLM calls (~50% latency reduction with async)
+- Captures diverse perspectives from different communities
+- Scales to large corpora without exceeding context limits
+
+**Configuration:**
+- `GRAPHRAG_MAP_REDUCE_TOP_K = 5` (communities for map phase)
+- `GRAPHRAG_MAP_MAX_TOKENS = 300` (per-community answer)
+- `GRAPHRAG_REDUCE_MAX_TOKENS = 500` (final synthesis)
 
 ### Neo4j Schema
 
 ```cypher
 (:Entity {
   name, normalized_name, entity_type, description,
-  chunk_ids, mention_count, community_id
+  chunk_ids, mention_count, community_id,
+  pagerank  -- NEW: PageRank centrality score
 })
 
 (:Entity)-[:RELATED_TO {type, description, strength, chunk_ids}]->(:Entity)
@@ -201,12 +241,20 @@ Hierarchical community detection:
 
 ### Hybrid Retrieval (Query Time)
 
+**Local Queries** (entity-specific):
 1. Extract entities from query (LLM + regex fallback)
 2. Graph traversal from entities (N-hop neighbors)
 3. Vector search in Weaviate
 4. RRF merge (boost graph-matched chunks)
-5. Add community summaries to context
+5. Add community summaries to context (PageRank-sorted members)
 6. Generate answer
+
+**Global Queries** (thematic):
+1. Classify query as global (LLM-based)
+2. Retrieve top-k communities at coarse level (C2)
+3. Map phase: Generate partial answers from each community (async)
+4. Reduce phase: Synthesize final answer
+5. Return with metadata including partial answers and timing
 
 ---
 
@@ -226,8 +274,9 @@ Hierarchical community detection:
 
 | Feature | Original | This Project | Reason |
 |---------|----------|--------------|--------|
-| Map-reduce global search | Parallel partial answers | Embedding similarity | Simpler, captures essence |
-| Community hierarchy | Multi-level (C0-Cn) | Level 0 only | Hard to measure benefit |
+| Map-reduce global search | Parallel partial answers | ✅ Implemented (async) | Full paper alignment |
+| Community hierarchy | Multi-level (C0-Cn) | ✅ Implemented (C0, C1, C2) | Full paper alignment |
+| PageRank centrality | Hub entity ranking | ✅ Implemented | Full paper alignment |
 | Self-reflection loop | 3 iterations | Single pass | 3x cost for ~20% gain |
 | Claims extraction | Verifiable facts | Not implemented | Scope reduction |
 
@@ -237,8 +286,20 @@ Hierarchical community detection:
 |-----------|---------------|--------------|
 | Chunk size | 600 tokens | 800 tokens (section-aware) |
 | Leiden resolution | 1.0 | 1.0 |
-| Max hierarchy levels | 10 | 10 |
-| Min community size | Not specified | 3 |
+| Max hierarchy levels | 10 | 3 (C0, C1, C2) |
+| Min community size | Not specified | 3 (L0), 5 (L1), 10 (L2) |
+| PageRank damping | 0.85 | 0.85 |
+| Map-reduce top-k | Not specified | 5 communities |
+
+---
+
+## New Modules (Phase 5)
+
+| File | Purpose |
+|------|---------|
+| `src/graph/hierarchy.py` | Multi-level community parsing from Leiden results |
+| `src/graph/centrality.py` | PageRank computation and Neo4j storage |
+| `src/graph/map_reduce.py` | Async map-reduce for global queries |
 
 ---
 
@@ -246,8 +307,10 @@ Hierarchical community detection:
 
 - `graphrag-tutorial.md` - Deep technical tutorial (25k+ lines)
 - `graphrag-sota-report.md` - 2025 research landscape
+- `graphrag-implementation-deep-dive.md` - Complete code-level analysis
+- `plan_correct_1.md` - Paper alignment plan (implemented)
 - `docs/preprocessing/graphrag.md` - User documentation with crash-proof design details
 
 ---
 
-*Last Updated: 2025-12-29*
+*Last Updated: 2026-01-09*

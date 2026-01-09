@@ -1,14 +1,20 @@
 # GraphRAG: Complete Implementation Deep-Dive
 
 **Date:** 2026-01-09
-**Status:** Implementation Analysis Complete
-**Related:** [graphrag.md](graphrag.md), [graphrag-tutorial.md](graphrag-tutorial.md), [fix_graphrag.md](fix_graphrag.md)
+**Status:** Implementation Analysis Complete + Paper Alignment Update
+**Related:** [graphrag.md](graphrag.md), [graphrag-tutorial.md](graphrag-tutorial.md), [fix_graphrag.md](fix_graphrag.md), [plan_correct_1.md](plan_correct_1.md)
 
 ---
 
 ## Executive Summary
 
 GraphRAG is a hybrid retrieval strategy that combines **knowledge graph traversal** with **vector search** and uses **Reciprocal Rank Fusion (RRF)** to merge results. This document provides a complete code-level analysis of the implementation.
+
+**Latest Update (2026-01-09):** Paper alignment features added:
+- **Hierarchical Communities**: C0, C1, C2 levels parsed from Leiden's `intermediateCommunityIds`
+- **PageRank Centrality**: Computed via Neo4j GDS, stored on Entity nodes
+- **Structured Relationships**: `CommunityRelationship` objects in JSON storage
+- **Map-Reduce for Global Queries**: Async parallel map + reduce synthesis
 
 ---
 
@@ -320,6 +326,19 @@ GRAPHRAG_LEIDEN_SEED = 42
 GRAPHRAG_LEIDEN_CONCURRENCY = 1
 GRAPHRAG_MIN_COMMUNITY_SIZE = 3
 
+# Hierarchy (NEW)
+GRAPHRAG_MAX_HIERARCHY_LEVELS = 3  # C0, C1, C2
+GRAPHRAG_LEVEL_MIN_SIZES = {0: 3, 1: 5, 2: 10}
+
+# PageRank (NEW)
+GRAPHRAG_PAGERANK_DAMPING = 0.85
+GRAPHRAG_PAGERANK_ITERATIONS = 20
+
+# Map-Reduce (NEW)
+GRAPHRAG_MAP_REDUCE_TOP_K = 5  # Communities for map phase
+GRAPHRAG_MAP_MAX_TOKENS = 300  # Per-community partial answer
+GRAPHRAG_REDUCE_MAX_TOKENS = 500  # Final synthesis
+
 # Query Time
 GRAPHRAG_TRAVERSE_DEPTH = 2
 GRAPHRAG_TOP_COMMUNITIES = 3
@@ -332,12 +351,128 @@ GRAPHRAG_RRF_K = 60
 
 | File | Purpose |
 |------|---------|
-| `src/graph/schemas.py` | Pydantic models, `GraphEntity.normalized_name()` |
+| `src/graph/schemas.py` | Pydantic models, `GraphEntity.normalized_name()`, `CommunityRelationship` |
 | `src/graph/auto_tuning.py` | Entity extraction, `run_auto_tuning()` |
 | `src/graph/neo4j_client.py` | Graph DB ops, `upload_entities()`, `find_entity_neighbors()` |
 | `src/graph/community.py` | Leiden + summaries, `run_leiden()`, `summarize_community()` |
-| `src/graph/query.py` | Hybrid retrieval, `hybrid_graph_retrieval()` |
+| `src/graph/hierarchy.py` | Multi-level parsing, `parse_leiden_hierarchy()`, `CommunityLevel` |
+| `src/graph/centrality.py` | PageRank, `compute_pagerank()`, `write_pagerank_to_neo4j()` |
+| `src/graph/map_reduce.py` | Global queries, `map_reduce_global_query()`, `classify_query()` |
+| `src/graph/query.py` | Hybrid retrieval, `hybrid_graph_retrieval()`, `hybrid_graph_retrieval_with_map_reduce()` |
 | `src/rag_pipeline/retrieval/rrf.py` | RRF algorithm, `reciprocal_rank_fusion()` |
+
+---
+
+## 8. Paper Alignment Features (NEW)
+
+### 8.1 Hierarchical Communities
+
+**File:** `src/graph/hierarchy.py`
+
+The Leiden algorithm produces multi-level community assignments via `intermediateCommunityIds`. This module parses them into a structured hierarchy:
+
+```python
+@dataclass
+class CommunityLevel:
+    level: int  # 0=finest, 1=medium, 2=coarsest
+    communities: dict[int, set[int]]  # community_id -> node_ids
+    parent_map: dict[int, int]  # child_community -> parent_community
+    child_map: dict[int, list[int]]  # parent -> children
+
+def parse_leiden_hierarchy(leiden_result: dict, max_levels: int = 3) -> dict[int, CommunityLevel]:
+    """Extract C0, C1, C2 from Leiden's intermediate_ids."""
+    # intermediate_ids[0] = coarsest, reversed to get fine-to-coarse
+```
+
+### 8.2 PageRank Centrality
+
+**File:** `src/graph/centrality.py`
+
+PageRank identifies "hub" entities that connect to other important entities:
+
+```python
+def compute_pagerank(gds: GraphDataScience, graph: Any) -> dict[int, float]:
+    """Run PageRank via Neo4j GDS."""
+    result = gds.pageRank.stream(graph, dampingFactor=0.85, maxIterations=20)
+    return {record.nodeId: record.score for record in result.itertuples()}
+
+def write_pagerank_to_neo4j(driver: Driver, pagerank_scores: dict[int, float]) -> int:
+    """Store PageRank on Entity nodes for query-time access."""
+```
+
+### 8.3 Structured Relationships
+
+**File:** `src/graph/schemas.py`
+
+Relationships are now stored as structured objects, not just counts:
+
+```python
+class CommunityRelationship(BaseModel):
+    source: str  # Source entity name
+    target: str  # Target entity name
+    relationship_type: str  # e.g., "CAUSES", "MODULATES"
+    description: str  # Optional description
+    weight: float  # 0.0-1.0
+
+class Community(BaseModel):
+    # ... existing fields ...
+    relationships: list[CommunityRelationship]  # NEW: structured relationships
+    parent_id: Optional[str]  # NEW: parent at coarser level
+```
+
+### 8.4 Map-Reduce for Global Queries
+
+**File:** `src/graph/map_reduce.py`
+
+Global queries (thematic, corpus-wide) use map-reduce over community summaries:
+
+```python
+def classify_query(query: str) -> str:
+    """LLM-based classification: 'local' or 'global'."""
+
+async def map_reduce_global_query_async(query: str, communities: list[Community]) -> MapReduceResult:
+    """
+    Map Phase: Parallel partial answers from each community (async).
+    Reduce Phase: Synthesize partial answers into final response.
+    """
+    # MAP: async parallel LLM calls
+    tasks = [_map_community_async(query, community) for community in communities]
+    map_results = await asyncio.gather(*tasks)
+
+    # REDUCE: single LLM call to synthesize
+    final_answer = call_chat_completion(reduce_prompt)
+
+    return MapReduceResult(
+        final_answer=final_answer,
+        partial_answers=partial_answers,
+        communities_used=communities_used,
+        map_time_ms=map_time_ms,
+        reduce_time_ms=reduce_time_ms,
+    )
+```
+
+### 8.5 Enhanced Query Flow
+
+**File:** `src/graph/query.py`
+
+The new `hybrid_graph_retrieval_with_map_reduce()` function extends hybrid retrieval:
+
+```python
+def hybrid_graph_retrieval_with_map_reduce(query: str, driver: Driver, vector_results: list[dict], ...) -> tuple[list[dict], dict]:
+    """
+    For local queries: Standard RRF merge (entity traversal + vector)
+    For global queries: Map-reduce over community summaries
+    """
+    # Determine if global query
+    if use_map_reduce and should_use_map_reduce(query, extracted_entities):
+        communities = retrieve_communities_for_map_reduce(query, top_k=5)
+        mr_result = map_reduce_global_query(query, communities)
+        metadata["map_reduce_result"] = {...}  # Includes timing, partial answers
+        return vector_results, metadata
+
+    # Fall back to standard hybrid retrieval
+    return hybrid_graph_retrieval(query, driver, vector_results)
+```
 
 ---
 

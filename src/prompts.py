@@ -99,7 +99,6 @@ For relationships, only include those that are clearly stated or strongly implie
 
 # Query-time entity extraction (simpler than chunk extraction)
 GRAPHRAG_QUERY_EXTRACTION_PROMPT = """Identify entities mentioned or implied in this query.
-Look for: concepts, brain regions, neurotransmitters, philosophers, psychological processes, behaviors, books, and researchers.
 
 Entity types: {entity_types}
 
@@ -191,3 +190,60 @@ Rules:
 4. Ensure BOTH domains are well-represented
 
 Respond with JSON: {{"entity_types": [...], "relationship_types": [...], "rationale": "..."}}"""
+
+
+# =============================================================================
+# MAP-REDUCE PROMPTS (GraphRAG Global Query Handling)
+# =============================================================================
+
+# Query classification: local (entity-specific) vs global (thematic)
+GRAPHRAG_CLASSIFICATION_PROMPT = """Classify this query as 'local' or 'global'.
+
+LOCAL queries ask about specific entities, concepts, or facts:
+- "What is dopamine?"
+- "How does the prefrontal cortex affect decision-making?"
+- "What did Sapolsky say about stress?"
+
+GLOBAL queries ask about themes, patterns, or overviews across topics:
+- "What are the main themes in this corpus?"
+- "How do neuroscience and philosophy approaches differ?"
+- "What are the key insights about human behavior?"
+
+Query: {query}
+
+Respond with ONLY the word 'local' or 'global'."""
+
+# Map phase: Generate partial answer from one community
+GRAPHRAG_MAP_PROMPT = """Answer this question using ONLY the community context below.
+
+Community Theme:
+{community_summary}
+
+Key Entities (ranked by importance):
+{top_entities}
+
+Key Relationships:
+{relationships}
+
+Question: {query}
+
+Provide a concise answer (2-3 sentences) based ONLY on this community's themes and entities.
+If this community is not relevant to the question, respond with "Not relevant to this community."
+
+Answer:"""
+
+# Reduce phase: Synthesize partial answers into final response
+GRAPHRAG_REDUCE_PROMPT = """Synthesize these partial answers from different thematic communities into a comprehensive response.
+
+Question: {query}
+
+Partial Answers from Communities:
+{partial_answers}
+
+Create a unified, coherent answer that:
+1. Integrates insights from relevant communities
+2. Identifies common themes across communities
+3. Notes any contrasting perspectives if present
+4. Ignores "Not relevant" responses
+
+Synthesized Answer:"""

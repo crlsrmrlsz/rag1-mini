@@ -248,6 +248,27 @@ class QueryEntities(BaseModel):
     )
 
 
+class CommunityRelationship(BaseModel):
+    """Relationship within a community for structured storage.
+
+    Stores relationship data directly in JSON for offline access
+    without requiring Neo4j queries at runtime.
+
+    Attributes:
+        source: Source entity name.
+        target: Target entity name.
+        relationship_type: Type of relationship (e.g., "CAUSES", "MODULATES").
+        description: Brief description of the relationship.
+        weight: Relationship strength (0.0-1.0).
+    """
+
+    source: str = Field(..., description="Source entity name")
+    target: str = Field(..., description="Target entity name")
+    relationship_type: str = Field(..., description="Relationship type")
+    description: str = Field(default="", description="Relationship description")
+    weight: float = Field(default=1.0, ge=0.0, le=1.0, description="Relationship strength")
+
+
 class CommunityMember(BaseModel):
     """Entity within a Leiden community.
 
@@ -276,31 +297,48 @@ class Community(BaseModel):
     algorithm. Each community has an LLM-generated summary that
     captures the main theme and relationships.
 
+    Supports hierarchical structure with parent/child pointers:
+    - Level 0 (C0): Finest granularity, specific topics
+    - Level 1 (C1): Medium granularity, domain themes
+    - Level 2 (C2): Coarsest, corpus-wide themes
+
     Attributes:
-        community_id: Unique identifier for this community.
+        community_id: Unique identifier (e.g., "community_L0_42").
         level: Hierarchy level (0 = finest, higher = coarser).
+        parent_id: Parent community ID at coarser level (None if top).
         members: List of entities in this community.
         member_count: Number of entities in this community.
+        relationships: Structured relationships within community.
         relationship_count: Number of relationships within community.
         summary: LLM-generated summary of the community theme.
         embedding: Vector embedding of the summary (for retrieval).
 
     Example:
         >>> community = Community(
-        ...     community_id="community_42",
+        ...     community_id="community_L0_42",
         ...     level=0,
+        ...     parent_id="community_L1_10",
         ...     members=[CommunityMember(entity_name="dopamine", ...)],
+        ...     relationships=[CommunityRelationship(...)],
         ...     summary="This community focuses on neurotransmitters...",
         ... )
     """
 
     community_id: str = Field(..., description="Unique community identifier")
     level: int = Field(default=0, description="Hierarchy level (0 = finest)")
+    parent_id: Optional[str] = Field(
+        default=None,
+        description="Parent community ID at coarser level",
+    )
     members: list[CommunityMember] = Field(
         default_factory=list,
         description="Entities in this community",
     )
     member_count: int = Field(default=0, description="Number of members")
+    relationships: list[CommunityRelationship] = Field(
+        default_factory=list,
+        description="Structured relationships within community",
+    )
     relationship_count: int = Field(
         default=0,
         description="Relationships within community",
@@ -316,9 +354,11 @@ class Community(BaseModel):
         return {
             "community_id": self.community_id,
             "level": self.level,
+            "parent_id": self.parent_id,
             "member_count": self.member_count,
             "relationship_count": self.relationship_count,
             "summary": self.summary,
             "embedding": self.embedding,
             "members": [m.model_dump() for m in self.members],
+            "relationships": [r.model_dump() for r in self.relationships],
         }

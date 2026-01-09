@@ -54,7 +54,7 @@ from src.rag_pipeline.indexing.weaviate_client import (
     upload_community as weaviate_upload_community,
     get_existing_community_ids as weaviate_get_existing_ids,
 )
-from .schemas import Community, CommunityMember
+from .schemas import Community, CommunityMember, CommunityRelationship
 from .neo4j_client import get_gds_client
 
 logger = setup_logging(__name__)
@@ -329,12 +329,14 @@ def get_community_members(
 ) -> list[CommunityMember]:
     """Get all entities belonging to a specific community.
 
+    Includes PageRank scores if computed, sorts by PageRank then degree.
+
     Args:
         driver: Neo4j driver instance.
         community_id: Community ID to query.
 
     Returns:
-        List of CommunityMember objects.
+        List of CommunityMember objects sorted by importance.
     """
     query = """
     MATCH (e:Entity {community_id: $community_id})
@@ -344,8 +346,9 @@ def get_community_members(
         e.name as entity_name,
         e.entity_type as entity_type,
         e.description as description,
-        degree
-    ORDER BY degree DESC
+        degree,
+        coalesce(e.pagerank, 0.0) as pagerank
+    ORDER BY pagerank DESC, degree DESC
     """
 
     result = driver.execute_query(query, community_id=community_id)
@@ -357,6 +360,56 @@ def get_community_members(
             entity_type=record["entity_type"] or "UNKNOWN",
             description=record["description"] or "",
             degree=record["degree"],
+            pagerank=record["pagerank"],
+        ))
+
+    return members
+
+
+def get_community_members_by_node_ids(
+    driver: Driver,
+    node_ids: set[int],
+) -> list[CommunityMember]:
+    """Get members by Neo4j internal node IDs (for hierarchy levels).
+
+    Used when processing higher-level communities (C1, C2) that aggregate
+    multiple C0 communities. Instead of querying by community_id, we
+    query by the specific node IDs that belong to the aggregated community.
+
+    Args:
+        driver: Neo4j driver instance.
+        node_ids: Set of Neo4j internal node IDs.
+
+    Returns:
+        List of CommunityMember objects sorted by PageRank.
+    """
+    if not node_ids:
+        return []
+
+    query = """
+    MATCH (e:Entity)
+    WHERE id(e) IN $node_ids
+    OPTIONAL MATCH (e)-[r:RELATED_TO]-()
+    WITH e, count(r) as degree
+    RETURN
+        e.name as entity_name,
+        e.entity_type as entity_type,
+        e.description as description,
+        degree,
+        coalesce(e.pagerank, 0.0) as pagerank
+    ORDER BY pagerank DESC, degree DESC
+    """
+
+    result = driver.execute_query(query, node_ids=list(node_ids))
+
+    members = []
+    for record in result.records:
+        members.append(CommunityMember(
+            entity_name=record["entity_name"],
+            entity_type=record["entity_type"] or "UNKNOWN",
+            description=record["description"] or "",
+            degree=record["degree"],
+            pagerank=record["pagerank"],
         ))
 
     return members
@@ -365,15 +418,18 @@ def get_community_members(
 def get_community_relationships(
     driver: Driver,
     community_id: int,
-) -> list[dict[str, Any]]:
-    """Get relationships within a community.
+) -> list[CommunityRelationship]:
+    """Get relationships within a community as structured objects.
+
+    Returns CommunityRelationship objects that can be stored in JSON
+    for offline access without Neo4j queries.
 
     Args:
         driver: Neo4j driver instance.
         community_id: Community ID to query.
 
     Returns:
-        List of relationship dicts with source, target, type, description.
+        List of CommunityRelationship objects.
     """
     query = """
     MATCH (source:Entity {community_id: $community_id})-[r:RELATED_TO]->(target:Entity {community_id: $community_id})
@@ -381,25 +437,80 @@ def get_community_relationships(
         source.name as source,
         target.name as target,
         r.type as relationship_type,
-        r.description as description
+        r.description as description,
+        coalesce(r.weight, 1.0) as weight
     """
 
     result = driver.execute_query(query, community_id=community_id)
-    return [dict(r) for r in result.records]
+
+    return [
+        CommunityRelationship(
+            source=r["source"],
+            target=r["target"],
+            relationship_type=r["relationship_type"] or "RELATED_TO",
+            description=r["description"] or "",
+            weight=r["weight"],
+        )
+        for r in result.records
+    ]
+
+
+def get_community_relationships_by_node_ids(
+    driver: Driver,
+    node_ids: set[int],
+) -> list[CommunityRelationship]:
+    """Get relationships between nodes in a set (for hierarchy levels).
+
+    Used for C1/C2 communities that span multiple C0 communities.
+
+    Args:
+        driver: Neo4j driver instance.
+        node_ids: Set of Neo4j internal node IDs.
+
+    Returns:
+        List of CommunityRelationship objects.
+    """
+    if not node_ids:
+        return []
+
+    query = """
+    MATCH (source:Entity)-[r:RELATED_TO]->(target:Entity)
+    WHERE id(source) IN $node_ids AND id(target) IN $node_ids
+    RETURN
+        source.name as source,
+        target.name as target,
+        r.type as relationship_type,
+        r.description as description,
+        coalesce(r.weight, 1.0) as weight
+    """
+
+    result = driver.execute_query(query, node_ids=list(node_ids))
+
+    return [
+        CommunityRelationship(
+            source=r["source"],
+            target=r["target"],
+            relationship_type=r["relationship_type"] or "RELATED_TO",
+            description=r["description"] or "",
+            weight=r["weight"],
+        )
+        for r in result.records
+    ]
 
 
 def build_community_context(
     members: list[CommunityMember],
-    relationships: list[dict[str, Any]],
+    relationships: list[CommunityRelationship],
     max_tokens: int = GRAPHRAG_MAX_CONTEXT_TOKENS,
 ) -> str:
     """Build context string for community summarization.
 
     Formats entity and relationship information for LLM prompt.
+    Entities are sorted by PageRank (highest importance first).
 
     Args:
-        members: List of community members.
-        relationships: List of relationships within community.
+        members: List of community members (should be pre-sorted by PageRank).
+        relationships: List of CommunityRelationship objects.
         max_tokens: Approximate token limit (chars / 4).
 
     Returns:
@@ -407,19 +518,20 @@ def build_community_context(
     """
     lines = []
 
-    # Add entities
+    # Add entities (already sorted by PageRank from get_community_members)
     lines.append("## Entities")
     for member in members:
         desc = f" - {member.description}" if member.description else ""
-        lines.append(f"- {member.entity_name} ({member.entity_type}){desc}")
+        pr_note = f" [PR:{member.pagerank:.3f}]" if member.pagerank > 0 else ""
+        lines.append(f"- {member.entity_name} ({member.entity_type}){pr_note}{desc}")
 
     # Add relationships
     if relationships:
         lines.append("\n## Relationships")
         for rel in relationships:
-            desc = f": {rel['description']}" if rel.get("description") else ""
+            desc = f": {rel.description}" if rel.description else ""
             lines.append(
-                f"- {rel['source']} --[{rel['relationship_type']}]--> {rel['target']}{desc}"
+                f"- {rel.source} --[{rel.relationship_type}]--> {rel.target}{desc}"
             )
 
     context = "\n".join(lines)
@@ -434,7 +546,7 @@ def build_community_context(
 
 def summarize_community(
     members: list[CommunityMember],
-    relationships: list[dict[str, Any]],
+    relationships: list[CommunityRelationship],
     model: str = GRAPHRAG_SUMMARY_MODEL,
 ) -> tuple[str, Optional[list[float]]]:
     """Generate LLM summary AND embedding for a community.
@@ -444,8 +556,8 @@ def summarize_community(
     for semantic retrieval.
 
     Args:
-        members: List of community members.
-        relationships: List of relationships within community.
+        members: List of community members (pre-sorted by PageRank).
+        relationships: List of CommunityRelationship objects.
         model: LLM model for summarization.
 
     Returns:
@@ -586,6 +698,14 @@ def detect_and_summarize_communities(
         # Step 4: Write community IDs to Neo4j
         write_communities_to_neo4j(driver, leiden_result["node_communities"])
 
+        # Step 4.5: Compute PageRank for entity importance ranking
+        try:
+            from .centrality import compute_pagerank, write_pagerank_to_neo4j
+            pagerank_scores = compute_pagerank(gds, graph)
+            write_pagerank_to_neo4j(driver, pagerank_scores)
+        except Exception as e:
+            logger.warning(f"PageRank computation failed: {e}")
+
         # Step 5: Get unique community IDs
         unique_ids = set(nc["community_id"] for nc in leiden_result["node_communities"])
 
@@ -618,12 +738,13 @@ def detect_and_summarize_communities(
         )
         summary, embedding = summarize_community(members, relationships, model=model)
 
-        # Create Community object with embedding
+        # Create Community object with embedding and relationships
         community = Community(
             community_id=community_key,
-            level=0,  # Single level for now
+            level=0,  # Level 0 (finest granularity)
             members=members,
             member_count=len(members),
+            relationships=relationships,  # Store structured relationships
             relationship_count=len(relationships),
             summary=summary,
             embedding=embedding,
@@ -702,6 +823,9 @@ def load_communities(
 ) -> list[Community]:
     """Load communities from JSON file.
 
+    Handles both old format (without relationships) and new format
+    (with relationships and parent_id).
+
     Args:
         input_name: Input filename.
 
@@ -718,12 +842,21 @@ def load_communities(
 
     communities = []
     for c_data in data["communities"]:
+        # Parse members
         members = [CommunityMember(**m) for m in c_data.get("members", [])]
+
+        # Parse relationships (new field, may be missing in old files)
+        relationships = [
+            CommunityRelationship(**r) for r in c_data.get("relationships", [])
+        ]
+
         community = Community(
             community_id=c_data["community_id"],
             level=c_data.get("level", 0),
+            parent_id=c_data.get("parent_id"),  # New field
             members=members,
             member_count=c_data["member_count"],
+            relationships=relationships,  # New field
             relationship_count=c_data["relationship_count"],
             summary=c_data["summary"],
             embedding=c_data.get("embedding"),

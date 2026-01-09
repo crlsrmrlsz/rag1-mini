@@ -458,6 +458,62 @@ def retrieve_community_context(
     return results
 
 
+def retrieve_communities_for_map_reduce(
+    query: str,
+    top_k: int = GRAPHRAG_TOP_COMMUNITIES,
+) -> list[Community]:
+    """Retrieve full Community objects for map-reduce processing.
+
+    Unlike retrieve_community_context() which returns dicts,
+    this returns full Community objects with members and relationships
+    for use in map-reduce global queries.
+
+    Args:
+        query: User query string.
+        top_k: Number of communities to retrieve.
+
+    Returns:
+        List of Community objects (full data for map-reduce).
+    """
+    # Load communities from JSON (has full data)
+    try:
+        communities = load_communities()
+    except FileNotFoundError:
+        logger.warning("No communities file found for map-reduce")
+        return []
+
+    if not communities:
+        return []
+
+    # Embedding-based retrieval
+    has_embeddings = any(c.embedding for c in communities)
+
+    if has_embeddings:
+        query_embedding = embed_texts([query])[0]
+
+        scored = []
+        for community in communities:
+            if community.embedding:
+                similarity = cosine_similarity(query_embedding, community.embedding)
+                scored.append((similarity, community))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [community for _, community in scored[:top_k]]
+    else:
+        # Fallback: keyword matching
+        query_words = set(query.lower().split())
+
+        scored = []
+        for community in communities:
+            summary_words = set(community.summary.lower().split())
+            overlap = len(query_words & summary_words)
+            if overlap > 0:
+                scored.append((overlap, community))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [community for _, community in scored[:top_k]]
+
+
 def get_graph_chunk_ids(
     query: str,
     driver: Driver,
@@ -713,6 +769,89 @@ def hybrid_graph_retrieval(
     )
 
     return merged_dicts, metadata
+
+
+def hybrid_graph_retrieval_with_map_reduce(
+    query: str,
+    driver: Driver,
+    vector_results: list[dict[str, Any]],
+    top_k: int = 10,
+    collection_name: Optional[str] = None,
+    use_map_reduce: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Enhanced hybrid retrieval with optional map-reduce for global queries.
+
+    Extends hybrid_graph_retrieval with map-reduce support:
+    - For local queries: Standard RRF merge (entity traversal + vector)
+    - For global queries: Map-reduce over community summaries
+
+    Args:
+        query: User query string.
+        driver: Neo4j driver instance.
+        vector_results: Results from Weaviate vector search.
+        top_k: Number of results to return.
+        collection_name: Weaviate collection name.
+        use_map_reduce: Whether to use map-reduce for global queries.
+
+    Returns:
+        Tuple of (results, metadata).
+        For global queries with map-reduce, metadata includes "map_reduce_result".
+    """
+    from .map_reduce import classify_query, map_reduce_global_query, should_use_map_reduce
+
+    # First, get graph context regardless of query type
+    graph_chunk_ids, graph_meta = get_graph_chunk_ids(query, driver)
+    extracted_entities = graph_meta.get("extracted_entities", [])
+
+    # Determine if this is a global query that should use map-reduce
+    if use_map_reduce and should_use_map_reduce(query, extracted_entities):
+        logger.info("Global query detected, using map-reduce")
+
+        # Retrieve communities for map-reduce
+        from src.config import GRAPHRAG_MAP_REDUCE_TOP_K
+        communities = retrieve_communities_for_map_reduce(query, top_k=GRAPHRAG_MAP_REDUCE_TOP_K)
+
+        if communities:
+            # Run map-reduce
+            mr_result = map_reduce_global_query(query, communities)
+
+            # Build metadata with map-reduce info
+            metadata = {
+                "extracted_entities": extracted_entities,
+                "query_entities": graph_meta.get("query_entities", []),
+                "graph_context": graph_meta.get("graph_context", []),
+                "community_context": [
+                    {"community_id": c.community_id, "summary": c.summary, "member_count": c.member_count}
+                    for c in communities
+                ],
+                "query_type": "global",
+                "map_reduce_result": {
+                    "final_answer": mr_result.final_answer,
+                    "communities_used": mr_result.communities_used,
+                    "map_time_ms": mr_result.map_time_ms,
+                    "reduce_time_ms": mr_result.reduce_time_ms,
+                    "total_time_ms": mr_result.total_time_ms,
+                },
+            }
+
+            logger.info(
+                f"Map-reduce complete: {len(mr_result.communities_used)} communities, "
+                f"{mr_result.total_time_ms:.0f}ms total"
+            )
+
+            # Still return vector results for reference
+            return vector_results[:top_k], metadata
+
+    # Fall back to standard hybrid retrieval for local queries
+    results, metadata = hybrid_graph_retrieval(
+        query=query,
+        driver=driver,
+        vector_results=vector_results,
+        top_k=top_k,
+        collection_name=collection_name,
+    )
+    metadata["query_type"] = "local"
+    return results, metadata
 
 
 def format_graph_context_for_generation(

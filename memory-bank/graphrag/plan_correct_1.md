@@ -1,9 +1,14 @@
 # GraphRAG Improvement Plan: Hierarchy, PageRank, and Structured Relationships
 
 **Date:** 2026-01-09
-**Status:** Planning
+**Status:** ✅ IMPLEMENTED
 **Priority:** Medium
-**Estimated Scope:** 3 features, ~500 lines of code changes
+**Actual Scope:** 4 new modules + updates to existing files (~800 lines of code)
+
+> **Implementation Summary:**
+> All three gaps have been addressed plus map-reduce for global queries.
+> - New modules: `hierarchy.py`, `centrality.py`, `map_reduce.py`
+> - Updated: `schemas.py`, `community.py`, `query.py`, `config.py`, `prompts.py`
 
 ---
 
@@ -11,11 +16,12 @@
 
 This plan addresses three gaps between the current GraphRAG implementation and the original Microsoft Research paper (arXiv:2404.16130). These improvements will enable better global query handling, smarter entity prioritization, and structured relationship access at query time.
 
-| Gap | Current State | Target State |
-|-----|---------------|--------------|
-| Hierarchical Communities | Level 0 only | Levels 0, 1, 2+ with summaries |
-| PageRank Centrality | Schema exists, never computed | Computed and used for ranking |
-| Relationships in JSON | Count only, description in summary | Structured list in JSON |
+| Gap | Current State | Target State | Status |
+|-----|---------------|--------------|--------|
+| Hierarchical Communities | Level 0 only | Levels 0, 1, 2+ with summaries | ✅ Done |
+| PageRank Centrality | Schema exists, never computed | Computed and used for ranking | ✅ Done |
+| Relationships in JSON | Count only, description in summary | Structured list in JSON | ✅ Done |
+| Map-Reduce for Global Queries | Not implemented | Async parallel map + reduce | ✅ Done |
 
 ---
 

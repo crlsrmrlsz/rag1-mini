@@ -761,6 +761,24 @@ GRAPHRAG_TOP_COMMUNITIES = 3        # Number of communities to retrieve
 GRAPHRAG_TRAVERSE_DEPTH = 2         # Hops for entity traversal
 GRAPHRAG_RRF_K = 60                 # RRF constant for score fusion
 
+# Hierarchical community parameters (Microsoft GraphRAG paper)
+# Level 0 (C0) = finest granularity, Level 2 (C2) = coarsest (corpus themes)
+GRAPHRAG_MAX_HIERARCHY_LEVELS = 3   # Number of levels: C0, C1, C2
+GRAPHRAG_LEVEL_MIN_SIZES = {        # Min entities per community at each level
+    0: 3,   # C0: fine-grained (3+ entities)
+    1: 5,   # C1: medium (5+ entities)
+    2: 10,  # C2: coarse (10+ entities)
+}
+
+# PageRank centrality parameters
+GRAPHRAG_PAGERANK_DAMPING = 0.85    # Standard damping factor
+GRAPHRAG_PAGERANK_ITERATIONS = 20   # Max iterations for convergence
+
+# Map-reduce for global queries (Microsoft GraphRAG paper)
+GRAPHRAG_MAP_REDUCE_TOP_K = 5       # Communities for map-reduce
+GRAPHRAG_MAP_MAX_TOKENS = 300       # Max tokens per map response
+GRAPHRAG_REDUCE_MAX_TOKENS = 500    # Max tokens for reduce response
+
 # Output directory for graph data (under chunks since graph derives from chunks)
 DIR_GRAPH_DATA = DIR_FINAL_CHUNKS / "graph"
 

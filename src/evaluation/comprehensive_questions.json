@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "version": "3.0",
+    "version": "3.1",
     "created": "2025-12-24",
-    "description": "Curated 15-question subset for comprehensive evaluation: 5 single-concept + 10 cross-domain. Synced with test_questions.json version 4.1. Cross-domain questions require retrieval from both neuroscience AND philosophy sources.",
+    "description": "Curated 17-question subset for comprehensive evaluation: 5 single-concept + 12 cross-domain. Synced with test_questions.json version 4.2. Cross-domain questions require retrieval from both neuroscience AND philosophy sources. Added neuro_eagleman_02 and cross_wisdom_laotzu_schopenhauer_01.",
     "selection_criteria": "Multi-source retrieval, synthesis requirement, semantic diversity, discrimination power",
-    "total_questions": 15,
-    "updated": "2025-12-31"
+    "total_questions": 17,
+    "updated": "2026-01-09"
   },
   "questions": [
     {
@@ -211,6 +211,31 @@
         "Fundamentals of Cognitive Neuroscience,  A_Beginners Guide(Nicole M. Gage Bernard)",
         "Behave, The_Biology of Humans at Our Best Worst (Robert M. Sapolsky)",
         "The Analects Conclusions and Conversations (Confucius)"
+      ]
+    },
+    {
+      "id": "neuro_eagleman_02",
+      "category": "neuroscience",
+      "difficulty": "cross_domain",
+      "question": "What are the main topics covered in the book Brain and Behavior: A Cognitive Neuroscience Perspective by Eagleman and Downar?",
+      "reference": "Brain and Behavior: A Cognitive Neuroscience Perspective is a comprehensive textbook covering how the brain processes information, builds memories, navigates decisions, and produces human behavior. The main topics include: (1) Introduction to cognitive neuroscience - the mission of understanding how 100 billion neurons produce a human being; (2) Brain and Nervous System structure - vertebrate brain evolution, central and peripheral nervous systems, autonomic functions; (3) Neurons and Synapses - cellular basis of neural communication, neurotransmitters, synaptic transmission; (4) Neuroplasticity - brain's ability to rewire and reorganize, cortical remapping, phantom limbs, sensitive periods; (5) Vision - visual perception, retina structure, primary visual cortex, retinotopic organization; (6) Other Senses - hearing, touch, taste, smell, proprioception, somatosensory processing; (7) Motor System - movement control, neuromuscular junction, spinal reflexes, corticospinal tract; (8) Attention and Consciousness - selective attention, change blindness, neural correlates of consciousness, binocular rivalry; (9) Memory - working memory, long-term memory, implicit vs explicit, hippocampus, the famous H.M. case; (10) Sleep - REM vs NREM, sleep cycles, circadian rhythms, dreams; (11) Language and Lateralization - language processing, hemispheric specialization, Broca's and Wernicke's areas; (12) Decision Making - prefrontal cortex, cognitive biases, risk assessment; (13) Emotions - amygdala, fear conditioning, emotional regulation; (14) Motivation and Reward - dopamine reward system, addiction, behavioral reinforcement; (15) Social Cognition - theory of mind, mirror neurons, empathy; (16) Neurological and Psychiatric Disorders - brain diseases and mental health conditions.",
+      "ground_truth_quote": "\"The field of cognitive neuroscience seeks to determine how the brain processes information, builds memories, navigates decisions, and ultimately produces a human being from trillions of smaller parts\" (Eagleman); \"The recognition that the innumerable facets of our behavior, thoughts, and experience are inseparably yoked to a vast, wet, chemical-electrical network called the nervous system has ranked among the most significant intellectual developments of our species\" (Eagleman); \"A typical neuron makes about 10,000 connections to neighboring neurons. Given the billions of neurons, this means there are as many connections in a single cubic centimeter of brain tissue as there are stars in the Milky Way galaxy\" (Eagleman); \"The brain distributes its resources according to what's important for the organism, and it does so by having do-or-die competition at every level, from neurons to brain regions\" (Eagleman); \"Although it appears that we are conscious of everything before our eyes, in fact we are consciously perceiving only the tiny fraction of the world that is at the focus of our attention\" (Eagleman)",
+      "expected_books": [
+        "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)"
+      ]
+    },
+    {
+      "id": "cross_wisdom_laotzu_schopenhauer_01",
+      "category": "cross_domain",
+      "difficulty": "cross_domain",
+      "question": "What are the main differences between Lao Tzu and Schopenhauer in their approach to the wisdom of life?",
+      "reference": "Lao Tzu and Schopenhauer both offer philosophies for living wisely, but their approaches differ fundamentally in tone, method, and metaphysical outlook. On ACTION AND EFFORT: Lao Tzu advocates wu wei (non-action or effortless action) - achieving results through minimal force, letting things unfold naturally rather than forcing outcomes. 'Wei wu wei: Do not do. Doing not-doing. You do nothing yet it gets done.' Schopenhauer, while also recommending withdrawal from worldly striving, frames this more pessimistically as avoiding suffering rather than achieving harmony with natural flow. On HAPPINESS AND SUFFERING: Schopenhauer is fundamentally pessimistic - he sees suffering as intrinsic to existence and defines happiness merely as the absence of pain: 'The two foes of human happiness are pain and boredom.' 'A healthy beggar is happier than an ailing king.' For Lao Tzu, contentment comes through acceptance and simplicity: 'To know enough's enough is enough to know.' Peace is found through releasing attachment, not just minimizing pain. On SOLITUDE AND SOCIETY: Both prefer withdrawal, but for different reasons. Schopenhauer sees solitude as necessary because ordinary people are vulgar and intellectually inferior: 'A man is sociable just in the degree in which he is intellectually poor and generally vulgar. For one's choice in this world does not go much beyond solitude on one side and vulgarity on the other.' Lao Tzu's withdrawal is for spiritual cultivation and inner stillness, not contempt for others: 'You don't have to go out the door to know what goes on in the world.' On STRENGTH AND POWER: Lao Tzu emphasizes paradoxical strength through softness: 'Nothing in the world is as soft, as weak, as water; nothing else can wear away the hard, the strong. Soft overcomes hard, weak overcomes strong.' Schopenhauer emphasizes intellectual power and inner mental wealth as the path to well-being. On THE SOURCE OF WISDOM: Lao Tzu points to the ineffable Tao - 'The way you can go isn't the real way' - and advocates naturalness over artificial constructs like morality and learning. Schopenhauer locates wisdom in personality, health, and intellectual cultivation: 'every man's chief and real existence is in his own skin, not in other people's opinions.' Despite these differences, both agree that external goods (wealth, status, reputation) matter far less than internal qualities, and both counsel against excessive desire and worldly ambition.",
+      "ground_truth_quote": "\"Wei wu wei: Do not do. Doing not-doing. To act without acting. Action by inaction. You do nothing yet it gets done\" (Lao Tzu); \"Nothing in the world is as soft, as weak, as water; nothing else can wear away the hard, the strong, and remain unaltered. Soft overcomes hard, weak overcomes strong\" (Lao Tzu); \"The way you can go isn't the real way. The name you can say isn't the real name\" (Lao Tzu); \"To know enough's enough is enough to know\" (Lao Tzu); \"The two foes of human happiness are pain and boredom\" (Schopenhauer); \"a healthy beggar is happier than an ailing king\" (Schopenhauer); \"A man is sociable just in the degree in which he is intellectually poor and generally vulgar. For one's choice in this world does not go much beyond solitude on one side and vulgarity on the other\" (Schopenhauer); \"every man's chief and real existence is in his own skin, and not in other people's opinions\" (Schopenhauer); \"The more a man has in himself, the less he will want from other people\" (Schopenhauer); \"There is not much to be got anywhere in the world. It is filled with misery and pain\" (Schopenhauer)",
+      "expected_books": [
+        "Tao te ching Lao_tzu (Lao Tzu)",
+        "Wisdom of Life (Schopenhauer)",
+        "Essays and Aphorisms (Arthur Schopenhauer)",
+        "The essays, counsels and maxims (Arthur Schopenhauer)"
       ]
     }
   ]

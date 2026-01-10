@@ -10,6 +10,8 @@ Phase 1: PDF Pre-Cleaning (manual)
 Phase 2: PDF to Markdown (Docling)
     ↓
 Phase 3: Markdown Cleaning (automated + manual review)
+    ↓
+Phase 4: NLP Segmentation
 ```
 
 Each phase addresses specific challenges encountered with complex academic texts, particularly neuroscience books with dense layouts. Philosophy books have a more regular structure in one column and chapters easier to process.
@@ -149,6 +151,114 @@ Output: "The brain controls behavior through"
 ```
 
 
+## Phase 4: NLP Segmentation
+
+Converts cleaned markdown into structured paragraphs with sentence-level granularity, preparing text for chunking strategies that require sentence boundaries.
+
+### Why Segmentation is Separate
+
+Chunking strategies like section chunking use sentence-level operations:
+
+| Chunking Requirement | Why NLP Segmentation Helps |
+|---------------------|---------------------------|
+| **2-sentence overlap** | Requires knowing where sentences begin and end |
+| **Context metadata** | Parses markdown headers into hierarchical paths |
+| **Quality filtering** | Removes noise that escaped markdown cleaning |
+
+Separating this step allows chunking strategies to work with clean, structured input rather than raw text.
+
+### Library Choice: scispaCy
+
+[scispaCy](https://allenai.github.io/scispacy/) is a spaCy fork trained on biomedical and scientific text. For this neuroscience/philosophy corpus, it handles academic writing patterns better than generic models:
+
+| Challenge | scispaCy Solution |
+|-----------|-------------------|
+| Academic abbreviations | Doesn't split on "et al.", "Fig.", "i.e." |
+| Long complex sentences | Trained on scientific writing with multiple clauses |
+| Parenthetical citations | "(Smith, 2020)" doesn't create sentence fragment |
+
+Configuration from `src/config.py`:
+```python
+SPACY_MODEL = "en_core_sci_sm"  # Fallback: en_core_web_sm
+MIN_SENTENCE_WORDS = 2          # Filter fragments
+VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')
+```
+
+### Implementation
+
+The segmenter uses a lazy singleton pattern to avoid reloading the spaCy model on each call:
+
+```python
+# src/content_preparation/segmentation/nlp_segmenter.py
+
+def segment_document(clean_text: str, book_name: str) -> list[dict]:
+    """Segment document into structured chunks with context."""
+
+    # Split by markdown headers, track chapter/section hierarchy
+    sections = re.split(r'(^#+\s+.*$)', clean_text, flags=re.MULTILINE)
+
+    for segment in sections:
+        # Update context from headers (# = chapter, ## = section)
+        if segment.startswith('#'):
+            # Track current_chapter, current_section
+            continue
+
+        # Process paragraphs
+        for paragraph in segment.split('\n\n'):
+            sentences = _get_sentences(paragraph)  # spaCy
+            valid_sentences, _ = _filter_sentences(sentences)
+
+            # Build output with context path
+            chunk_data = {
+                "context": f"{book_name} > {chapter} > {section}",
+                "text": " ".join(valid_sentences),
+                "sentences": valid_sentences,
+                "num_sentences": len(valid_sentences)
+            }
+```
+
+### Sentence Filtering
+
+Sentences are filtered to remove extraction artifacts:
+
+```python
+def _filter_sentences(sentences: list[str]) -> tuple[list[str], list[str]]:
+    """Filter out noise sentences."""
+    for sent in sentences:
+        # Too short (fragments from diagram labels)
+        if len(sent.split()) < MIN_SENTENCE_WORDS:
+            removed.append(f"[Too short] {sent}")
+        # Starts lowercase (mid-sentence artifacts)
+        elif sent[0].islower():
+            removed.append(f"[Starts lowercase] {sent}")
+        # No terminal punctuation (incomplete extractions)
+        elif not sent.endswith(VALID_ENDINGS):
+            removed.append(f"[No terminal punctuation] {sent}")
+        else:
+            kept.append(sent)
+```
+
+### Output Format
+
+Each book produces a JSON file with structured paragraphs:
+
+```json
+[
+    {
+        "context": "Behave > Chapter 5 > Us vs Them",
+        "text": "The amygdala activates rapidly when viewing faces of other races. This response occurs within 50 milliseconds.",
+        "sentences": [
+            "The amygdala activates rapidly when viewing faces of other races.",
+            "This response occurs within 50 milliseconds."
+        ],
+        "num_sentences": 2
+    }
+]
+```
+
+A human-readable markdown version is also saved for inspection, showing each paragraph with its context and sentence breakdown.
+
+
 
 ## Data Flow
 
@@ -178,6 +288,9 @@ python -m src.stages.run_stage_1_extraction
 
 # Stage 2: Automated cleaning (reads from 02_manual_review/)
 python -m src.stages.run_stage_2_processing
+
+# Stage 3: NLP Segmentation
+python -m src.stages.run_stage_3_segmentation
 ```
 
 
@@ -188,9 +301,11 @@ python -m src.stages.run_stage_2_processing
 |------|---------|
 | `src/content_preparation/extraction/docling_parser.py` | Docling PDF extraction |
 | `src/content_preparation/cleaning/text_cleaner.py` | Regex cleaning orchestration |
-| `src/config.py` (lines 45-109) | All regex patterns and thresholds |
+| `src/content_preparation/segmentation/nlp_segmenter.py` | spaCy sentence segmentation |
+| `src/config.py` (lines 45-133) | Cleaning patterns, NLP settings |
 | `src/stages/run_stage_1_extraction.py` | Stage 1 CLI runner |
 | `src/stages/run_stage_2_processing.py` | Stage 2 CLI runner |
+| `src/stages/run_stage_3_segmentation.py` | Stage 3 CLI runner |
 
 
 
@@ -220,7 +335,11 @@ python -m src.stages.run_stage_2_processing
 
 ## References
 
-**Open-source**
+**NLP Segmentation**
+- [scispaCy](https://allenai.github.io/scispacy/) - spaCy models for biomedical/scientific text (Allen AI)
+- [spaCy](https://spacy.io/) - Industrial-strength NLP library
+
+**PDF Extraction (Open-source)**
 - [PyMuPDF](https://pymupdf.readthedocs.io/) - Rule-based coordinate extraction, 0.1s/page, AGPL
 - [MinerU](https://github.com/opendatalab/MinerU) - Modular pipeline (YOLO + PaddleOCR), AGPL
 - [Marker](https://github.com/VikParuchuri/marker) - Modular pipeline (Surya OCR), GPL

@@ -200,29 +200,33 @@ python -m src.stages.run_stage_2_processing
 2. **Some pre/post cleaning is essential to get perfect texts**: It is difficult to rely completely on conversion tools to get perfect texts. Errors depend also on specific PDF layout, more variety in corpus layout means more cleaning patterns to identify. There is also a trade off between the quality of the text entering the chunking phase and the amount of effort dedicated. If I had to do this for a production project I would first measure the effect of this initial errors in the final quality to see how much effort is necessary.
 
 
-3. **You need to find the right tools**. The 2025-2026 PDF extraction landscape offers several tiers of solutions. Traditional parsers like PyMuPDF are blazing fast (0.1s/page) but struggle with multi-column layouts. ML-based tools like MinerU (48K GitHub stars), Docling, and Marker use vision models for layout understanding and handle complex documents well. RAG-native commercial parsers like LlamaParse ($0.003-0.09/page) achieve near-99% accuracy on complex documents with tables and figures, with direct LlamaIndex integration. At the cutting edge, IBM's Granite-Docling-258M consolidates multiple single-purpose models into a compact VLM that handles tables (0.97 TEDS score), equations, code, and charts in a single pass—available under Apache 2.0 and designed to complement the Docling library. Frontier VLMs (Claude, Gemini, GPT-4/5) can achieve 90%+ precision on document extraction with minimal post-processing, but at significant cost per page and with API rate limits that don't scale for batch processing.
+3. **You need to find the right tools**. The 2025-2026 PDF extraction landscape offers several tiers of solutions, each with different tradeoffs:
 
-   For this project's scope—a small corpus of academic books without equations or citation parsing needs—Docling was the right choice: MIT licensed, CPU-optimized (no GPU required), natively removes headers/footers/captions, and integrates directly with LangChain and LlamaIndex. It struck the balance between extraction quality and zero marginal cost for a learning project. That said, for a production system with budget, the calculus changes. Sending PDFs page-by-page to Claude or Gemini 2.5 Pro would likely produce near-perfect extraction with no manual cleanup, especially for philosophy books with regular one-column layouts. The tradeoff is cost ($0.01-0.10+ per page for vision processing) versus engineering time spent on post-processing. For a handful of books in a learning context, spending weeks building extraction pipelines is valuable—it teaches the fundamentals of document understanding that RAG practitioners should know. For a company processing thousands of documents daily, paying for frontier model APIs often makes more economic sense than maintaining extraction infrastructure.
+    - **Rule-based parsers**: PyMuPDF extracts text by reading PDF object coordinates directly. Blazing fast (0.1s/page), CPU-only, zero cost, but no semantic understanding—struggles with multi-column layouts and mixed content.
 
-   **If tables and figures were needed**, the approach would change significantly. Tables require specialized models—Docling's TableFormer achieves 97.9% structure accuracy, while LlamaParse and Reducto offer strong alternatives for complex financial tables. For figures, the challenge is not extraction but interpretation: PaperQA2's approach creates separate media objects with LLM-generated synthetic captions that can be embedded without polluting the source text. Scientific diagrams benefit from domain-specific tools like DECIMER for chemical structures or dedicated chart-to-data parsers. The key architectural decision is whether to embed figure descriptions inline (simpler but adds noise) or maintain them as linked metadata (cleaner but requires more complex retrieval). For a corpus heavy in tables and figures, I would likely use Granite-Docling or LlamaParse as the primary parser, with Camelot as a fallback for borderless tables, and generate VLM-based figure descriptions at indexing time rather than relying on extracted captions.
+    - **Hybrid ML pipelines**: MinerU and Marker combine object detection (YOLO, Detectron2) for layout analysis with OCR engines (PaddleOCR, Surya). Good balance of speed and accuracy, GPU recommended but not required. MinerU leads with 48K GitHub stars, AGPL licensed.
+
+    - **Document Understanding Models**: Docling uses transformer-based models (DocLayNet, TableFormer) trained specifically on document structure. CPU-optimized (~2.5 pages/sec on M3 Max), MIT licensed, 97.9% table accuracy, native RAG framework integrations.
+
+    - **Compact Document VLMs**: Granite-Docling-258M (IBM, Apache 2.0) consolidates layout, tables, equations, and code into a single 258M parameter model. Achieves 0.97 TEDS on tables, designed to complement Docling. GOT-OCR 2.0 (580M params) offers similar unified capabilities.
+
+    - **Commercial RAG parsers**: LlamaParse ($0.003-0.09/page) provides GenAI-native parsing with ~99% accuracy on complex documents, direct LlamaIndex integration, and agentic multi-pass correction.
+
+    - **Frontier VLMs**: Claude Opus 4.5, Gemini 3 Pro, and GPT-5.2 can achieve 90%+ precision with minimal post-processing. Near-perfect for simple layouts, but expensive ($0.01-0.10+/page for vision), API rate limits don't scale for batch processing, and context windows limit page-by-page throughput.
+
+   For this project's scope—a small corpus of academic books  excluding citations, equations, images and tables, and without access to GPU and much time to dedicate—Docling was a good choice. For a company processing thousands of documents daily, paying for frontier model APIs often makes more economic sense than maintaining extraction infrastructure.
+
 
 
 
 ## References
 
-**Open-source parsers**
-- [Docling](https://github.com/docling-project/docling) - IBM Research document parser with TableFormer, MIT licensed
-- [Granite-Docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M) - Compact VLM for end-to-end document conversion (tables, equations, code), Apache 2.0
-- [MinerU](https://github.com/opendatalab/MinerU) - High-accuracy PDF extraction with DocLayout-YOLO and PaddleOCR
-- [Marker](https://github.com/VikParuchuri/marker) - GPU-accelerated PDF to Markdown with Surya OCR
-- [pymupdf4llm](https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/) - Fast LLM-ready PDF extraction (0.12s/page)
-- [Camelot](https://github.com/camelot-dev/camelot) - Best-in-class table extraction with Lattice/Stream modes
-- [GROBID](https://github.com/kermitt2/grobid) - Scientific document parsing with 0.90 F1 on reference extraction
-- [Nougat](https://github.com/facebookresearch/nougat) - Meta AI's LaTeX-native parser for arXiv-style papers
-- [GOT-OCR 2.0](https://github.com/Ucas-HaoranWei/GOT-OCR2.0) - Unified VLM for text, tables, formulas, and diagrams
-
-**Commercial/RAG-native parsers**
-- [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - GenAI-native parsing with LlamaIndex integration ($0.003-0.09/page)
-- [Reducto](https://reducto.ai/) - Agentic OCR with bounding box citations for RAG provenance tracking
+- [PyMuPDF](https://pymupdf.readthedocs.io/) - Rule-based PDF parser, 0.1s/page, AGPL licensed
+- [MinerU](https://github.com/opendatalab/MinerU) - Hybrid ML pipeline with DocLayout-YOLO and PaddleOCR, AGPL licensed
+- [Marker](https://github.com/VikParuchuri/marker) - Hybrid ML pipeline with Surya OCR, GPL licensed
+- [Docling](https://github.com/docling-project/docling) - Document understanding with DocLayNet and TableFormer, MIT licensed
+- [Granite-Docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M) - Compact 258M VLM for end-to-end document conversion, Apache 2.0
+- [GOT-OCR 2.0](https://github.com/Ucas-HaoranWei/GOT-OCR2.0) - Unified 580M VLM for text, tables, formulas, and diagrams, Apache 2.0
+- [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - Commercial RAG-native parser, $0.003-0.09/page
 
 

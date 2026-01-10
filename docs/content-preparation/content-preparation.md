@@ -208,7 +208,7 @@ python -m src.stages.run_stage_2_processing
 
     - **End-to-end Document VLMs**: Single unified vision-language models trained to go directly from image to structured text. Granite-Docling-258M (IBM, Apache 2.0, 258M params, 0.97 TEDS on tables) and GOT-OCR 2.0 (580M params, Apache 2.0) consolidate layout, tables, equations, and code into one model—replacing entire pipelines.
 
-    - **Commercial parsers**: LlamaParse ($0.003-0.09/page, LlamaIndex integration, ~99% accuracy), Reducto ($0.015/credit, bounding box citations for provenance), Azure Document Intelligence ($1.50/1K pages + add-ons, LaTeX formula extraction), Mathpix ($0.0035/page, best for equations).
+    - **Commercial parsers**: LlamaParse ($0.003-0.09/page, LlamaIndex integration, ~99% accuracy), Reducto ($0.015/credit, bounding box citations for provenance). Major cloud options: Azure Document Intelligence ($1.50/1K + add-ons, LaTeX formula extraction) and Google Document AI ($1.50/1K + add-ons, 200+ languages, Gemini-powered). For equations: Mathpix ($0.0035/page).
 
     - **Frontier VLMs**: Claude Opus 4.5, Gemini 3 Pro, and GPT-5.2 can achieve 90%+ precision with minimal post-processing. Near-perfect for simple layouts, but expensive ($0.01-0.10+/page for vision), API rate limits don't scale for batch processing, and context windows limit page-by-page throughput.
 
@@ -231,6 +231,7 @@ python -m src.stages.run_stage_2_processing
 - [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - RAG-native, $0.003-0.09/page
 - [Reducto](https://reducto.ai/) - Agentic OCR with provenance, $0.015/credit
 - [Azure Document Intelligence](https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence) - LaTeX formulas, $1.50/1K pages
+- [Google Document AI](https://cloud.google.com/document-ai) - 200+ languages, Gemini-powered, $1.50/1K pages
 - [Mathpix](https://mathpix.com/) - Best for equations, $0.0035/page
 
 

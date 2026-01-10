@@ -126,7 +126,12 @@ In summary, humans care about others' opinions due to a complex interplay of bio
 
 ## Corpus
 
-List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. The tokens are calculated with *tiktoken* with *cl100k_base encoding* (GPT-4 / *text-embedding-3-large* tokenizer).
+List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. 
+
+<details>
+<summary><strong>List of books</strong> (click to expand)</summary>
+
+The tokens are calculated with *tiktoken* with *cl100k_base encoding* (GPT-4 / *text-embedding-3-large* tokenizer).
 
 | Book | Author | Category | Tokens |
 |------|--------|----------|--------|
@@ -151,6 +156,7 @@ List of books used to get an idea of the scope and amount of tokens to search ov
 | Tao Te Ching | Lao Tzu | Philosophy/Wisdom | 20,415 |
 | **Total** | **19 books** | | **3.17M** |
 
+</details>
 
 ## Key Insights
 

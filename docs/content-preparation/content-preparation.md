@@ -179,7 +179,7 @@ python -m src.stages.run_stage_1_extraction
 python -m src.stages.run_stage_2_processing
 ```
 
----
+
 
 ## Key Files
 
@@ -191,7 +191,7 @@ python -m src.stages.run_stage_2_processing
 | `src/stages/run_stage_1_extraction.py` | Stage 1 CLI runner |
 | `src/stages/run_stage_2_processing.py` | Stage 2 CLI runner |
 
----
+
 
 ## Lessons Learned
 

@@ -2,11 +2,11 @@
 
 ## About This Project
 
-RAGLab is a **learning and showcase project** created to experiment with RAG (Retrieval-Augmented Generation) improvement techniques. I built this to understand how different chunking strategies, query preprocessing methods, and evaluation approaches affect RAG system performance.
+RAGLab is a **learning and showcase project** created to experiment with RAG (Retrieval-Augmented Generation) improvement techniques. I built this to understand data processing, how different chunking strategies and query preprocessing methods affect performance, and to learn how evaluate with RAGAS.
 
 **Important:** The data used in this project (19 books on neuroscience and philosophy) is **not included** in the repository due to intellectual property protection. The code is published for educational purposes.
 
-You can use this project to:
+You could use this project to:
 - Learn how a complete RAG pipeline works
 - Create your own dataset with your own documents
 - Experiment with different RAG techniques

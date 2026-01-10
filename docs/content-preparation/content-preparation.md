@@ -206,9 +206,9 @@ python -m src.stages.run_stage_2_processing
 
     - **Modular ML pipelines**: MinerU, Marker, and Docling chain multiple specialized models: object detection (YOLO, RT-DETR) for layout regions, OCR engines (PaddleOCR, Surya) for text extraction, and optional models for tables or formulas. Good accuracy, GPU recommended. MinerU (48K stars, AGPL), Marker (GPL), Docling (MIT, ~2.5 pages/sec CPU, 97.9% table accuracy, native RAG framework integrations).
 
-    - **End-to-end Document VLMs**: Single unified vision-language models trained to go directly from image to structured text. Granite-Docling-258M (IBM, Apache 2.0, 258M params, 0.97 TEDS on tables) and GOT-OCR 2.0 (580M params, Apache 2.0) consolidate layout, tables, equations, and code into one model—replacing entire pipelines.
+    - **End-to-end Document VLMs**: Single unified vision-language models trained to go directly from image to structured text. Granite-Docling-258M (IBM, Apache 2.0, 258M params, 0.97 TEDS on tables) and GOT-OCR 2.0 (580M params, Apache 2.0 on HuggingFace) consolidate layout, tables, equations, and code into one model—replacing entire pipelines.
 
-    - **Commercial parsers**: LlamaParse ($0.003-0.09/page, LlamaIndex integration, ~99% accuracy), Reducto ($0.015/credit, bounding box citations for provenance). Major cloud options: Azure Document Intelligence ($1.50/1K + add-ons, LaTeX formula extraction) and Google Document AI ($1.50/1K + add-ons, 200+ languages, Gemini-powered). For equations: Mathpix ($0.0035/page).
+    - **Commercial parsers**: LlamaParse ($0.003-0.09/page, LlamaIndex integration, ~99% accuracy), Reducto ($0.015/credit, bounding box citations for provenance). Major cloud options: Azure Document Intelligence (Read: $1.50/1K, Prebuilt: $10/1K, Formula add-on: $6/1K) and Google Document AI ($1.50/1K, 200+ languages, Gemini-powered). For equations: Mathpix ($0.005/page, $0.0035 at volume).
 
     - **Frontier VLMs**: Claude Opus 4.5, Gemini 3 Pro, and GPT-5.2 can achieve 90%+ precision with minimal post-processing. Near-perfect for simple layouts, but expensive ($0.01-0.10+/page for vision), API rate limits don't scale for batch processing, and context windows limit page-by-page throughput.
 
@@ -221,17 +221,17 @@ python -m src.stages.run_stage_2_processing
 
 **Open-source**
 - [PyMuPDF](https://pymupdf.readthedocs.io/) - Rule-based coordinate extraction, 0.1s/page, AGPL
-- [MinerU](https://github.com/opendatalab/MinerU) - Modular pipeline (YOLO + PaddleOCR), 48K stars, AGPL
+- [MinerU](https://github.com/opendatalab/MinerU) - Modular pipeline (YOLO + PaddleOCR), AGPL
 - [Marker](https://github.com/VikParuchuri/marker) - Modular pipeline (Surya OCR), GPL
 - [Docling](https://github.com/docling-project/docling) - Modular pipeline (RT-DETR + TableFormer), MIT
 - [Granite-Docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M) - End-to-end VLM, 258M params, Apache 2.0
-- [GOT-OCR 2.0](https://github.com/Ucas-HaoranWei/GOT-OCR2.0) - End-to-end VLM, 580M params, Apache 2.0
+- [GOT-OCR 2.0](https://huggingface.co/stepfun-ai/GOT-OCR2_0) - End-to-end VLM, 580M params, Apache 2.0
 
 **Commercial**
 - [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - RAG-native, $0.003-0.09/page
 - [Reducto](https://reducto.ai/) - Agentic OCR with provenance, $0.015/credit
-- [Azure Document Intelligence](https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence) - LaTeX formulas, $1.50/1K pages
-- [Google Document AI](https://cloud.google.com/document-ai) - 200+ languages, Gemini-powered, $1.50/1K pages
-- [Mathpix](https://mathpix.com/) - Best for equations, $0.0035/page
+- [Azure Document Intelligence](https://azure.microsoft.com/en-us/pricing/details/ai-document-intelligence/) - Read $1.50/1K, Prebuilt $10/1K, Formula add-on $6/1K
+- [Google Document AI](https://cloud.google.com/document-ai/pricing) - 200+ languages, Gemini-powered, $1.50/1K
+- [Mathpix](https://mathpix.com/pricing/api) - Best for equations, $0.005/page ($0.0035 at 1M+ volume)
 
 

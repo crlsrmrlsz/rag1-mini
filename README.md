@@ -64,7 +64,7 @@ Apart form standard RAG techniques, searching for improvements that could lead t
 For implementation details, design decisions, and code walkthroughs:
 
 - **[Getting Started](docs/getting-started.md)** — Installation, prerequisites, commands
-- **[Content Preparation](docs/content-preparation/README.md)** — PDF extraction, cleaning
+- **[Content Preparation](docs/content-preparation/README.md)** — PDF extraction, cleaning, segmentation
 - **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
 - **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
 - **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results

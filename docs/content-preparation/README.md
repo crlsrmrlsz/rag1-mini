@@ -116,6 +116,8 @@ After Docling extraction, there were still some errors, and perhaps too obsessed
 
 I am not sure if it is worth the effort to get perfect data, each case would need to consider effort vs quality. Using 800 token chunks, the errors would affect about 3-5% of the chunks. That does not seem too much but those are non recoverable concepts that will accumulate to the losses in next phases. Perhaps LLM could still extract some information from disordered text, and concepts will appear several times along the corpus, but with this kind of so specific knowledge I preferred to avoid as many errors as possible.
 
+This phase outputs **clean and structured markdown divided in sections (headings)**. This structure will be leveraged downstream to avoid mixing content of different sections in chunking.
+
 ### Manual Review (Optional)
 
 Location: `data/processed/02_manual_review/`
@@ -153,18 +155,9 @@ Output: "The brain controls behavior through"
 
 ## Phase 4: NLP Segmentation
 
-Converts cleaned markdown into structured paragraphs with sentence-level granularity, preparing text for chunking strategies that require sentence boundaries.
+Converts cleaned markdown into structured **paragraphs with sentence-level granularity**, preparing text for chunking strategies that require sentence boundaries.
 
-### Why Segmentation is Separate
 
-Chunking strategies like section chunking use sentence-level operations:
-
-| Chunking Requirement | Why NLP Segmentation Helps |
-|---------------------|---------------------------|
-| **2-sentence overlap** | Requires knowing where sentences begin and end |
-| **Quality filtering** | Removes extraction artifacts spaCy misidentifies as sentences |
-
-Additionally, this stage extracts **context metadata** (book > chapter > section) from markdown headers — bundled here for convenience since both are needed before chunking.
 
 ### Library Choice: scispaCy
 
@@ -186,6 +179,8 @@ VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')
 ```
 
 ### Implementation
+
+The segmentation keeps section information as context metadata for future chunks. It also separates nlp-chunks in paragraphs.
 
 The segmenter uses a lazy singleton pattern to avoid reloading the spaCy model on each call:
 

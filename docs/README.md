@@ -10,8 +10,8 @@ New here? Start with **[Getting Started](getting-started.md)** for installation,
 
 | Section | What You'll Find |
 |---------|------------------|
-| [Content Preparation](content-preparation/content-preparation.md) | PDF extraction with Docling, markdown cleaning, and NLP sentence segmentation (Stages 1-3) |
-| [Chunking Strategies](chunking/) | Document splitting approaches: section-based, contextual retrieval, and RAPTOR hierarchical summarization (Stage 4) |
+| [Content Preparation](content-preparation/content-preparation.md) | PDF extraction with Docling, markdown cleaning, and NLP sentence segmentation |
+| [Chunking Strategies](chunking/) | Document splitting approaches: section-based, contextual retrieval, and RAPTOR hierarchical summarization  |
 | [Preprocessing Strategies](preprocessing/) | Query-time transformations: HyDE, query decomposition, GraphRAG, and cross-encoder reranking |
 | [Evaluation Framework](evaluation/) | RAGAS metrics, comprehensive grid search across configurations, and evaluation results |
 

@@ -1,5 +1,7 @@
 # Section Chunking (Baseline)
 
+[← Chunking Overview](README.md) | [Home](../../README.md)
+
 The baseline chunking strategy. Splits documents into fixed-size chunks while respecting section boundaries and maintaining sentence overlap for context continuity.
 
 **Type:** Index-time chunking | **LLM Calls:** 0 | **Tokens/Chunk:** ~800
@@ -147,8 +149,10 @@ These limitations motivate Contextual Chunking (adds LLM context) and RAPTOR (hi
 
 ---
 
-## Related
+## Navigation
 
-- [Contextual Chunking](contextual-chunking.md) - Adds LLM context to section chunks
-- [RAPTOR](raptor.md) - Hierarchical summarization alternative
-- [Chunking Overview](README.md) - Strategy comparison
+**Next:** [Contextual Chunking](contextual-chunking.md) — Adds LLM context to chunks
+
+**Related:**
+- [RAPTOR](raptor.md) — Hierarchical summarization alternative
+- [Chunking Overview](README.md) — Strategy comparison

@@ -64,8 +64,7 @@ Apart form standard RAG techniques, searching for improvements that could lead t
 For implementation details, design decisions, and code walkthroughs:
 
 - **[Getting Started](docs/getting-started.md)** — Installation, prerequisites, commands
-- **[Architecture](docs/architecture.md)** — Pipeline diagram, project structure
-- **[Content Preparation](docs/content-preparation/)** — PDF extraction, cleaning
+- **[Content Preparation](docs/content-preparation/README.md)** — PDF extraction, cleaning
 - **[Chunking Strategies](docs/chunking/)** — Section, Contextual, RAPTOR
 - **[Preprocessing Strategies](docs/preprocessing/)** — HyDE, Decomposition, GraphRAG
 - **[Evaluation Framework](docs/evaluation/)** — RAGAS metrics and results
@@ -126,7 +125,7 @@ In summary, humans care about others' opinions due to a complex interplay of bio
 
 ## Corpus
 
-List of books used to get an idea of the scope and amount of tokens to search over. It is just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other. 
+It is composed by just a set of books of mine selected more or less arbitrarily containing some of the content I want to ask about and relate to each other (Neuroscience & Philosophy). 
 
 <details>
 <summary><strong>List of books</strong> (click to expand)</summary>

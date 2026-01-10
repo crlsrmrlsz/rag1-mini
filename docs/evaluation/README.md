@@ -1,5 +1,7 @@
 # Evaluation Framework
 
+[← Reranking](../preprocessing/reranking.md) | [Home](../../README.md)
+
 > **Framework:** [RAGAS (Retrieval-Augmented Generation Assessment)](https://docs.ragas.io/)
 
 RAGLab uses RAGAS for systematic evaluation of RAG strategy combinations across a 5-dimensional grid.
@@ -204,7 +206,10 @@ Traces enable metric recalculation without re-running retrieval/generation.
 
 ---
 
-## Related
+## Navigation
 
-- [evaluation-workflow.md](../../memory-bank/evaluation-workflow.md) - Architecture diagrams, caching, retry logic
-- [comprehensive-evaluation-synthesis.md](../../memory-bank/insights/comprehensive-evaluation-synthesis.md) - Full analysis of evaluation results
+**Next:** [Evaluation Results](results.md) — Metrics and leaderboards
+
+**Related:**
+- [evaluation-workflow.md](../../memory-bank/evaluation-workflow.md) — Architecture diagrams, caching, retry logic
+- [comprehensive-evaluation-synthesis.md](../../memory-bank/insights/comprehensive-evaluation-synthesis.md) — Full analysis of evaluation results

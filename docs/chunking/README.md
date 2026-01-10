@@ -1,5 +1,7 @@
 # Chunking Strategies
 
+[← Content Preparation](../content-preparation/README.md) | [Home](../../README.md)
+
 Chunking determines how documents are split before embedding and indexing. This is an **index-time decision** — changing chunking strategy requires re-processing the entire corpus.
 
 ---
@@ -164,7 +166,10 @@ Start here:
 
 ---
 
-## Related
+## Navigation
 
+**Next:** [Section Chunking](section-chunking.md) — The baseline strategy
+
+**Related:**
 - [Preprocessing Strategies](../preprocessing/README.md) — Query-time transformations
 - [Evaluation Framework](../evaluation/README.md) — How strategies are compared

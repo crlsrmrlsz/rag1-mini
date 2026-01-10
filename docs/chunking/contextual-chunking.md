@@ -1,5 +1,7 @@
 # Contextual Chunking
 
+[← Section Chunking](section-chunking.md) | [Home](../../README.md)
+
 > **Source:** [Anthropic Blog: Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) | September 2024
 
 Prepends LLM-generated context to each chunk, improving embedding quality by disambiguating entities and situating content within the document.
@@ -223,8 +225,10 @@ For 19 books with ~5,000 total chunks:
 
 ---
 
-## Related
+## Navigation
 
-- [Section Chunking](section-chunking.md) - Prerequisite (contextual builds on section chunks)
-- [RAPTOR](raptor.md) - Alternative approach using hierarchical summaries
-- [Chunking Overview](README.md) - Strategy comparison
+**Next:** [RAPTOR](raptor.md) — Hierarchical summarization tree
+
+**Related:**
+- [Section Chunking](section-chunking.md) — Prerequisite (contextual builds on section chunks)
+- [Chunking Overview](README.md) — Strategy comparison

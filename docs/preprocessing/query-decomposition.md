@@ -1,5 +1,7 @@
 # Query Decomposition
 
+[← HyDE](hyde.md) | [Home](../../README.md)
+
 > **Paper:** [Question Decomposition for Retrieval-Augmented Generation](https://arxiv.org/abs/2507.00355) | Ammann et al. (Humboldt-Universitat) | July 2025
 
 Breaks complex multi-part questions into simpler sub-questions, retrieves for each independently, then merges results using Reciprocal Rank Fusion (RRF).
@@ -263,9 +265,11 @@ RIGHT: Use HyDE (pre-synthesizes the bridge) or
 
 ---
 
-## Related
+## Navigation
 
-- [HyDE](hyde.md) - Better for cross-domain (pre-synthesizes bridge)
-- [GraphRAG](graphrag.md) - Better for cross-domain (graph connects domains)
-- [RRF Implementation](../../src/rag_pipeline/retrieval/rrf.py) - Merge algorithm
-- [Preprocessing Overview](README.md) - Strategy comparison
+**Next:** [GraphRAG](graphrag.md) — Knowledge graph + communities for cross-document reasoning
+
+**Related:**
+- [HyDE](hyde.md) — Better for cross-domain (pre-synthesizes bridge)
+- [RRF Implementation](../../src/rag_pipeline/retrieval/rrf.py) — Merge algorithm
+- [Preprocessing Overview](README.md) — Strategy comparison

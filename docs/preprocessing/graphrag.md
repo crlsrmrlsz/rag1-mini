@@ -1,5 +1,7 @@
 # GraphRAG: Complete Deep Dive
 
+[← Query Decomposition](query-decomposition.md) | [Home](../../README.md)
+
 > **Paper:** [From Local to Global: A Graph RAG Approach to Query-Focused Summarization](https://arxiv.org/abs/2404.16130) | Edge et al. (Microsoft Research) | April 2024
 
 GraphRAG augments traditional RAG with knowledge graph structures to enable cross-document synthesis and thematic understanding. This document explains every detail of the implementation.
@@ -1302,13 +1304,12 @@ From comprehensive evaluation (102 configurations):
 
 ---
 
-## Related Documentation
+## Navigation
 
-- [RAPTOR](../chunking/raptor.md) - Alternative hierarchy via clustering
-- [HyDE](hyde.md) - Simpler cross-domain (no Neo4j)
-- [Query Decomposition](query-decomposition.md) - Sub-query strategy
-- [Preprocessing Overview](README.md) - Strategy comparison
+**Next:** [Reranking](reranking.md) — Cross-encoder for precision
 
-**Internal Reference:**
-- [GraphRAG Reference](../../memory-bank/graphrag/graphrag-reference.md) - Quick operational guide
-- [SOTA Report](../../memory-bank/graphrag/graphrag-sota-report.md) - 2025 landscape
+**Related:**
+- [RAPTOR](../chunking/raptor.md) — Alternative hierarchy via clustering
+- [HyDE](hyde.md) — Simpler cross-domain (no Neo4j)
+- [Query Decomposition](query-decomposition.md) — Sub-query strategy
+- [Preprocessing Overview](README.md) — Strategy comparison

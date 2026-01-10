@@ -1,5 +1,7 @@
 # Evaluation Results
 
+[← Evaluation Framework](README.md) | [Home](../../README.md)
+
 *Evaluation runs pending. This page will be populated with RAGAS metrics after running the comprehensive grid search.*
 
 ## Planned Evaluation
@@ -61,3 +63,7 @@ python -m src.stages.run_stage_7_evaluation --comprehensive
 - **Large alpha gap** = BM25 keywords matter for this corpus
 
 *Check back after evaluation runs are complete.*
+
+---
+
+**Start over:** [Getting Started](../getting-started.md) | [Home](../../README.md)

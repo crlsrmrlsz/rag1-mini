@@ -1,5 +1,7 @@
 # Getting Started
 
+[Home](../README.md)
+
 ## About This Project
 
 RAGLab is a **learning and showcase project** created to experiment with RAG (Retrieval-Augmented Generation) improvement techniques. I built this to understand data processing, how different chunking strategies and query preprocessing methods affect performance, and to learn how evaluate with RAGAS.
@@ -11,7 +13,6 @@ You could use this project to:
 - Create your own dataset with your own documents
 - Experiment with different RAG techniques
 
----
 
 ## Prerequisites
 
@@ -19,7 +20,7 @@ You could use this project to:
 - **Docker & Docker Compose** (for Weaviate and Neo4j)
 - **OpenRouter API key** (for embeddings and LLM calls) 
 
----
+
 
 ## Installation
 
@@ -88,11 +89,11 @@ docker compose down
 
 See `docker-compose.yml` for detailed configuration options and comments.
 
----
+
 
 ## Configuration
 
-Key settings are in `src/config.py`. Important parameters:
+Key settings are in `src/config.py`. Some important parameters:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -111,14 +112,13 @@ NEO4J_URI=bolt://localhost:7687
 NEO4J_PASSWORD=raglab_graphrag
 ```
 
----
 
 ## Project Structure
 
 ```
 src/
-├── content_preparation/    # Stages 1-3: PDF → clean text
-├── rag_pipeline/           # Stages 4-8: chunking, embedding, retrieval, generation
+├── content_preparation/    # PDF → clean text
+├── rag_pipeline/           # chunking, embedding, retrieval, generation
 │   ├── chunking/           # Section, contextual, semantic chunkers
 │   ├── embedding/          # OpenAI embedding API
 │   ├── indexing/           # Weaviate upload
@@ -175,7 +175,7 @@ When you run the pipeline, data flows through these folders:
 
 **Note:** Stages 4.5a, 4.5b, and 6b are optional advanced techniques. The basic pipeline is stages 1-7.
 
----
+
 
 ## Advanced Pipelines
 
@@ -202,23 +202,6 @@ python -m src.stages.run_stage_6b_neo4j        # Upload to Neo4j + run Leiden
 # Then use --preprocessing graphrag in evaluation or UI
 ```
 
-**Requires:** Neo4j running (`docker compose up -d neo4j`)
-
----
-
-## Running the UI
-
-```bash
-streamlit run src/ui/app.py
-```
-
-Open http://localhost:8501 in your browser. The UI allows you to:
-- Select embedding collection and search parameters
-- Choose preprocessing strategy (HyDE, decomposition, GraphRAG)
-- Ask questions and see retrieved chunks, LLM interactions, and final answers
-- Compare results across different configurations
-
----
 
 ## Quick Start
 
@@ -245,4 +228,6 @@ The fastest path to get a working RAG system with your own documents:
    streamlit run src/ui/app.py
    ```
 
-For detailed documentation on each technique, see the [Documentation Index](README.md).
+---
+
+**Next:** [Content Preparation](content-preparation/README.md) — PDF extraction and cleaning

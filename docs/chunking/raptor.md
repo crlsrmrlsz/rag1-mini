@@ -1,5 +1,7 @@
 # RAPTOR: Hierarchical Summarization Tree
 
+[← Contextual Chunking](contextual-chunking.md) | [Home](../../README.md)
+
 > **Paper:** [RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval](https://arxiv.org/abs/2401.18059) | Sarthi et al. (Stanford/Google) | ICLR 2024
 
 Builds a hierarchical tree of summaries from document chunks, enabling retrieval at multiple levels of abstraction. Answers both "What did Sapolsky say about cortisol?" and "What is the main argument of this book?"
@@ -268,9 +270,12 @@ python -m src.stages.run_stage_7_evaluation --collection RAG_raptor_embed3large_
 
 ---
 
-## Related
+## Navigation
 
-- [Section Chunking](section-chunking.md) - Prerequisite (RAPTOR uses section chunks as leaves)
-- [Contextual Chunking](contextual-chunking.md) - Alternative approach (can be combined: contextual leaves + RAPTOR hierarchy)
-- [GraphRAG](../preprocessing/graphrag.md) - Different hierarchy via knowledge graphs instead of clustering
-- [Chunking Overview](README.md) - Strategy comparison
+**Next:** [Query-Time Strategies](../preprocessing/README.md) — How queries are transformed
+
+**Related:**
+- [Section Chunking](section-chunking.md) — Prerequisite (RAPTOR uses section chunks as leaves)
+- [Contextual Chunking](contextual-chunking.md) — Alternative approach (can be combined)
+- [GraphRAG](../preprocessing/graphrag.md) — Different hierarchy via knowledge graphs
+- [Chunking Overview](README.md) — Strategy comparison

@@ -1,5 +1,7 @@
 # HyDE: Hypothetical Document Embeddings
 
+[← Preprocessing Overview](README.md) | [Home](../../README.md)
+
 > **Paper:** [Precise Zero-Shot Dense Retrieval without Relevance Labels](https://arxiv.org/abs/2212.10496) | Gao et al. (CMU) | ACL 2023
 
 Generates hypothetical answers to the query, then searches for real documents similar to these answers. Bridges the semantic gap between question embeddings and document embeddings.
@@ -236,9 +238,11 @@ resources are depleted, making it harder to override impulses...
 
 ---
 
-## Related
+## Navigation
 
-- [Query Decomposition](query-decomposition.md) - Alternative for multi-part questions
-- [GraphRAG](graphrag.md) - Entity-based alternative with higher answer correctness
-- [Preprocessing Overview](README.md) - Strategy comparison
-- [Paper Implementation](https://github.com/texttron/hyde) - Official reference
+**Next:** [Query Decomposition](query-decomposition.md) — Breaking complex questions into sub-queries
+
+**Related:**
+- [GraphRAG](graphrag.md) — Entity-based alternative with higher answer correctness
+- [Preprocessing Overview](README.md) — Strategy comparison
+- [Paper Implementation](https://github.com/texttron/hyde) — Official reference

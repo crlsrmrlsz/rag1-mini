@@ -1,5 +1,7 @@
 # Query-Time Strategies
 
+[← RAPTOR](../chunking/raptor.md) | [Home](../../README.md)
+
 Query-time strategies transform or enhance retrieval at query time. This is a **query-time decision** — you can switch strategies without re-indexing.
 
 ---
@@ -233,8 +235,10 @@ Production deployment? ───────────────────
 
 ---
 
-## Related
+## Navigation
 
+**Next:** [HyDE](hyde.md) — Hypothetical document embeddings
+
+**Related:**
 - [Chunking Strategies](../chunking/README.md) — Index-time document splitting
 - [Evaluation Framework](../evaluation/README.md) — How strategies are compared
-- [RRF Implementation](../../src/rag_pipeline/retrieval/rrf.py) — Merge algorithm for multi-query

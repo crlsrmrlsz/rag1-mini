@@ -1,5 +1,6 @@
 # Content Preparation
 
+[← Getting Started](../getting-started.md) | [Home](../../README.md)
 
 This document covers the complete workflow to extract content from PDF books into clean markdown files ready to chunk. Content preparation follows three phases:
 
@@ -235,3 +236,6 @@ python -m src.stages.run_stage_2_processing
 - [Mathpix](https://mathpix.com/pricing/api) - Best for equations, $0.005/page ($0.0035 at 1M+ volume)
 
 
+---
+
+**Next:** [Chunking Strategies](../chunking/README.md) — How documents are split for embedding

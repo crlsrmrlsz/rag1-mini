@@ -1,5 +1,7 @@
 # Cross-Encoder Reranking
 
+[← GraphRAG](graphrag.md) | [Home](../../README.md)
+
 > **Model:** [mixedbread-ai/mxbai-rerank-xsmall-v1](https://huggingface.co/mixedbread-ai/mxbai-rerank-xsmall-v1) | MixedBread AI | BEIR NDCG: 43.9
 
 A second-stage retrieval step that re-scores candidates using a cross-encoder model. The cross-encoder sees query and document together, enabling deeper semantic matching than embedding similarity alone.
@@ -291,8 +293,10 @@ RERANK_INITIAL_K = 50  # Candidates before reranking
 
 ---
 
-## Related
+## Navigation
 
+**Next:** [Evaluation Framework](../evaluation/README.md) — RAGAS metrics and testing
+
+**Related:**
 - [Preprocessing Overview](README.md) — Query-time transformations
-- [Hybrid Search](../../memory-bank/evaluation-workflow.md) — Stage 1 retrieval
 - [Evaluation Framework](../evaluation/README.md) — Reranking disabled by default for speed

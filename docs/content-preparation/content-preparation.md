@@ -11,7 +11,7 @@ Phase 2: PDF to Markdown (Docling)
 Phase 3: Markdown Cleaning (automated + manual review)
 ```
 
-Each phase addresses specific challenges encountered with complex academic texts, particularly neuroscience books with dense layouts. Philosophy books have a more regular structure in one column and chapters more easy to process.
+Each phase addresses specific challenges encountered with complex academic texts, particularly neuroscience books with dense layouts. Philosophy books have a more regular structure in one column and chapters easier to process.
 
 
 
@@ -29,9 +29,9 @@ Before any automated extraction, PDFs are manually cleaned using PDF editing too
 | Notes sections | Often formatted as footnotes, sometimes at the end of chapters or end of book |
 | Appendices | Supplementary material, separate handling needed |
 
-This may seem unnecessary, but after facing the difficulties converting and cleaning downstream I decided to simplify thing from the start. 
+This may seem unnecessary, but after facing the difficulties converting and cleaning downstream I decided to simplify things from the start. 
 
-During conversion not every section was correctly identifyied, sometimes a heading appears in the middle of a paragraph or depending on book layout, some sections were not always detected, or had random errors, so cleaning the unwanted sections (complete pages) in advance was easier for me and ensure better quality in the data for next phases, although this obviously **won't scale for a bigger corpus**.
+During conversion not every section was correctly identified, sometimes a heading appears in the middle of a paragraph or depending on book layout, some sections were not always detected, or had random errors, so cleaning the unwanted sections (complete pages) in advance was easier for me and ensures better quality in the data for next phases, although this obviously **won't scale for a bigger corpus**.
 
 With expected future improvements in PDF text extraction models, this cleaning could be done during text extraction itself or afterwards over a properly structured markdown, removing unnecessary sections.
 
@@ -48,7 +48,7 @@ First attempts used [PyMuPDF4LLM](https://pymupdf.readthedocs.io/en/latest/pymup
 
 [Docling](https://github.com/docling-project/docling) (IBM Research) uses AI vision models for layout understanding, solving many of the problems PyMuPDF4LLM couldn't handle. I didn't need tables or images, which are possibly the most difficult elements to extract, so I couldn't test it thoroughly but worked quite well.
 
-Most of the errors I got appeared with multicolumn layouts, in some specific pages like this one where images were mixed in the middle of a paragraph or there were two different column layout in the same page. In this cases columns were mixed randomly and needed manual correction.
+Most of the errors I got appeared with multicolumn layouts, in some specific pages like this one where images were mixed in the middle of a paragraph or there were two different column layouts in the same page. In these cases columns were mixed randomly and needed manual correction.
 
 <div align="center">
   <img src="../../assets/page_columns.png" alt="Multi column page">
@@ -59,7 +59,7 @@ Most of the errors I got appeared with multicolumn layouts, in some specific pag
 
 ### Implementation
 
-Docling identify some elements semantically, like captions, tables, figures, headers or footers. It also allows you to directly remove them, so that simplifies next cleaning phase.
+Docling identifies some elements semantically, like captions, tables, figures, headers or footers. It also allows you to directly remove them, so that simplifies the next cleaning phase.
 
 Figures and tables were not extracted, as the complexity of extracting and parsing them correctly didn't pay off for the purpose of the project.
 
@@ -111,7 +111,7 @@ def extract_pdf(pdf_path: Path) -> str:
 
 After Docling extraction, there were still some errors, and perhaps too obsessed with the quality of the data, I performed two cleaning steps to refine the output.
 
-I am not sure if it is worth the effort to get perfect data, each case would need to consider effort vs quality. Using 800 token chunks, the errors would suppose about 3-5% of the chunks. That does not seem too much but those are non recoverable concepts that will accumulate to the looses in next phases. Perhaps LLM could still extract some information from disordered text, and concepts will appear several times along the corpus, but with this kind of so specific knowledge I prefered to avoid as many errors as possible.
+I am not sure if it is worth the effort to get perfect data, each case would need to consider effort vs quality. Using 800 token chunks, the errors would affect about 3-5% of the chunks. That does not seem too much but those are non recoverable concepts that will accumulate to the losses in next phases. Perhaps LLM could still extract some information from disordered text, and concepts will appear several times along the corpus, but with this kind of so specific knowledge I preferred to avoid as many errors as possible.
 
 ### Manual Review (Optional)
 
@@ -119,7 +119,7 @@ Location: `data/processed/02_manual_review/`
 
 Purpose: Catch extraction errors before automated cleaning:
 - Solve multicolumn errors (more than 40 pages from one specific book with this problem, lot of manual work, not scalable)
-- Verify heading hierarchy, some headings missing as headerr use to have the fancier layouts in those books (all headers were second level markdown header, did not get proper hierarchy in any book)
+- Verify heading hierarchy, some headings missing as headers used to have the fancier layouts in those books (all headers were second level markdown header, did not get proper hierarchy in any book)
 - Fix obvious extraction failures
 - Remove any remaining artifacts
 
@@ -127,7 +127,7 @@ Purpose: Catch extraction errors before automated cleaning:
 
 After manual inspection, I identified common patterns suitable for automated cleaning using regex. Each book had different specific errors from conversion, so this was again a very manual task to identify them. 
 
-These are some of the patters that were removed:
+These are some of the patterns that were removed:
 
 
 | Pattern | Example Match | Purpose |
@@ -141,7 +141,7 @@ These are some of the patters that were removed:
 
 
 
-There are also other structural cleaning like incorrectly splitted paragraphs based on punctuation:
+There are also other structural cleaning like incorrectly split paragraphs based on punctuation:
 ```
 Input:  "The brain controls\n\nbehavior through"
 Output: "The brain controls behavior through"
@@ -151,7 +151,7 @@ Output: "The brain controls behavior through"
 
 ## Data Flow
 
-The cleanning process was done moving files after each step to a different folder:
+The cleaning process was done moving files after each step to a different folder:
 
 ```
 data/raw/{corpus}/*.pdf (pre-cleaned manually)
@@ -195,9 +195,9 @@ python -m src.stages.run_stage_2_processing
 
 ## Lessons Learned
 
-1. **Text extraction from PDF takes an important amount of time and effort**. This at least was not expected for me. Extract text in reading order from PDF is not so easy when layouts are not standard one columns and include images, tables or other randome elements.
+1. **Text extraction from PDF takes an important amount of time and effort**. This was unexpected for me. Extracting text in reading order from PDF is not so easy when layouts are not standard one column and include images, tables or other random elements.
 
-2. **Some pre/post cleaning is essential to get perfect texts**: It is difficult to rely completely on conversion tools to get perfect texts. Errors depend also on specific PDF layout, more variety in corpus layout means more cleaning patterns to identify. There is also a trade off between the quality of the text entering the chunking phase and the amount of effort dedicated. If I had to do this for a production project I would first measure the effect of this initial errors in the final quality to see how much effort is necessary.
+2. **Some pre/post cleaning is essential to get perfect texts**: It is difficult to rely completely on conversion tools to get perfect texts. Errors depend also on specific PDF layout, more variety in corpus layout means more cleaning patterns to identify. There is also a tradeoff between the quality of the text entering the chunking phase and the amount of effort dedicated. If I had to do this for a production project I would first measure the effect of these initial errors in the final quality to see how much effort is necessary.
 
 
 3. **You need to find the right tools**. The 2025-2026 PDF extraction landscape offers several tiers of solutions, each with different tradeoffs:
@@ -212,7 +212,7 @@ python -m src.stages.run_stage_2_processing
 
     - **Frontier VLMs**: Claude Opus 4.5, Gemini 3 Pro, and GPT-5.2 can achieve 90%+ precision with minimal post-processing. Near-perfect for simple layouts, but expensive ($0.01-0.10+/page for vision), API rate limits don't scale for batch processing, and context windows limit page-by-page throughput.
 
-   For this project's scope—a small corpus of academic books  excluding citations, equations, images and tables, and without access to GPU and much time to dedicate—Docling was a good choice. For a company processing thousands of documents daily, paying for frontier model APIs often makes more economic sense than maintaining extraction infrastructure.
+   For this project's scope—a small corpus of academic books excluding citations, equations, images and tables, and without access to a GPU and much time to dedicate—Docling was a good choice. For a company processing thousands of documents daily, paying for frontier model APIs often makes more economic sense than maintaining extraction infrastructure.
 
 
 

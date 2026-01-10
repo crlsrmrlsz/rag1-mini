@@ -276,6 +276,7 @@ python -m src.stages.run_stage_7_evaluation --collection RAG_raptor_embed3large_
 
 **Related:**
 - [Section Chunking](section-chunking.md) — Prerequisite (RAPTOR uses section chunks as leaves)
+- [Semantic Chunking](semantic-chunking.md) — Embedding-based boundaries alternative
 - [Contextual Chunking](contextual-chunking.md) — Alternative approach (can be combined)
 - [GraphRAG](../preprocessing/graphrag.md) — Different hierarchy via knowledge graphs
 - [Chunking Overview](README.md) — Strategy comparison

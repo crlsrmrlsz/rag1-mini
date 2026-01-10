@@ -151,8 +151,9 @@ These limitations motivate Contextual Chunking (adds LLM context) and RAPTOR (hi
 
 ## Navigation
 
-**Next:** [Contextual Chunking](contextual-chunking.md) — Adds LLM context to chunks
+**Next:** [Semantic Chunking](semantic-chunking.md) — Embedding-based topic boundaries
 
 **Related:**
+- [Contextual Chunking](contextual-chunking.md) — LLM-generated context prepended
 - [RAPTOR](raptor.md) — Hierarchical summarization alternative
 - [Chunking Overview](README.md) — Strategy comparison

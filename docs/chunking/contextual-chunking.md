@@ -1,6 +1,6 @@
 # Contextual Chunking
 
-[← Section Chunking](section-chunking.md) | [Home](../../README.md)
+[← Semantic Chunking](semantic-chunking.md) | [Home](../../README.md)
 
 > **Source:** [Anthropic Blog: Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) | September 2024
 
@@ -231,4 +231,5 @@ For 19 books with ~5,000 total chunks:
 
 **Related:**
 - [Section Chunking](section-chunking.md) — Prerequisite (contextual builds on section chunks)
+- [Semantic Chunking](semantic-chunking.md) — Embedding-based boundaries alternative
 - [Chunking Overview](README.md) — Strategy comparison

@@ -6,170 +6,245 @@ Chunking determines how documents are split before embedding and indexing. This 
 
 ---
 
-## Strategy Overview
+## Why Chunking Matters for RAG
 
-```mermaid
-flowchart LR
-    subgraph SECTION["Section Chunking"]
-        S1["800 tokens"]
-        S2["2-sentence overlap"]
-        S3["No LLM calls"]
-    end
+Standard RAG systems treat chunks as independent units, but conceptual content — particularly philosophical arguments and neuroscience explanations — develops across many paragraphs. When a philosopher builds an argument about consciousness over 40 pages, or a neuroscientist traces the evolutionary origins of addiction through multiple chapters, naive chunking destroys the conceptual unity that makes these texts meaningful.
 
-    subgraph CONTEXTUAL["Contextual Chunking"]
-        C1["~900 tokens"]
-        C2["LLM context prefix"]
-        C3["1 call per chunk"]
-    end
+The fundamental insight driving recent RAG improvements is that **retrieval must operate at multiple levels of abstraction simultaneously**. Fine-grained chunks enable precise matching, but hierarchical summaries capture thematic coherence, and contextual enrichment helps embeddings understand what chunks are *about* rather than just what words they contain.
 
-    subgraph RAPTOR["RAPTOR"]
-        R1["Multi-level tree"]
-        R2["UMAP + GMM clustering"]
-        R3["~36 calls per book"]
-    end
+This project implements four chunking strategies that address different aspects of this challenge:
 
-    DOC["Documents"] --> SECTION
-    DOC --> CONTEXTUAL
-    DOC --> RAPTOR
-
-    style SECTION fill:#e8f5e9,stroke:#2e7d32
-    style CONTEXTUAL fill:#ede7f6,stroke:#512da8
-    style RAPTOR fill:#fff3e0,stroke:#ef6c00
-```
-
-#### Chunking Strategies (Index-Time)
-
-```mermaid
-flowchart TB
-    subgraph INPUT["Segmented Text"]
-        IN["Sentences with<br/>section metadata"]
-    end
-
-    subgraph STRATEGIES["Choose One Strategy"]
-        direction LR
-
-        FIXED["<b>Fixed-Size</b><br/>Baseline<br/>━━━━━━━━━<br/>800 tokens<br/>2-sentence overlap<br/>Section boundaries"]
-
-        SEM["<b>Semantic</b><br/>━━━━━━━━━<br/>Embedding similarity<br/>breakpoints<br/>Cosine threshold 0.4"]
-
-        CTX["<b>Contextual Retrieval</b><br/>Anthropic 2024<br/>━━━━━━━━━<br/>LLM-generated context<br/>prepended to chunks<br/>-35% retrieval failures"]
-
-        RAP["<b>RAPTOR</b><br/>arXiv:2401.18059<br/>━━━━━━━━━<br/>UMAP + GMM clustering<br/>Hierarchical summaries<br/>Multi-level tree"]
-    end
-
-    subgraph OUTPUT["Output"]
-        OUT["Chunks ready<br/>for embedding"]
-    end
-
-    IN --> FIXED & SEM & CTX & RAP --> OUT
-
-    style FIXED fill:#e8f5e9,stroke:#2e7d32
-    style SEM fill:#e8f5e9,stroke:#2e7d32
-    style CTX fill:#e8f5e9,stroke:#2e7d32
-    style RAP fill:#e8f5e9,stroke:#2e7d32
-```
+| Strategy | Core Innovation | Research Basis |
+|----------|-----------------|----------------|
+| **Section** | Respects document structure | Standard RAG baseline |
+| **Semantic** | Embedding-based topic boundaries | Chroma research (arXiv:2410.13070) |
+| **Contextual** | LLM-generated context prepended | Anthropic (Sep 2024) |
+| **RAPTOR** | Hierarchical summary tree | Stanford/Google (ICLR 2024) |
 
 ---
 
-## Strategy Comparison
+## Why Custom Implementation
 
-| Strategy | Paper | Tokens/Chunk | LLM Calls | Best For |
-|----------|-------|--------------|-----------|----------|
-| [**Section**](section-chunking.md) | — | ~800 | 0 | Baseline, fast iteration, cost-sensitive |
-| [**Contextual**](contextual-chunking.md) | [Anthropic](https://www.anthropic.com/news/contextual-retrieval) | ~900 | 1/chunk | Best answer correctness, production |
-| [**RAPTOR**](raptor.md) | [arXiv:2401.18059](https://arxiv.org/abs/2401.18059) | Variable | ~36/book | Theme questions, faithfulness |
+This project implements custom chunking rather than using LangChain or LlamaIndex. After evaluating both frameworks, custom implementation proved superior for this use case:
 
----
+### Feature Comparison
 
-## Performance Summary
+| Feature | RAGLab | LangChain | LlamaIndex |
+|---------|--------|-----------|------------|
+| **Token counting** | tiktoken (exact) | Character-based | Approximate |
+| **Section boundaries** | Respects markdown hierarchy | Not built-in | Basic |
+| **Sentence overlap** | Semantic units (2 sentences) | Character-based (50 chars) | Character-based |
+| **Semantic chunking** | Absolute threshold (0.4) | Percentile-based (experimental) | Percentile-based |
+| **Contextual Retrieval** | Anthropic's technique | Not available | Not available |
+| **RAPTOR hierarchical** | Full ICLR 2024 implementation | Not available | Not available |
+| **Oversized handling** | 3-tier graceful degradation | Basic recursive | Basic |
 
-From comprehensive evaluation across 102 configurations:
+### Key Decisions
 
-| Metric | Section | Contextual | RAPTOR |
-|--------|---------|------------|--------|
-| **Single-Concept Correctness** | 57.6% | **59.1%** | 57.9% |
-| **Cross-Domain Correctness** | 47.9% | **48.8%** | 48.4% |
-| **Faithfulness** | 95.0% | 93.9% | **95.2%** |
-| **Recall Drop (simple→complex)** | -16.6% | -16.8% | -19.7% |
+1. **Token-exact sizing**: LangChain's `RecursiveCharacterTextSplitter` uses character count by default. A "100 character" chunk could be 20 tokens or 40 tokens depending on content. RAGLab uses `tiktoken` with the exact embedding model tokenizer (`text-embedding-3-large`), ensuring chunks fit within embedding model sweet spots.
 
-**Key Insights:**
-1. **Contextual** achieves best answer correctness (+2.6% over baseline)
-2. **RAPTOR** achieves best faithfulness (95.2%) — less hallucination
-3. **Section** shows most consistent performance across query types
+2. **Section-aware boundaries**: Unlike pure sliding window approaches, RAGLab never crosses section boundaries. The author's organization provides natural semantic units that remain robust across query types.
 
----
+3. **Research implementations**: RAPTOR (ICLR 2024) and Contextual Retrieval (Anthropic, Sep 2024) are cutting-edge techniques not available in standard libraries. Implementing from research papers provides both learning value and production capability.
 
-## Trade-offs
-
-### Section Chunking
-- **Pros**: Zero cost, fast indexing, predictable chunks, most consistent
-- **Cons**: Loses document-level context in embeddings
-- **Use when**: Iterating quickly, cost-sensitive, simple queries
-
-### Contextual Chunking
-- **Pros**: +35% fewer retrieval failures (Anthropic), best correctness
-- **Cons**: LLM cost per chunk (~$2-3 for 5K chunks), longer indexing
-- **Use when**: Production deployments, ambiguous content
-
-### RAPTOR
-- **Pros**: Best faithfulness, answers theme questions, multi-level abstraction
-- **Cons**: Complex pipeline, many LLM calls, larger index
-- **Use when**: "What is this book about?", faithfulness-critical domains
+4. **Absolute thresholds**: LangChain's `SemanticChunker` uses percentile-based breakpoints (95th percentile of cosine distances). RAGLab uses an absolute threshold (0.4) based on Chroma research, providing consistent behavior across documents with varying similarity distributions.
 
 ---
 
 ## Shared Infrastructure
 
-All chunking strategies share:
+All chunking strategies share common components:
 
-| Component | Implementation |
-|-----------|----------------|
-| **Token counting** | `tiktoken` with `text-embedding-3-large` tokenizer |
-| **Embedding model** | `text-embedding-3-large` (1536 dimensions) |
-| **Vector storage** | Weaviate HNSW index + BM25 hybrid search |
-| **Chunk metadata** | `book_id`, `section`, `context` (hierarchical path) |
+| Component | Implementation | Purpose |
+|-----------|----------------|---------|
+| **Token counting** | `tiktoken` with `text-embedding-3-large` | Exact token counts matching embedding model |
+| **Embedding model** | `text-embedding-3-large` (3072 dims) | State-of-the-art dense retrieval |
+| **Vector storage** | Weaviate HNSW index + BM25 | Hybrid search (dense + keyword) |
+| **Chunk metadata** | `book_id`, `section`, `context` | Hierarchical path for filtering and display |
+
+### Chunk Schema
+
+Every chunk includes standardized metadata:
+
+```json
+{
+  "chunk_id": "BookName::chunk_42",
+  "book_id": "BookName",
+  "context": "BookName > Chapter 3 > Section 2",
+  "section": "Section 2",
+  "text": "The actual chunk content...",
+  "token_count": 750,
+  "chunking_strategy": "section"
+}
+```
+
+The `context` field preserves hierarchical position (Book > Chapter > Section), enabling:
+- Scoped retrieval ("only search Chapter 5")
+- Answer attribution ("This is from Chapter 3, Section 2")
+- Cross-reference tracking
+
+---
+
+## Strategy Comparison
+
+From comprehensive evaluation across 102 configurations (5 chunking strategies × search types × preprocessing strategies × alpha values × top_k):
+
+### Answer Quality Metrics
+
+| Strategy | Answer Correctness | Faithfulness | Relevancy |
+|----------|-------------------|--------------|-----------|
+| **Contextual** | **59.1%** (1st) | 93.9% | 85.5% |
+| RAPTOR | 57.9% (2nd) | **95.2%** (1st) | 81.5% |
+| Section | 57.6% (3rd) | 95.0% | **89.1%** (1st) |
+| Semantic 0.3 | 54.1% (4th) | 90.2% | 83.0% |
+| Semantic 0.75 | 50.8% (5th) | 85.4% | 83.0% |
+
+### Retrieval Metrics
+
+| Strategy | Context Precision | Context Recall | Combined |
+|----------|-------------------|----------------|----------|
+| Semantic 0.3 | **73.4%** | 93.3% | 83.4% |
+| **Contextual** | 71.7% | **96.3%** | **84.0%** |
+| Semantic 0.75 | 71.2% | 86.1% | 78.7% |
+| Section | 69.1% | 92.9% | 81.0% |
+| RAPTOR | 68.1% | 96.1% | 82.1% |
+
+### Key Findings
+
+1. **Recall matters more than precision**: Contextual chunking wins on answer correctness despite lower precision than Semantic 0.3. The generator LLM can filter irrelevant context (low precision is recoverable) but cannot invent missing information (low recall is unrecoverable).
+
+2. **Section provides best consistency**: Smallest performance degradation (-16.6% recall) when moving from simple to complex queries. The author's section organization provides natural semantic boundaries.
+
+3. **RAPTOR excels at faithfulness**: Highest faithfulness (95.2%) because pre-computed summaries are verified abstractions, reducing hallucination risk.
+
+4. **Avoid loose semantic thresholds**: Semantic 0.75 underperforms across all metrics. The loose threshold creates overly broad chunks that miss semantic coherence.
+
+---
+
+## Data Flow
+
+```
+Stage 3 Output                    Stage 4: Chunking                    Stage 5+
+─────────────────────────────────────────────────────────────────────────────────
+
+data/processed/04_nlp_chunks/     data/processed/05_final_chunks/     → Embedding
+    ├── book1.json                    ├── section/                     → Weaviate
+    ├── book2.json                    │   ├── book1.json               → Retrieval
+    └── ...                           │   └── book2.json
+                                      ├── contextual/
+         NLP-segmented                │   └── ...
+         paragraphs with              ├── semantic_0.4/
+         sentence boundaries          │   └── ...
+                                      └── raptor/
+                                          └── ...
+
+                                      Strategy-specific
+                                      chunk outputs
+```
+
+### Strategy Dependencies
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         NLP Chunks (Stage 3)        │
+                    │    Paragraphs with sentence lists   │
+                    └─────────────────────────────────────┘
+                                      │
+              ┌───────────────────────┼───────────────────────┐
+              │                       │                       │
+              ▼                       ▼                       ▼
+     ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+     │     Section     │    │    Semantic     │    │     RAPTOR      │
+     │   (Baseline)    │    │  (Similarity)   │    │  (Hierarchical) │
+     └─────────────────┘    └─────────────────┘    └─────────────────┘
+              │                                             │
+              │                                    Uses section as leaves
+              ▼                                             │
+     ┌─────────────────┐                                    │
+     │   Contextual    │◄───────────────────────────────────┘
+     │  (LLM context)  │
+     └─────────────────┘
+              │
+    Builds on section chunks
+```
 
 ---
 
 ## Running Chunking
 
 ```bash
-# Section (baseline)
+# Section (baseline) - No dependencies
 python -m src.stages.run_stage_4_chunking --strategy section
 
-# Contextual (requires section chunks first)
+# Semantic - No dependencies, specify threshold
+python -m src.stages.run_stage_4_chunking --strategy semantic --threshold 0.4
+
+# Contextual - Requires section chunks first
 python -m src.stages.run_stage_4_chunking --strategy contextual
 
-# RAPTOR (separate pipeline)
+# RAPTOR - Separate pipeline (Stage 4.5)
 python -m src.stages.run_stage_4_5_raptor
 ```
 
-Each strategy outputs to `data/processed/05_final_chunks/{strategy}/`.
+### Output Locations
+
+| Strategy | Output Directory |
+|----------|------------------|
+| Section | `data/processed/05_final_chunks/section/` |
+| Semantic | `data/processed/05_final_chunks/semantic_0.4/` |
+| Contextual | `data/processed/05_final_chunks/contextual/` |
+| RAPTOR | `data/processed/05_final_chunks/raptor/` |
 
 ---
 
-## Selection Guide
+## Strategy Selection Guide
 
 ```
 Start here:
     │
     ├── Need fast iteration? ──────────────► Section
+    │   (No LLM calls, instant processing)
     │
     ├── Production deployment?
     │       │
     │       ├── General Q&A ───────────────► Contextual
+    │       │   (Best answer correctness)
     │       │
     │       └── Faithfulness critical? ────► RAPTOR
+    │           (Highest grounding, lowest hallucination)
+    │
+    ├── Single-domain corpus? ─────────────► Semantic 0.3
+    │   (Best precision when cross-domain not needed)
     │
     └── Theme/synthesis questions? ────────► RAPTOR + GraphRAG
+        (Multi-level abstraction + entity relationships)
 ```
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/rag_pipeline/chunking/section_chunker.py` | Section-based chunking with overlap |
+| `src/rag_pipeline/chunking/semantic_chunker.py` | Embedding similarity boundaries |
+| `src/rag_pipeline/chunking/contextual_chunker.py` | LLM context generation |
+| `src/rag_pipeline/chunking/raptor/tree_builder.py` | RAPTOR tree construction |
+| `src/rag_pipeline/chunking/strategies.py` | Strategy registry and CLI routing |
+| `src/config.py` | Chunking parameters (MAX_CHUNK_TOKENS, thresholds) |
 
 ---
 
 ## Navigation
 
-**Next:** [Section Chunking](section-chunking.md) — The baseline strategy
+### Strategy Documentation
 
-**Related:**
+- **[Section Chunking](section-chunking.md)** — The baseline: fixed-size with sentence overlap
+- **[Semantic Chunking](semantic-chunking.md)** — Embedding-based topic boundaries
+- **[Contextual Chunking](contextual-chunking.md)** — LLM-generated context prepended
+- **[RAPTOR](raptor.md)** — Hierarchical summarization tree
+
+### Related
+
 - [Preprocessing Strategies](../preprocessing/README.md) — Query-time transformations
 - [Evaluation Framework](../evaluation/README.md) — How strategies are compared

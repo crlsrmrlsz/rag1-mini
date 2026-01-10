@@ -202,15 +202,13 @@ python -m src.stages.run_stage_2_processing
 
 3. **You need to find the right tools**. The 2025-2026 PDF extraction landscape offers several tiers of solutions, each with different tradeoffs:
 
-    - **Rule-based parsers**: PyMuPDF extracts text by reading PDF object coordinates directly. Blazing fast (0.1s/page), CPU-only, zero cost, but no semantic understanding—struggles with multi-column layouts and mixed content.
+    - **Rule-based (coordinate extraction)**: PyMuPDF parses the PDF file format directly, extracting text from internal objects (coordinates, fonts, text runs). No machine learning. Blazing fast (0.1s/page), CPU-only, zero cost, but no semantic understanding—struggles with multi-column layouts and mixed content.
 
-    - **Hybrid ML pipelines**: MinerU and Marker combine object detection (YOLO, Detectron2) for layout analysis with OCR engines (PaddleOCR, Surya). Good balance of speed and accuracy, GPU recommended but not required. MinerU leads with 48K GitHub stars, AGPL licensed.
+    - **Modular ML pipelines**: MinerU, Marker, and Docling chain multiple specialized models: object detection (YOLO, RT-DETR) for layout regions, OCR engines (PaddleOCR, Surya) for text extraction, and optional models for tables or formulas. Good accuracy, GPU recommended. MinerU (48K stars, AGPL), Marker (GPL), Docling (MIT, ~2.5 pages/sec CPU, 97.9% table accuracy, native RAG framework integrations).
 
-    - **Document Understanding Models**: Docling uses transformer-based models (DocLayNet, TableFormer) trained specifically on document structure. CPU-optimized (~2.5 pages/sec on M3 Max), MIT licensed, 97.9% table accuracy, native RAG framework integrations.
+    - **End-to-end Document VLMs**: Single unified vision-language models trained to go directly from image to structured text. Granite-Docling-258M (IBM, Apache 2.0, 258M params, 0.97 TEDS on tables) and GOT-OCR 2.0 (580M params, Apache 2.0) consolidate layout, tables, equations, and code into one model—replacing entire pipelines.
 
-    - **Compact Document VLMs**: Granite-Docling-258M (IBM, Apache 2.0) consolidates layout, tables, equations, and code into a single 258M parameter model. Achieves 0.97 TEDS on tables, designed to complement Docling. GOT-OCR 2.0 (580M params) offers similar unified capabilities.
-
-    - **Commercial RAG parsers**: LlamaParse ($0.003-0.09/page) provides GenAI-native parsing with ~99% accuracy on complex documents, direct LlamaIndex integration, and agentic multi-pass correction.
+    - **Commercial parsers**: LlamaParse ($0.003-0.09/page, LlamaIndex integration, ~99% accuracy), Reducto ($0.015/credit, bounding box citations for provenance), Azure Document Intelligence ($1.50/1K pages + add-ons, LaTeX formula extraction), Mathpix ($0.0035/page, best for equations).
 
     - **Frontier VLMs**: Claude Opus 4.5, Gemini 3 Pro, and GPT-5.2 can achieve 90%+ precision with minimal post-processing. Near-perfect for simple layouts, but expensive ($0.01-0.10+/page for vision), API rate limits don't scale for batch processing, and context windows limit page-by-page throughput.
 
@@ -221,12 +219,18 @@ python -m src.stages.run_stage_2_processing
 
 ## References
 
-- [PyMuPDF](https://pymupdf.readthedocs.io/) - Rule-based PDF parser, 0.1s/page, AGPL licensed
-- [MinerU](https://github.com/opendatalab/MinerU) - Hybrid ML pipeline with DocLayout-YOLO and PaddleOCR, AGPL licensed
-- [Marker](https://github.com/VikParuchuri/marker) - Hybrid ML pipeline with Surya OCR, GPL licensed
-- [Docling](https://github.com/docling-project/docling) - Document understanding with DocLayNet and TableFormer, MIT licensed
-- [Granite-Docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M) - Compact 258M VLM for end-to-end document conversion, Apache 2.0
-- [GOT-OCR 2.0](https://github.com/Ucas-HaoranWei/GOT-OCR2.0) - Unified 580M VLM for text, tables, formulas, and diagrams, Apache 2.0
-- [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - Commercial RAG-native parser, $0.003-0.09/page
+**Open-source**
+- [PyMuPDF](https://pymupdf.readthedocs.io/) - Rule-based coordinate extraction, 0.1s/page, AGPL
+- [MinerU](https://github.com/opendatalab/MinerU) - Modular pipeline (YOLO + PaddleOCR), 48K stars, AGPL
+- [Marker](https://github.com/VikParuchuri/marker) - Modular pipeline (Surya OCR), GPL
+- [Docling](https://github.com/docling-project/docling) - Modular pipeline (RT-DETR + TableFormer), MIT
+- [Granite-Docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M) - End-to-end VLM, 258M params, Apache 2.0
+- [GOT-OCR 2.0](https://github.com/Ucas-HaoranWei/GOT-OCR2.0) - End-to-end VLM, 580M params, Apache 2.0
+
+**Commercial**
+- [LlamaParse](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) - RAG-native, $0.003-0.09/page
+- [Reducto](https://reducto.ai/) - Agentic OCR with provenance, $0.015/credit
+- [Azure Document Intelligence](https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence) - LaTeX formulas, $1.50/1K pages
+- [Mathpix](https://mathpix.com/) - Best for equations, $0.0035/page
 
 

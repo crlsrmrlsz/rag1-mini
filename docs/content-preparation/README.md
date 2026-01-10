@@ -162,25 +162,26 @@ Chunking strategies like section chunking use sentence-level operations:
 | Chunking Requirement | Why NLP Segmentation Helps |
 |---------------------|---------------------------|
 | **2-sentence overlap** | Requires knowing where sentences begin and end |
-| **Context metadata** | Parses markdown headers into hierarchical paths |
-| **Quality filtering** | Removes noise that escaped markdown cleaning |
+| **Quality filtering** | Removes extraction artifacts spaCy misidentifies as sentences |
 
-Separating this step allows chunking strategies to work with clean, structured input rather than raw text.
+Additionally, this stage extracts **context metadata** (book > chapter > section) from markdown headers — bundled here for convenience since both are needed before chunking.
 
 ### Library Choice: scispaCy
 
-[scispaCy](https://allenai.github.io/scispacy/) is a spaCy fork trained on biomedical and scientific text. For this neuroscience/philosophy corpus, it handles academic writing patterns better than generic models:
+The code uses [spaCy](https://spacy.io/) as the NLP framework, with a [scispaCy](https://allenai.github.io/scispacy/) model (`en_core_sci_sm`) trained on biomedical/scientific text. scispaCy models are spaCy-compatible — installed separately but loaded via standard `spacy.load()`.
 
-| Challenge | scispaCy Solution |
+For this neuroscience/philosophy corpus, `en_core_sci_sm` handles academic writing better than generic models:
+
+| Challenge | scispaCy Advantage |
 |-----------|-------------------|
 | Academic abbreviations | Doesn't split on "et al.", "Fig.", "i.e." |
-| Long complex sentences | Trained on scientific writing with multiple clauses |
-| Parenthetical citations | "(Smith, 2020)" doesn't create sentence fragment |
+| Long complex sentences | Trained on scientific writing patterns |
+| Parenthetical citations | "(Smith, 2020)" doesn't create fragment |
 
 Configuration from `src/config.py`:
 ```python
-SPACY_MODEL = "en_core_sci_sm"  # Fallback: en_core_web_sm
-MIN_SENTENCE_WORDS = 2          # Filter fragments
+SPACY_MODEL = "en_core_sci_sm"
+MIN_SENTENCE_WORDS = 2
 VALID_ENDINGS = ('.', '?', '!', '"', '"', ')', ']')
 ```
 
@@ -219,7 +220,7 @@ def segment_document(clean_text: str, book_name: str) -> list[dict]:
 
 ### Sentence Filtering
 
-Sentences are filtered to remove extraction artifacts:
+spaCy identifies sentence boundaries but doesn't distinguish real sentences from PDF extraction artifacts. This filter removes noise that spaCy incorrectly treated as valid sentences:
 
 ```python
 def _filter_sentences(sentences: list[str]) -> tuple[list[str], list[str]]:

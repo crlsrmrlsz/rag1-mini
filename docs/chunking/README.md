@@ -25,7 +25,7 @@ This document explains common and general considerations about chunking, but the
 
 ## Dependencies
 
-It is important to note that advanced chunking strategics RAPTOR and Contextual are based of Baseline (section chunks). So decissions in section based chunking, like max chunk size, condition the advanced techniques results.
+It is important to note that advanced chunking strategies RAPTOR and Contextual are based on Baseline (section chunks). So decisions in section-based chunking, like max chunk size, condition the advanced techniques results.
 
 <div align="center">
     <img src="../../assets/chunk_dependencies.png" alt="Chunk Strategies Dependencies">
@@ -90,7 +90,7 @@ python -m src.stages.run_stage_4_chunking --strategy contextual
 python -m src.stages.run_stage_4_5_raptor
 ```
 
-This stage reads JSON files (one per book) from `data/processed/04_nlp_chunks/` and storage chunks in JSON on `data/processed/05_final_chunks/` ,one folder per strategy. 
+This stage reads JSON files (one per book) from `data/processed/04_nlp_chunks/` and stores chunks in JSON in `data/processed/05_final_chunks/`, one folder per strategy. 
 
 
 

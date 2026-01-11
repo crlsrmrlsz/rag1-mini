@@ -69,27 +69,6 @@ The `context` field preserves hierarchical position (Book > Chapter > Section), 
 
 
 
-## Data Flow
-
-```
-Stage 3 Output                    Stage 4: Chunking                    Stage 5+
-─────────────────────────────────────────────────────────────────────────────────
-
-data/processed/04_nlp_chunks/     data/processed/05_final_chunks/     → Embedding
-    ├── book1.json                    ├── section/                     → Weaviate
-    ├── book2.json                    │   ├── book1.json               → Retrieval
-    └── ...                           │   └── book2.json
-                                      ├── contextual/
-         NLP-segmented                │   └── ...
-         paragraphs with              ├── semantic_0.4/
-         sentence boundaries          │   └── ...
-                                      └── raptor/
-                                          └── ...
-
-                                      Strategy-specific
-                                      chunk outputs
-```
-
 ### Strategy Dependencies
 
 ```mermaid
@@ -123,7 +102,9 @@ python -m src.stages.run_stage_4_chunking --strategy contextual
 python -m src.stages.run_stage_4_5_raptor
 ```
 
-### Output Locations
+This stage reads json files (one per book) from `data/processed/04_nlp_chunks/` and storage chunks in json on `data/processed/04_nlp_chunks/` ,one folder per strategy. It is stored in files to isolate each phase and to visualize the results before embedding phase.
+
+
 
 | Strategy | Output Directory |
 |----------|------------------|
@@ -135,7 +116,7 @@ python -m src.stages.run_stage_4_5_raptor
 ---
 
 
-## Key Files
+## Key Code Files
 
 | File | Purpose |
 |------|---------|

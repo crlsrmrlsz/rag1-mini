@@ -7,9 +7,10 @@ This is the baseline chunking strategy, leveraging the structure authors have al
 
 ### Algorithm
 
+The input is a JSON file per book with NLP generated chunks, each one containing one paragraph and with the context included (book > section)
 ```
 For each document:
-  1. Load NLP-segmented paragraphs (spaCy generated NLP chunk per paragraph with its sentence list)
+  1. Load NLP-segmented paragraphs 
   2. Initialize: current_chunk = [], current_context = None
 
   For each paragraph:
@@ -55,28 +56,21 @@ Research shows optimal chunk size depends on content type and query complexity. 
 
 Analysis of this corpus reveals distinct patterns between content types:
 
-| Corpus | Avg Section Tokens | Median |
-|--------|-------------------|--------|
-| **Neuroscience** | 666 | ~500-700 |
-| **Philosophy** | 1,427 | varies widely | 
+<div align="center">
+
+| Corpus | Avg Section Tokens | Median | Single-Chunk Sections |
+|--------|-------------------|--------|----------------------|
+| **Neuroscience** | 666 | ~500-700 | 2,372 / 3,321 (71%) |
+| **Philosophy** | 1,427 | varies widely | 351 / 545 (64%) |
+
+</div> 
 
 Neuroscience textbooks have well-structured sections averaging 666 tokens—comfortably below the 800-token limit, meaning most conceptual units remain intact within single chunks. Philosophy texts show much higher variance, ranging from aphoristic works like Tao Te Ching (159 avg) and Art of Living (238 avg) that fit easily in single chunks, to essay collections like Seneca's Letters (2,127 avg) and Schopenhauer (2,300+ avg) that require multiple chunks per section.
 
 The 800-token limit represents a balanced estimate for this mixed corpus. The underlying assumption is that well-written paragraphs typically contain single, self-contained ideas—by preserving paragraph unity, each chunk is more likely to represent one coherent concept useful for answering queries. This limit falls within the 512-1024 range that the NVIDIA and academic studies cited above identify as optimal for technical and analytical content, while preserving most neuroscience textbook sections as complete units. For philosophy essays that exceed this limit, the 2-sentence overlap helps maintain some continuity, though advanced techniques like Contextual Chunking or RAPTOR may provide better results for such content. 
 
-This is an upper limit, not a target—actual chunks are often smaller when sections end naturally. Future work could investigate tuning chunk limits per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
+**Future work** could investigate tuning chunk limits per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
 
----
-
-### Limitations
-
-- **No document-level context in embeddings**: "The company" doesn't know which company
-- **Struggles with cross-section references**: "As Chapter 3 explained..." loses connection
-- **Vocabulary mismatch**: Embedding reflects chunk words, not chunk meaning
-
-These limitations motivate Contextual Chunking (adds LLM context) and RAPTOR (hierarchical summaries).
-
----
 
 ## Navigation
 

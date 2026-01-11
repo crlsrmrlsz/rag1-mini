@@ -23,7 +23,9 @@ This document explains common and general considerations about chunking, but the
 - **[RAPTOR](raptor.md)** — Hierarchical summarization tree
 
 
-It is important to note that advanced chunking strategics RAPTOR and Contextual are based of Baseline (section chunks)
+## Dependencies
+
+It is important to note that advanced chunking strategics RAPTOR and Contextual are based of Baseline (section chunks). So decissions in section based chunking, like max chunk size, condition the advanced techniques results.
 
 <div align="center">
     <img src="../../assets/chunk_dependencies.png" alt="Chunk Strategies Dependencies">
@@ -46,15 +48,11 @@ All chunking strategies share common components:
 | **Vector storage** | Weaviate HNSW index + BM25 | Hybrid search (dense + keyword) |
 | **Chunk metadata** | `book_id`, `section`, `context` | Hierarchical path for filtering and display |
 
-### Chunk size
 
-Research shows optimal chunk size depends heavily on content type and query complexity. [NVIDIA's chunking benchmark](https://developer.nvidia.com/blog/finding-the-best-chunking-strategy-for-accurate-ai-responses/) found 512-1024 tokens optimal for complex analytical queries, while [recent academic research](https://arxiv.org/html/2505.21700v2) confirms that larger chunks (512-1024 tokens) significantly improve retrieval for technical content—TechQA accuracy jumped from 4.8% at 64 tokens to 71.5% at 1024 tokens. Smaller chunks (64-128 tokens) only outperform for factoid queries with concise, localized answers.
-
-For this corpus, 800 maximum tokens preserves paragraph unity effectively. As chunking is done over paragraphs, this 800 sets a limit, and many chunk size is lower than that. Analysis of the section chunks shows 65% of neuroscience textbook sections fit within a single 800-token chunk (averaging 1.6 chunks per section), meaning most conceptual units remain intact. Philosophy texts show higher variance—short aphoristic works like the Tao Te Ching fit 99% of sections in one chunk, while longer essays like Seneca's Letters average 3.4 chunks per section. The 800-token size balances preserving complete ideas in structured textbooks while remaining within the 512-1024 range that research identifies as optimal for analytical content requiring broader context.
 
 ### Chunk Schema
 
-Every chunk includes standardized metadata:
+Chunks are stored in JSON files for inspection and inter-phase isolation, and every chunk includes standardized metadata:
 
 ```json
 {
@@ -68,16 +66,23 @@ Every chunk includes standardized metadata:
 }
 ```
 
-The `context` field preserves hierarchical position (Book > Chapter > Section), enabling:
-- Scoped retrieval ("only search Chapter 5")
-- Answer attribution ("This is from Chapter 3, Section 2")
-- Cross-reference tracking
+These metadata fields are used throughout the downstream pipeline:
+
+| Field | Usage |
+|-------|-------|
+| **book_id** | Answer headers (`[1] BookName`), UI display (title/author parsing), Weaviate filtering by book, Contextual/RAPTOR LLM prompts |
+| **context** | Contextual chunking LLM prompt (`Section: "{context_path}"`), RAPTOR summary node context, preserved in RRF merging |
+| **section** | Appended to answer headers (`[1] BookName (Section)`), RAPTOR child section aggregation, section markers in contextual chunking |
+
+These fields serve three main purposes: **attribution** (display sources in UI and answers), **filtering** (scope searches to specific books), and **advanced chunking** (RAPTOR and Contextual use them in LLM prompts to build hierarchical context). Preprocessing strategies operate on query text only and do not use chunk metadata.
 
 
 
 
 
 ## Running Chunking
+
+Once NLP chunks are ready, you can run: 
 
 ```bash
 # Section (baseline) - No dependencies
@@ -93,7 +98,7 @@ python -m src.stages.run_stage_4_chunking --strategy contextual
 python -m src.stages.run_stage_4_5_raptor
 ```
 
-This stage reads json files (one per book) from `data/processed/04_nlp_chunks/` and storage chunks in json on `data/processed/04_nlp_chunks/` ,one folder per strategy. It is stored in files to isolate each phase and to visualize the results before embedding phase.
+This stage reads JSON files (one per book) from `data/processed/04_nlp_chunks/` and storage chunks in JSON on `data/processed/05_final_chunks/` ,one folder per strategy. 
 
 
 
@@ -104,22 +109,10 @@ This stage reads json files (one per book) from `data/processed/04_nlp_chunks/` 
 | Contextual | `data/processed/05_final_chunks/contextual/` |
 | RAPTOR | `data/processed/05_final_chunks/raptor/` |
 
----
 
 
-## Key Code Files
-
-| File | Purpose |
-|------|---------|
-| `src/rag_pipeline/chunking/section_chunker.py` | Section-based chunking with overlap |
-| `src/rag_pipeline/chunking/semantic_chunker.py` | Embedding similarity boundaries |
-| `src/rag_pipeline/chunking/contextual_chunker.py` | LLM context generation |
-| `src/rag_pipeline/chunking/raptor/tree_builder.py` | RAPTOR tree construction |
-| `src/rag_pipeline/chunking/strategies.py` | Strategy registry and CLI routing |
-| `src/config.py` | Chunking parameters (MAX_CHUNK_TOKENS, thresholds) |
 
 ---
-
 
 ### Related
 

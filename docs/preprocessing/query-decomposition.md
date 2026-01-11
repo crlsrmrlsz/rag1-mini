@@ -72,10 +72,14 @@ A single retrieval struggles because no single chunk contains all three aspects.
 
 The paper (July 2025) establishes decomposition as a systematic retrieval enhancement:
 
+<div align="center">
+
 | Benchmark | Improvement |
 |-----------|-------------|
 | MultiHop-RAG | **+36.7% MRR@10** |
 | HotpotQA | **+11.6% F1** |
+
+</div>
 
 **Key findings from paper:**
 - Temperature 0.8 with nucleus sampling (top-p = 0.8) for diverse decomposition
@@ -85,11 +89,15 @@ The paper (July 2025) establishes decomposition as a systematic retrieval enhanc
 
 ### Community Best Practices
 
+<div align="center">
+
 | Source | Key Practice |
 |--------|--------------|
 | **Haystack** | "If the query is simple, keep it as is" — avoid over-decomposition |
 | **LangChain** | "Do not try to rephrase" acronyms/unfamiliar words — preserve terminology |
 | **EfficientRAG** | "Independently answerable" sub-questions — enables parallel retrieval |
+
+</div>
 
 ---
 
@@ -106,12 +114,16 @@ The paper (July 2025) establishes decomposition as a systematic retrieval enhanc
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Paper | RAGLab | Rationale |
 |----------|-------|--------|-----------|
 | **Temperature** | 0.8 | 0.7 | Balance diversity with coherence |
 | **Max sub-questions** | 5 | 3-5 | Paper limit, with "simple = keep as is" |
 | **Original query** | Always retained | Always retained | Critical for context |
 | **Output format** | Unspecified | JSON with reasoning | Enables parsing and debugging |
+
+</div>
 
 ### Differences from Paper
 
@@ -181,12 +193,16 @@ def reciprocal_rank_fusion(
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | Decomposition | None | HyDE | GraphRAG |
 |--------|---------------|------|------|----------|
 | Single-Concept Precision | **73.8%** (1st) | 70.8% | 69.2% | 66.4% |
 | Single-Concept Recall | **96.0%** (1st) | 92.3% | 89.3% | 97.5% |
 | Cross-Domain Recall | 65.6% (worst) | 70.5% | **78.8%** | 76.1% |
 | Cross-Domain Recall Drop | **-30.4%** (worst) | -21.8% | -10.5% | -21.4% |
+
+</div>
 
 **Primary Takeaway:** Decomposition excels for **multi-step single-domain questions** but **fails catastrophically on cross-domain synthesis** (-30.4% recall drop).
 
@@ -211,11 +227,15 @@ Works well for **sequential multi-step** questions within a single domain:
 
 ## Cost Analysis
 
+<div align="center">
+
 | Component | Tokens | Cost |
 |-----------|--------|------|
 | LLM decomposition | ~100 input + ~150 output | ~$0.0001 |
 | Retrieval | 4-6 searches (parallelizable) | Weaviate cost |
 | **Total per query** | ~250 tokens | ~$0.0001 |
+
+</div>
 
 Latency: ~500ms for LLM + retrieval parallelizes.
 
@@ -223,12 +243,16 @@ Latency: ~500ms for LLM + retrieval parallelizes.
 
 ## When to Use
 
+<div align="center">
+
 | Scenario | Recommendation |
 |----------|----------------|
 | Multi-step procedural questions | "What, then how, then why?" |
 | Comparison within single domain | "Compare X and Y in neuroscience" |
 | Multi-aspect factual queries | "List features A, B, and C" |
 | **Avoid when** | Cross-domain synthesis needed |
+
+</div>
 
 ### Anti-Pattern: Decomposition + Cross-Domain
 

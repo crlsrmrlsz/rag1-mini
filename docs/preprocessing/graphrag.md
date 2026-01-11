@@ -1203,6 +1203,8 @@ def parse_leiden_hierarchy(leiden_result, max_levels=3):
 
 All GraphRAG settings in `src/config.py`:
 
+<div align="center">
+
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `GRAPHRAG_EXTRACTION_MODEL` | `anthropic/claude-3-haiku` | LLM for entity extraction |
@@ -1224,6 +1226,8 @@ All GraphRAG settings in `src/config.py`:
 | `GRAPHRAG_MAP_REDUCE_TOP_K` | `5` | Communities for map-reduce |
 | `GRAPHRAG_MAP_MAX_TOKENS` | `300` | Tokens per map response |
 | `GRAPHRAG_REDUCE_MAX_TOKENS` | `500` | Tokens for reduce response |
+
+</div>
 
 ---
 
@@ -1273,6 +1277,8 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag --search-ty
 
 ### Indexing Costs (One-Time)
 
+<div align="center">
+
 | Phase | LLM Calls | Cost | Time |
 |-------|-----------|------|------|
 | Entity extraction | ~5,000 | ~$3-5 | ~5h |
@@ -1281,7 +1287,11 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag --search-ty
 | Entity embeddings | ~15,000 | ~$0.50 | ~30m |
 | **Total** | ~27,000 | ~$5-8 | ~10h |
 
+</div>
+
 ### Query Costs (Per Request)
+
+<div align="center">
 
 | Component | Method | Latency |
 |-----------|--------|---------|
@@ -1293,14 +1303,20 @@ python -m src.stages.run_stage_7_evaluation --preprocessing graphrag --search-ty
 | **Total (local)** | | ~200ms-2s |
 | **Total (global + map-reduce)** | | ~3-5s |
 
+</div>
+
 ### Key Performance Metrics
 
 From comprehensive evaluation (102 configurations):
+
+<div align="center">
 
 | Metric | GraphRAG | Baseline (None) |
 |--------|----------|-----------------|
 | Cross-domain correctness | **50.1%** (+5%) | 47.7% |
 | Single-concept recall | **97.5%** | 92.3% |
+
+</div>
 
 ---
 

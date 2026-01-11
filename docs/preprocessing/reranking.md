@@ -72,10 +72,14 @@ The model sees both texts together, enabling it to understand that "puppets" dir
 
 Two-stage retrieval is the standard architecture in production search systems:
 
+<div align="center">
+
 | Stage | Model Type | Speed | Accuracy | Purpose |
 |-------|-----------|-------|----------|---------|
 | **1. Retrieval** | Bi-encoder | Fast (~1ms) | Good | Cast wide net (50-100 candidates) |
 | **2. Reranking** | Cross-encoder | Slow (~1s) | Best | Precise ranking of candidates |
+
+</div>
 
 **Key findings:**
 - Cross-encoders achieve **20-35% higher precision** than bi-encoders alone
@@ -98,6 +102,8 @@ Two-stage retrieval is the standard architecture in production search systems:
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Value | Rationale |
 |----------|-------|-----------|
 | **Model** | mxbai-rerank-xsmall-v1 | Best quality/speed for CPU + cross-domain corpus |
@@ -105,18 +111,26 @@ Two-stage retrieval is the standard architecture in production search systems:
 | **Lazy loading** | Singleton pattern | Avoid reloading model per call |
 | **GPU auto-detect** | Yes | Uses CUDA/MPS if available, falls back to CPU |
 
+</div>
+
 ### Model Selection Analysis (Jan 2025)
 
 Two benchmarks measure different things:
+
+<div align="center">
 
 | Benchmark | What It Measures | Best For |
 |-----------|------------------|----------|
 | **MS MARCO** | Web search queries, short passages | MiniLM models (trained here) |
 | **BEIR** | Multi-domain: scientific, financial, medical | mxbai models (diverse training) |
 
+</div>
+
 **RAGLab corpus:** Philosophy + neuroscience books = cross-domain academic text, closer to BEIR than MS MARCO.
 
 ### Comprehensive Model Comparison
+
+<div align="center">
 
 | Model | Params | BEIR NDCG@10 | MS MARCO NDCG@10 | CPU Time (50 docs) | Training Data |
 |-------|--------|--------------|------------------|-------------------|---------------|
@@ -126,6 +140,8 @@ Two benchmarks measure different things:
 | mxbai-rerank-base-v1 | 200M | 46.9 | — | ~8s | Diverse |
 | BAAI/bge-reranker-v2-m3 | 568M | ~45 | — | ~15s | Multilingual |
 | mxbai-rerank-large-v1 | 560M | 48.8 | — | ~60s | Diverse |
+
+</div>
 
 *Estimated from BEIR subset evaluations
 
@@ -205,19 +221,27 @@ Cross-Encoder (Reranker):
 
 ### When Reranking Helps Most
 
+<div align="center">
+
 | Scenario | Without Rerank | With Rerank | Improvement |
 |----------|---------------|-------------|-------------|
 | Ambiguous queries | Moderate | High | +25-35% precision |
 | Keyword mismatch | Low | High | Recovers missed matches |
 | Top-1 accuracy | ~60% | ~80% | Critical for single-answer |
 
+</div>
+
 ### Trade-offs
+
+<div align="center">
 
 | Aspect | Impact |
 |--------|--------|
 | **Latency** | +1s CPU, +0.1s GPU |
 | **Memory** | +1.2GB model load |
 | **Accuracy** | +20-35% precision |
+
+</div>
 
 **Recommendation:** Enable reranking for production (accuracy matters), disable for evaluation grid search (speed matters).
 
@@ -227,6 +251,8 @@ Cross-Encoder (Reranker):
 
 ### mxbai-rerank-xsmall-v1 (Current)
 
+<div align="center">
+
 | Component | CPU | GPU |
 |-----------|-----|-----|
 | Model load (first call) | ~3s | ~2s |
@@ -234,7 +260,11 @@ Cross-Encoder (Reranker):
 | 100 documents | ~6s | ~0.6s |
 | Memory | ~300MB | ~300MB VRAM |
 
+</div>
+
 ### Comparison Across Models
+
+<div align="center">
 
 | Model | CPU (50 docs) | Model Size | Download |
 |-------|---------------|------------|----------|
@@ -243,6 +273,8 @@ Cross-Encoder (Reranker):
 | **mxbai-xsmall-v1** | **~3s** | **~280MB** | **~140MB** |
 | mxbai-base-v1 | ~8s | ~800MB | ~400MB |
 | mxbai-large-v1 | ~60s | ~2.2GB | ~1.1GB |
+
+</div>
 
 No API costs — model runs locally.
 
@@ -272,6 +304,8 @@ RERANK_INITIAL_K = 50  # Candidates before reranking
 
 ## When to Use
 
+<div align="center">
+
 | Scenario | Recommendation |
 |----------|----------------|
 | Production Q&A | Enable — accuracy matters |
@@ -280,6 +314,8 @@ RERANK_INITIAL_K = 50  # Candidates before reranking
 | Debugging retrieval | Disable — see raw retrieval quality |
 | GPU available | Enable — minimal latency impact |
 | **Avoid when** | Latency-critical (<100ms), CPU-only with high QPS |
+
+</div>
 
 ---
 

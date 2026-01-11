@@ -69,12 +69,16 @@ These vectors may be far apart despite topical relevance because:
 
 HyDE (ACL 2023) solves this by generating a hypothetical answer first:
 
+<div align="center">
+
 | Finding | Details |
 |---------|---------|
 | **Minimal prompts work best** | Over-specification causes template bias |
 | **Document type matters** | Mention "passage", "paper", "article" without overspecifying vocabulary |
 | **Temperature 0.7** | Provides sufficient creativity for diverse hypotheticals |
 | **Dense bottleneck filters hallucinations** | The encoder naturally discards incorrect details |
+
+</div>
 
 **Key insight:** The embedding model was trained on real documents. When you embed a hypothetical:
 - **Preserved**: Topics, concepts, semantic relationships
@@ -86,11 +90,15 @@ The fixed-dimension embedding is a "bottleneck" that compresses to semantic esse
 
 From the official implementation ([texttron/hyde](https://github.com/texttron/hyde)):
 
+<div align="center">
+
 | Task | Prompt |
 |------|--------|
 | Web Search | "Please write a passage to answer the question. Question: {}" |
 | SciFact | "Please write a scientific paper passage to support/refute the claim. Claim: {}" |
 | FiQA | "Please write a financial article passage to answer the question. Question: {}" |
+
+</div>
 
 Note: All prompts are minimal (1-2 sentences), specify document type, and include no examples.
 
@@ -111,12 +119,16 @@ Note: All prompts are minimal (1-2 sentences), specify document type, and includ
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Paper | RAGLab | Rationale |
 |----------|-------|--------|-----------|
 | **Temperature** | 0.7 | 0.7 | Paper default for diverse hypotheticals |
 | **K (hypotheticals)** | 5 | 2 | Balance cost vs robustness |
 | **Domain framing** | Task-specific | Corpus-specific | "brain science and classical philosophy" matches our 19-book corpus |
 | **Length constraint** | None | None | Trust encoder to compress |
+
+</div>
 
 ### Differences from Paper
 
@@ -171,11 +183,15 @@ At retrieval time:
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | HyDE | None | Decomposition | GraphRAG |
 |--------|------|------|---------------|----------|
 | Cross-Domain Recall | **78.8%** | 70.5% | 65.6% | 76.1% |
 | Cross-Domain Recall Drop | **-10.5%** (best) | -21.8% | -30.4% | -21.4% |
 | Cross-Domain Correctness | 47.3% | 47.7% | 47.5% | **50.1%** |
+
+</div>
 
 **Primary Takeaway:** HyDE shows the **smallest performance degradation** when moving from single-concept to cross-domain queries (-10.5% recall drop vs -30.4% for decomposition). The hypothetical passage **pre-synthesizes the cross-domain bridge**, creating an embedding that spans both domains.
 
@@ -197,6 +213,8 @@ While HyDE achieves the best retrieval stability, GraphRAG achieves higher answe
 
 With K=2 hypotheticals (default):
 
+<div align="center">
+
 | Component | Tokens | Cost |
 |-----------|--------|------|
 | LLM input | 2 × ~50 = 100 | ~$0.00002 |
@@ -204,11 +222,15 @@ With K=2 hypotheticals (default):
 | Embeddings | 2 passages vs 1 | 2× embedding cost |
 | **Total per query** | ~400 tokens | ~$0.0004 |
 
+</div>
+
 Latency: ~500ms (2 serial LLM calls). Parallelizable to ~300ms.
 
 ---
 
 ## When to Use
+
+<div align="center">
 
 | Scenario | Recommendation |
 |----------|----------------|
@@ -217,6 +239,8 @@ Latency: ~500ms (2 serial LLM calls). Parallelizable to ~300ms.
 | Cross-domain questions | Smallest performance degradation |
 | Query vocabulary differs from corpus | Hypothetical uses domain-appropriate terms |
 | **Avoid when** | LLM doesn't know topic, latency-critical, simple keyword queries |
+
+</div>
 
 ---
 

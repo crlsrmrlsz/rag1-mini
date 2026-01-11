@@ -77,10 +77,14 @@ No single chunk contains these answers because they span many chunks scattered a
 
 RAPTOR (ICLR 2024) addresses this with hierarchical summarization:
 
+<div align="center">
+
 | Benchmark | RAPTOR | Best Baseline | Improvement |
 |-----------|--------|---------------|-------------|
 | QuALITY (multi-step reasoning) | 82.6% | 62.7% | **+20% absolute** |
 | QASPER (scientific QA) | 55.7% F1 | 53.0% (DPR) | **New SOTA** |
+
+</div>
 
 **Key finding:** 18.5-57% of retrieved nodes come from summary layers, proving that hierarchical abstraction provides information not available in leaves alone.
 
@@ -122,6 +126,8 @@ For each book:
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Paper | RAGLab | Rationale |
 |----------|-------|--------|-----------|
 | **Leaf chunk size** | 100 tokens | 800 tokens | See [Chunk Size Analysis](#chunk-size-analysis) below |
@@ -130,6 +136,8 @@ For each book:
 | **UMAP n_components** | 10 | 10 | Standard for GMM input |
 | **Retrieval method** | Collapsed tree | Collapsed tree | Paper shows superiority over tree traversal |
 | **Tree scope** | Per-document | Per-book | Matches existing structure |
+
+</div>
 
 ### Differences from Paper
 
@@ -151,11 +159,15 @@ No ablation study on chunk size was conducted. The authors' ablation compared **
 
 #### The Paper's Evaluation Datasets
 
+<div align="center">
+
 | Dataset | Content Type | Nature |
 |---------|--------------|--------|
 | **NarrativeQA** | Books, movie transcripts | Narrative fiction, flowing prose |
 | **QASPER** | NLP research papers | Technical, well-structured sections |
 | **QuALITY** | Magazine articles (~5k tokens) | Mixed, medium-length |
+
+</div>
 
 These datasets are heterogeneous. The 100-token size may have been a **lowest common denominator** that works acceptably across narrative fiction, academic papers, and magazine prose.
 
@@ -173,10 +185,14 @@ RAPTOR's power comes from having **many hierarchical levels**. Small chunks are 
 
 RAGLab's corpus differs fundamentally from RAPTOR's evaluation datasets:
 
+<div align="center">
+
 | Corpus | Content | Avg Section | Characteristic |
 |--------|---------|-------------|----------------|
 | **Neuroscience** | Textbooks (Sapolsky, Huberman) | 666 tokens | Dense terminology, structured arguments |
 | **Philosophy** | Treatises (Seneca, Schopenhauer) | 1,427 tokens | Extended reasoning, conceptual development |
+
+</div>
 
 [Research on long-document retrieval](https://arxiv.org/html/2505.21700v2) shows content type strongly affects optimal chunk size:
 
@@ -188,6 +204,8 @@ Dense academic content—like neuroscience and philosophy—needs larger chunks 
 
 #### The Trade-off
 
+<div align="center">
+
 | Aspect | 100-token (Paper) | 800-token (RAGLab) |
 |--------|-------------------|-------------------|
 | **Tree depth** | Deep (3-4 levels) | 2-3 levels (see below) |
@@ -195,15 +213,21 @@ Dense academic content—like neuroscience and philosophy—needs larger chunks 
 | **Leaf retrieval quality** | Less context per hit | More complete ideas |
 | **Summary coverage** | Narrow focus | Broader themes |
 
+</div>
+
 #### Actual Tree Depths in This Corpus
 
 Analysis of the 19 books in this corpus shows tree depth correlates with document size:
+
+<div align="center">
 
 | Category | Books | Leaves | Summary Levels | Example |
 |----------|-------|--------|----------------|---------|
 | **Large textbooks** | 5 | 500-880 | 3 (L1→L2→L3) | Cognitive Neuroscience: 881→38→7→3 |
 | **Medium books** | 6 | 250-500 | 2 (L1→L2) | Letters from a Stoic: 416→21→4 |
 | **Short works** | 8 | 70-160 | 2 (L1→L2) | Tao Te Ching: 129→14→3 |
+
+</div>
 
 With 100-token chunks, a book like *Cognitive Neuroscience* would have ~7,000 leaves instead of 881, enabling 4-5 summary levels. The trade-off: deeper hierarchy vs. fragmented leaf content.
 
@@ -287,11 +311,15 @@ Average summary: 131 tokens (~72% compression). Average children per parent: 6.7
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | RAPTOR | Contextual | Section |
 |--------|--------|------------|---------|
 | Faithfulness | **95.2%** (1st) | 93.9% | 95.0% |
 | Cross-Domain Precision | **93.8%** (1st) | 91.9% | 92.7% |
 | Answer Correctness | 48.4% | **48.8%** | 47.9% |
+
+</div>
 
 **Primary Takeaway:** RAPTOR achieves the **highest faithfulness** (95.2%), meaning answers are more grounded in the retrieved context with less hallucination. The hierarchical summaries provide verified thematic anchors that reduce fabrication.
 
@@ -384,6 +412,8 @@ What is this about? The embedding captures words but not the argument's directio
 
 #### 2. The paper's datasets differ fundamentally from this corpus
 
+<div align="center">
+
 | Paper's Datasets | Content | Why 100 tokens works |
 |------------------|---------|---------------------|
 | NarrativeQA | Fiction | Narrative flows; fragments still carry story context |
@@ -394,6 +424,8 @@ What is this about? The embedding captures words but not the argument's directio
 |---------------|---------|------------------------|
 | Neuroscience | Dense terminology | Terms need definitional context |
 | Philosophy | Extended arguments | Premises reference prior premises |
+
+</div>
 
 #### 3. Research supports larger chunks for technical content
 
@@ -409,6 +441,8 @@ Using 800-token section chunks for everything (vanilla RAG, Contextual, RAPTOR) 
 
 ### Summary of Trade-offs
 
+<div align="center">
+
 | Factor | Small Chunks (100) | Large Chunks (800) |
 |--------|-------------------|-------------------|
 | Paper's design intent | Aligned | Deviated |
@@ -418,6 +452,8 @@ Using 800-token section chunks for everything (vanilla RAG, Contextual, RAPTOR) 
 | Current empirical results | Unknown | Strong (95.2% faithfulness) |
 | Research on technical content | Against | Supports |
 | Pipeline complexity | Higher | Simpler |
+
+</div>
 
 ### Proposed Ablation Study
 
@@ -452,12 +488,16 @@ This may not be optimal per RAPTOR's original design, but it produces strong res
 
 ## When to Use
 
+<div align="center">
+
 | Scenario | Recommendation |
 |----------|----------------|
 | Theme/argument questions | RAPTOR excels at "What is this book about?" |
 | Low-hallucination requirements | Best faithfulness scores |
 | Multi-section synthesis | Summaries bridge distant content |
 | **Avoid when** | Simple factual queries, cost-sensitive, frequently changing corpus |
+
+</div>
 
 ---
 

@@ -23,6 +23,8 @@ Each phase addresses specific challenges encountered with complex academic texts
 Before any automated extraction, PDFs are manually cleaned using PDF editing tools ([PDF24](https://www.pdf24.org/)) to remove the pages that contain these elements:
 
 
+<div align="center">
+
 | Element | Why Remove |
 |---------|------------|
 | References/Bibliography | Dense citation blocks confuse layout detection |
@@ -31,6 +33,8 @@ Before any automated extraction, PDFs are manually cleaned using PDF editing too
 | Acknowledgments | Not core content |
 | Notes sections | Often formatted as footnotes, sometimes at the end of chapters or end of book |
 | Appendices | Supplementary material, separate handling needed |
+
+</div>
 
 This may seem unnecessary, but after facing the difficulties converting and cleaning downstream, I decided to simplify things from the start. 
 
@@ -135,6 +139,8 @@ After manual inspection, I identified common patterns suitable for automated cle
 These are some of the patterns that were removed:
 
 
+<div align="center">
+
 | Pattern | Example Match | Purpose |
 |---------|---------------|---------|
 | `FIGURE_TABLE_CAPTION` | "Figure 2. Model diagram" | Remove orphaned captions |
@@ -143,6 +149,8 @@ These are some of the patterns that were removed:
 | `FIG_TABLE_REF` | "(Figure 2)" | Remove parenthetical figure references |
 | `FOOTNOTE_MARKER` | "fn3" | Remove footnote markers mid-sentence |
 | `\u2014` | `--` | Unicode em-dash escape sequence |
+
+</div>
 
 
 
@@ -165,11 +173,15 @@ The code uses [spaCy](https://spacy.io/) as the NLP framework, with a [scispaCy]
 
 For this neuroscience/philosophy corpus, `en_core_sci_sm` handles academic writing better than generic models:
 
+<div align="center">
+
 | Challenge | scispaCy Advantage |
 |-----------|-------------------|
 | Academic abbreviations | Doesn't split on "et al.", "Fig.", "i.e." |
 | Long complex sentences | Trained on scientific writing patterns |
 | Parenthetical citations | "(Smith, 2020)" doesn't create fragment |
+
+</div>
 
 Configuration from `src/config.py`:
 ```python
@@ -293,6 +305,8 @@ python -m src.stages.run_stage_3_segmentation
 
 ## Key Files
 
+<div align="center">
+
 | File | Purpose |
 |------|---------|
 | `src/content_preparation/extraction/docling_parser.py` | Docling PDF extraction |
@@ -302,6 +316,8 @@ python -m src.stages.run_stage_3_segmentation
 | `src/stages/run_stage_1_extraction.py` | Stage 1 CLI runner |
 | `src/stages/run_stage_2_processing.py` | Stage 2 CLI runner |
 | `src/stages/run_stage_3_segmentation.py` | Stage 3 CLI runner |
+
+</div>
 
 
 

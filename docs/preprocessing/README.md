@@ -44,6 +44,8 @@ flowchart LR
 
 ### Preprocessing (Before Search)
 
+<div align="center">
+
 | Strategy | Paper | LLM Calls | Latency | Best For |
 |----------|-------|-----------|---------|----------|
 | **None** | — | 0 | ~0ms | Baseline, simple factual queries |
@@ -51,12 +53,18 @@ flowchart LR
 | [**Decomposition**](query-decomposition.md) | [arXiv:2507.00355](https://arxiv.org/abs/2507.00355) | 1 | ~500ms | Multi-step within single domain |
 | [**GraphRAG**](graphrag.md) | [arXiv:2404.16130](https://arxiv.org/abs/2404.16130) | 1+ | ~1-2s | Cross-domain correctness, entity relations |
 
+</div>
+
 ### Reranking (After Search)
+
+<div align="center">
 
 | Strategy | Model | Latency | Best For |
 |----------|-------|---------|----------|
 | **None** | — | 0ms | Speed, debugging |
 | [**Cross-Encoder**](reranking.md) | mxbai-rerank-large-v1 | ~1s CPU / ~0.1s GPU | Production accuracy |
+
+</div>
 
 Anthropic found that **hybrid search + reranking reduces retrieval failures by 67%** compared to vector-only search.
 
@@ -66,12 +74,16 @@ Anthropic found that **hybrid search + reranking reduces retrieval failures by 6
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | None | HyDE | Decomposition | GraphRAG |
 |--------|------|------|---------------|----------|
 | **Single-Concept Correctness** | 57.0% | 55.2% | 56.9% | 56.3% |
 | **Cross-Domain Correctness** | 47.7% | 47.3% | 47.5% | **50.1%** |
 | **Cross-Domain Recall** | 70.5% | **78.8%** | 65.6% | 76.1% |
 | **Recall Drop (simple→complex)** | -21.8% | **-10.5%** | -30.4% | -21.4% |
+
+</div>
 
 **Key Insights:**
 1. **GraphRAG** achieves best cross-domain correctness (+5% over baseline)
@@ -84,6 +96,8 @@ From comprehensive evaluation across 102 configurations:
 
 ### Preprocessing
 
+<div align="center">
+
 | Strategy | Pros | Cons | Use When |
 |----------|------|------|----------|
 | **None** | Zero latency, deterministic | Vocabulary mismatch | Simple factual queries |
@@ -91,12 +105,18 @@ From comprehensive evaluation across 102 configurations:
 | **Decomposition** | Best single-domain precision | Fails cross-domain | "What, then how?" |
 | **GraphRAG** | Best cross-domain correctness | Requires Neo4j | Entity relationships |
 
+</div>
+
 ### Reranking
+
+<div align="center">
 
 | Strategy | Pros | Cons | Use When |
 |----------|------|------|----------|
 | **None** | Fast, no model load | Lower precision | Evaluation, debugging |
 | **Cross-Encoder** | +20-35% precision | +1s latency, 1.2GB model | Production Q&A |
+
+</div>
 
 ---
 

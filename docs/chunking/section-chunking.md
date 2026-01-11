@@ -91,13 +91,25 @@ For each document:
 | **Section boundaries** | Hard break | Prevents mixing unrelated content; preserves author's semantic organization |
 | **Tokenizer** | tiktoken (text-embedding-3-large) | Exact token count matching embedding model |
 
-### Why 800 Tokens
+### Chunk size: 800 Tokens limit
 
 Research shows optimal chunk size depends on content type and query complexity. [NVIDIA's chunking benchmark](https://developer.nvidia.com/blog/finding-the-best-chunking-strategy-for-accurate-ai-responses/) tested sizes from 128 to 2,048 tokens and found 512-1024 tokens optimal for complex analytical queries, while page-level chunking achieved the highest overall accuracy (0.648). [Academic research on long-document retrieval](https://arxiv.org/html/2505.21700v2) confirms this pattern: smaller chunks (64-128 tokens) work best for factoid queries with concise answers, but larger chunks (512-1024 tokens) significantly improve retrieval for technical content—TechQA accuracy jumped from 4.8% at 64 tokens to 71.5% at 1024 tokens. For content requiring broader contextual understanding like NarrativeQA, performance improved from 4.2% to 10.7% as chunk size increased from 64 to 1024 tokens.
 
-Analysis of this corpus reveals distinct patterns between content types. Neuroscience textbooks have well-structured sections averaging 666 tokens—comfortably below the 800-token limit, meaning most conceptual units remain intact within single chunks. Philosophy texts show much higher variance: aphoristic works like the Tao Te Ching average just 159 tokens per section, while essay collections like Seneca's Letters average 2,127 tokens, requiring multiple chunks to cover complete arguments.
+Analysis of this corpus reveals distinct patterns between content types:
 
-The 800-token limit represents a balanced estimate for this mixed corpus. It falls within the 512-1024 range that research identifies as optimal for technical and analytical content, while preserving most neuroscience textbook sections as complete units. For philosophy essays that exceed this limit, the 2-sentence overlap helps maintain some continuity, though advanced techniques like Contextual Chunking or RAPTOR may provide better results for such content. This is an upper limit, not a target—actual chunks are often smaller when sections end naturally. The value could be tuned per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
+| Corpus | Avg Section Tokens | Median | Fit in 800 tokens? |
+|--------|-------------------|--------|-------------------|
+| **Neuroscience** | 666 | ~500-700 | Yes, 0.8x chunk size |
+| **Philosophy** | 1,427 | varies widely | No, 1.8x chunk size |
+
+Neuroscience textbooks have well-structured sections averaging 666 tokens—comfortably below the 800-token limit, meaning most conceptual units remain intact within single chunks. Philosophy texts show much higher variance:
+- **Aphoristic works** (Tao Te Ching: 159 avg, Art of Living: 238 avg) — fit easily in single chunks
+- **Essay collections** (Seneca's Letters: 2,127 avg, Schopenhauer: 2,300+ avg) — require multiple chunks
+- **Outliers**: Marcus Aurelius's Meditations has one section of 60,898 tokens
+
+The 800-token limit represents a balanced estimate for this mixed corpus. It falls within the 512-1024 range that research identifies as optimal for technical and analytical content, while preserving most neuroscience textbook sections as complete units. For philosophy essays that exceed this limit, the 2-sentence overlap helps maintain some continuity, though advanced techniques like Contextual Chunking or RAPTOR may provide better results for such content. 
+
+This is an upper limit, not a target—actual chunks are often smaller when sections end naturally. The value could be tuned per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
 
 ### Differences from Standard Approaches
 

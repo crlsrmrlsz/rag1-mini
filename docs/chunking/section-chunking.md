@@ -57,6 +57,23 @@ The 800-token limit represents a balanced estimate for this mixed corpus. The un
 
 **Future work** could investigate tuning chunk limits per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
 
+<details>
+<summary><strong>Example Chunk</strong></summary>
+
+```json
+{
+  "chunk_id": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)::chunk_549",
+  "book_id": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar)",
+  "context": "Brain and behavior, a cognitive neuroscience perspective (David Eagleman, Jonathan Downar) > CHAPTER 13 Emotions > Ventral Striatum: Pleasure and Reward",
+  "section": "Ventral Striatum: Pleasure and Reward",
+  "text": "In 1954, at McGill University in Montreal, Canada, the psychologists James Olds and Peter Milner implanted a pair of electrodes in the brain of a rat, hoping to study the effects of stimulation on its movements. However, the results were unexpected: the rat began returning again and again to the place in the cage where it received stimulation, as if strongly rewarded for doing so (Olds & Milner, 1954). Surprised to see this effect, Olds and Milner then tried providing the rat with a lever that would trigger stimulation. The rat soon began pressing this lever repeatedly, hundreds of times an hour, often to the exclusion of all other activities. The effects of the stimulation bore all the behavioral hallmarks of intense reward. X-rays and postmortem examinations eventually revealed that the electrode had missed its intended target and instead had reached a region known as the septal area, near the ventral striatum. In a series of experiments and later in televised demonstrations, Olds and Milner showed rats braving severe electric shocks to obtain stimulation and engaging in self-stimulation so fervently as to reach the point of starvation. As a result, this region, and its nearby connections through the medial forebrain bundle , soon became popularized as the so-called 'pleasure center of the brain' (Olds & Milner, 1954). Over the next two decades, studies provided evidence that these same regions have a similar function in human beings who underwent neurosurgical implantation of DBS electrodes for the treatment of psychiatric and neurological illnesses. A wide variety of recent studies have confirmed that the ventral striatum plays a crucial role in pleasure and reward. It is one of a handful of 'hedonic hot spots' in which electrical or chemical stimulation increases the magnitude of pleasure for enjoyable stimuli such as tasty, sugary water (Pecina, Smith, & Berridge, 2006). In human neuroimaging studies, the ventral striatum shows activation for a wide variety of rewarding stimuli including juice, pleasant images, monetary rewards, social praise, or positive outcomes in games (Kringelbach & Berridge, 2009). Likewise, in those rare and unfortunate cases where a patient suffers bilateral lesions of the ventral globus pallidus (which lies adjacent to the ventral striatum), the result is severe depression with anhedonia : a complete loss of the capacity for pleasure or enjoyment (Miller et al., 2006). Neurosurgeons are also beginning once again to exploit the role of the ventral striatum in pleasure and reward, with the goal of treating patients with severe depression (Bewernick et al., 2010). By implanting DBS electrodes in this region , the surgeons are sometimes able to alleviate the depression and, more specifically, to restore the capacity for pleasure and enjoyment that is so often lost in depressed patients. One interesting effect of this stimulation is that it appears to decrease , rather than increase, activity in some of the cortical regions that connect to the ventral striatum: for example, the ventromedial frontopolar cortex (Benazzouz et al., 2000). Keep this point in mind when you read the case study A Cure Born of Desperation , later in this chapter.",
+  "token_count": 672,
+  "chunking_strategy": "sequential_overlap_2"
+}
+```
+
+</details>
+
 ### Core Function
 
 ```python

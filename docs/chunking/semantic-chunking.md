@@ -72,11 +72,15 @@ Better: Complete dopamine discussion, then serotonin topic.
 
 Semantic chunking has been explored through several approaches:
 
+<div align="center">
+
 | Method | Description | Limitation |
 |--------|-------------|------------|
 | **Percentile-based** (LangChain/LlamaIndex) | Split at 95th percentile of cosine distances | Varies with document; same threshold means different things |
 | **Gradient-based** (Kamradt, 2023) | Split where similarity drops sharply | Computationally expensive; still percentile-based |
 | **Absolute threshold** (Chroma, 2024) | Split when similarity < fixed value | **Consistent across documents** |
+
+</div>
 
 The Chroma research (arXiv:2410.13070) tested absolute thresholds from 0.1-0.5 and found:
 - **Absolute thresholds provide consistent behavior** across different document types
@@ -117,6 +121,8 @@ For each sentence:
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Value | Rationale |
 |----------|-------|-----------|
 | **Threshold** | 0.4 (configurable) | Chroma research shows 0.40-0.43 optimal for relevance |
@@ -124,6 +130,8 @@ For each sentence:
 | **Still respect sections** | Yes | Section boundaries trump semantic similarity |
 | **Still enforce MAX_TOKENS** | Yes (800) | Embedding model sweet spot |
 | **Overlap** | 2 sentences | Same as section chunking for continuity |
+
+</div>
 
 ### Differences from LangChain/LlamaIndex
 
@@ -184,12 +192,16 @@ Output folders are named by threshold (`semantic_0.4/`, `semantic_0.3/`) to enab
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | Semantic 0.3 | Semantic 0.75 | Contextual | Section |
 |--------|--------------|---------------|------------|---------|
 | Context Precision | **73.4%** (1st) | 71.2% | 71.7% | 69.1% |
 | Context Recall | 93.3% | 86.1% | **96.3%** | 92.9% |
 | Answer Correctness | 54.1% (4th) | 50.8% (5th) | **59.1%** | 57.6% |
 | Faithfulness | 90.2% | 85.4% | 93.9% | 95.0% |
+
+</div>
 
 ### Why High Precision Doesn't Win
 
@@ -204,6 +216,8 @@ The generator LLM can filter irrelevant context (low precision is recoverable) b
 
 ### Cross-Domain Degradation
 
+<div align="center">
+
 | Strategy | Single-Concept Recall | Cross-Domain Recall | Delta |
 |----------|----------------------|---------------------|-------|
 | Section | 92.9% | 76.3% | **-16.6%** (best) |
@@ -211,15 +225,21 @@ The generator LLM can filter irrelevant context (low precision is recoverable) b
 | Semantic 0.3 | 93.3% | 69.3% | -24.0% |
 | Semantic 0.75 | 86.1% | 55.6% | **-30.5%** (worst) |
 
+</div>
+
 Semantic chunking shows **steeper recall degradation** on cross-domain queries. The embedding-based boundaries work well within topics but struggle when questions require connecting concepts across different semantic spaces.
 
 ### Threshold Comparison
+
+<div align="center">
 
 | Threshold | Precision | Recall | Correctness | Use Case |
 |-----------|-----------|--------|-------------|----------|
 | **0.3** | 73.4% | 93.3% | 54.1% | Single-domain, precision focus |
 | **0.4** | ~72% | ~91% | ~53% | Balanced default |
 | **0.75** | 71.2% | 86.1% | 50.8% | Avoid - too fragmented |
+
+</div>
 
 ---
 
@@ -233,6 +253,9 @@ For 19 books with ~50,000 sentences:
 - **No LLM calls**: Unlike contextual chunking
 
 Compared to alternatives:
+
+<div align="center">
+
 | Strategy | Indexing Cost | Indexing Time |
 |----------|--------------|---------------|
 | Section | $0 | ~1 minute |
@@ -240,9 +263,13 @@ Compared to alternatives:
 | Contextual | ~$2-3 | ~2-3 hours |
 | RAPTOR | ~$0.40 | ~3 minutes/book |
 
+</div>
+
 ---
 
 ## When to Use
+
+<div align="center">
 
 | Scenario | Recommendation |
 |----------|----------------|
@@ -252,7 +279,11 @@ Compared to alternatives:
 | Cost-sensitive (vs Contextual) | No LLM calls, just embeddings |
 | **Avoid when** | Cross-domain queries, answer correctness priority |
 
+</div>
+
 ### Threshold Guidelines
+
+<div align="center">
 
 | Threshold | When to Use |
 |-----------|-------------|
@@ -260,6 +291,8 @@ Compared to alternatives:
 | **0.4** | Balanced default; recommended starting point |
 | **0.5** | Topic-focused chunks; some context loss acceptable |
 | **0.75+** | Not recommended - creates fragmented chunks |
+
+</div>
 
 ---
 

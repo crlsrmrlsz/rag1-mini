@@ -41,12 +41,16 @@ This project implements custom chunking rather than using ready-to-use framework
 
 All chunking strategies share common components:
 
+<div align="center">
+
 | Component | Implementation | Purpose |
 |-----------|----------------|---------|
 | **Token counting** | `tiktoken` with `text-embedding-3-large` | Exact token counts matching embedding model |
 | **Embedding model** | `text-embedding-3-large` (3072 dims) | State-of-the-art dense retrieval |
 | **Vector storage** | Weaviate HNSW index + BM25 | Hybrid search (dense + keyword) |
 | **Chunk metadata** | `book_id`, `section`, `context` | Hierarchical path for filtering and display |
+
+</div>
 
 We count tokens rather than characters because embedding models operate on tokens, and the character-to-token ratio varies with content (technical terms, punctuation, and rare words tokenize differently than common prose). Using `tiktoken` with the same encoding as `text-embedding-3-large` ensures our max-token target accurately reflects what the model will see.
 
@@ -95,12 +99,16 @@ This stage reads JSON files (one per book) from `data/processed/04_nlp_chunks/` 
 
 
 
+<div align="center">
+
 | Strategy | Output Directory |
 |----------|------------------|
 | Section | `data/processed/05_final_chunks/section/` |
 | Semantic | `data/processed/05_final_chunks/semantic_0.4/` |
 | Contextual | `data/processed/05_final_chunks/contextual/` |
 | RAPTOR | `data/processed/05_final_chunks/raptor/` |
+
+</div>
 
 
 

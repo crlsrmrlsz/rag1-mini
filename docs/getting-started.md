@@ -95,6 +95,8 @@ See `docker-compose.yml` for detailed configuration options and comments.
 
 Key settings are in `src/config.py`. Some important parameters:
 
+<div align="center">
+
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `MAX_CHUNK_TOKENS` | 800 | Target chunk size |
@@ -103,6 +105,8 @@ Key settings are in `src/config.py`. Some important parameters:
 | `PREPROCESSING_MODEL` | gpt-4o-mini | Model for HyDE/decomposition |
 | `GENERATION_MODEL` | gpt-4o-mini | Model for answer generation |
 | `RERANK_MODEL` | mxbai-rerank-xsmall-v1 | Cross-encoder for reranking |
+
+</div>
 
 Database connections can be configured via environment variables in `.env`:
 ```
@@ -145,6 +149,8 @@ data/
 
 When you run the pipeline, data flows through these folders:
 
+<div align="center">
+
 | Folder | Created By | Contains |
 |--------|------------|----------|
 | `data/raw/{corpus}/` | You | Your source PDF files |
@@ -156,9 +162,13 @@ When you run the pipeline, data flows through these folders:
 | `data/processed/06_embeddings/{strategy}/` | Stage 5 | Chunks with vector embeddings |
 | `data/processed/07_graph/` | Stage 4.5b | GraphRAG entities and relationships |
 
+</div>
+
 ---
 
 ## Pipeline Stages
+
+<div align="center">
 
 | Stage | Command | What It Does |
 |-------|---------|--------------|
@@ -172,6 +182,8 @@ When you run the pipeline, data flows through these folders:
 | 6 | `python -m src.stages.run_stage_6_weaviate` | Upload to Weaviate vector database |
 | 6b | `python -m src.stages.run_stage_6b_neo4j` | Upload to Neo4j + Leiden communities (optional) |
 | 7 | `python -m src.stages.run_stage_7_evaluation` | RAGAS evaluation |
+
+</div>
 
 **Note:** Stages 4.5a, 4.5b, and 6b are optional advanced techniques. The basic pipeline is stages 1-7.
 

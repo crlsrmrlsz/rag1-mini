@@ -60,11 +60,15 @@ When embedded, this chunk is semantically similar to ANY revenue growth discussi
 
 Anthropic's September 2024 research quantified this problem:
 
+<div align="center">
+
 | Approach | Retrieval Failure Rate | Improvement |
 |----------|----------------------|-------------|
 | Standard chunking | Baseline | - |
 | Contextual chunking | **-35%** | Top-20 retrieval |
 | + BM25 hybrid + reranking | **-67%** | Combined approach |
+
+</div>
 
 **Key insight from Anthropic:** The embedding model encodes *what words are in the chunk* but not *what the chunk is about*. Adding a contextual snippet that explicitly states the chunk's semantic role bridges this gap.
 
@@ -100,12 +104,16 @@ For each chunk in document:
 
 ### Key Design Decisions
 
+<div align="center">
+
 | Decision | Value | Rationale |
 |----------|-------|-----------|
 | **Neighbor count** | 2 each direction | Captures local context without excessive tokens |
 | **Temperature** | 0.3 | Low for factual accuracy, high enough to vary phrasing |
 | **Max snippet tokens** | 100 | Brief context, not a summary |
 | **Store original_text** | Yes | Enables debugging and reprocessing |
+
+</div>
 
 ### Differences from Anthropic's Approach
 
@@ -175,11 +183,15 @@ def generate_contextual_snippet(
 
 From comprehensive evaluation across 102 configurations:
 
+<div align="center">
+
 | Metric | Contextual | Section | RAPTOR | Semantic 0.3 |
 |--------|------------|---------|--------|--------------|
 | Single-Concept Correctness | **59.1%** | 57.6% | 57.9% | 54.1% |
 | Cross-Domain Correctness | **48.8%** | 47.9% | 48.4% | 48.0% |
 | Single-Concept Recall | **96.3%** | 92.9% | 96.1% | 93.3% |
+
+</div>
 
 **Primary Takeaway:** Contextual chunking achieves the **highest answer correctness** on both single-concept and cross-domain queries. The LLM-generated context helps the embedding model understand what each chunk IS ABOUT, not just what words it contains.
 
@@ -187,10 +199,14 @@ From comprehensive evaluation across 102 configurations:
 
 The evaluation revealed a critical insight: **recall matters more than precision for answer quality**.
 
+<div align="center">
+
 | Strategy | Precision | Recall | Answer Correctness |
 |----------|-----------|--------|-------------------|
 | Semantic 0.3 | **73.4%** (1st) | 93.3% | 54.1% (4th) |
 | Contextual | 71.7% (2nd) | **96.3%** (1st) | **59.1%** (1st) |
+
+</div>
 
 The generator LLM can filter irrelevant context (low precision is recoverable) but cannot invent missing information (low recall is unrecoverable).
 
@@ -215,6 +231,8 @@ For 19 books with ~5,000 total chunks:
 
 ## When to Use
 
+<div align="center">
+
 | Scenario | Recommendation |
 |----------|----------------|
 | Production deployments | Use contextual for best answer quality |
@@ -222,6 +240,8 @@ For 19 books with ~5,000 total chunks:
 | Multi-document corpora | Distinguish "the company" across different sources |
 | Hybrid search | BM25 benefits from added keywords in context |
 | **Avoid when** | Cost-sensitive prototyping, frequently changing corpus |
+
+</div>
 
 ---
 

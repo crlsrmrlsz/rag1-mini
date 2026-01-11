@@ -86,29 +86,18 @@ data/processed/04_nlp_chunks/     data/processed/05_final_chunks/     → Embedd
 
 ### Strategy Dependencies
 
+```mermaid
+flowchart TD
+    NLP["NLP Chunks (Stage 3)<br/>Paragraphs with sentence lists"]
+
+    NLP --> Section["Section<br/>(Baseline)"]
+    NLP --> Semantic["Semantic<br/>(Similarity)"]
+
+    Section --> Contextual["Contextual<br/>(LLM context)"]
+    Section --> RAPTOR["RAPTOR<br/>(Hierarchical)"]
 ```
-                    ┌─────────────────────────────────────┐
-                    │         NLP Chunks (Stage 3)        │
-                    │    Paragraphs with sentence lists   │
-                    └─────────────────────────────────────┘
-                                      │
-              ┌───────────────────────┼───────────────────────┐
-              │                       │                       │
-              ▼                       ▼                       ▼
-     ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-     │     Section     │    │    Semantic     │    │     RAPTOR      │
-     │   (Baseline)    │    │  (Similarity)   │    │  (Hierarchical) │
-     └─────────────────┘    └─────────────────┘    └─────────────────┘
-              │                                             │
-              │                                    Uses section as leaves
-              ▼                                             │
-     ┌─────────────────┐                                    │
-     │   Contextual    │◄───────────────────────────────────┘
-     │  (LLM context)  │
-     └─────────────────┘
-              │
-    Builds on section chunks
-```
+
+Both **Contextual** and **RAPTOR** are post-processing steps that build on Section chunks.
 
 ---
 
@@ -124,7 +113,7 @@ python -m src.stages.run_stage_4_chunking --strategy semantic --threshold 0.4
 # Contextual - Requires section chunks first
 python -m src.stages.run_stage_4_chunking --strategy contextual
 
-# RAPTOR - Separate pipeline (Stage 4.5)
+# RAPTOR - Requires section chunks first (Stage 4.5)
 python -m src.stages.run_stage_4_5_raptor
 ```
 

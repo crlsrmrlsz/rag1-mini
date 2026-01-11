@@ -2,14 +2,14 @@
 
 [← Chunking Overview](README.md) | [Home](../../README.md)
 
-This is the baseline chunking strategy, leveraging the structure authors have already created. It operates on a key assumption: **each section contains a single coherent subject, and each paragraph within that section represents a self-contained idea**. By respecting these natural boundaries, the chunker splits documents into chunks with a maximum 800-token size while maintaining sentence overlap for context continuity.
+This is the baseline chunking strategy, leveraging the structure authors have already created. It operates on a key assumption: **each section contains a single coherent subject**. By respecting this natural boundary, the chunker splits documents into chunks with a maximum 800-token size while maintaining sentence overlap for context continuity.
 
 
 ### Algorithm
 
 ```
 For each document:
-  1. Load NLP-segmented paragraphs (spaCy sentence boundaries)
+  1. Load NLP-segmented paragraphs (spaCy generated NLP chunk per paragraph with its sentence list)
   2. Initialize: current_chunk = [], current_context = None
 
   For each paragraph:
@@ -31,11 +31,11 @@ For each document:
 # src/rag_pipeline/chunking/section_chunker.py
 
 def create_chunks_from_paragraphs(
-    paragraphs: List[Dict],
+    paragraphs: list[dict],
     book_name: str,
-    max_tokens: int = 800,
-    overlap_sentences: int = 2
-) -> List[Dict]:
+    max_tokens: int = MAX_CHUNK_TOKENS,  # from config.py (800)
+    overlap_sentences: int = OVERLAP_SENTENCES  # from config.py (2)
+) -> list[dict]:
 ```
 
 Each chunk includes metadata: `chunk_id`, `book_id`, `context` (hierarchical path like "Book > Chapter > Section"), `section`, `text`, `token_count`.

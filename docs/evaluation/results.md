@@ -66,4 +66,8 @@ python -m src.stages.run_stage_7_evaluation --comprehensive
 
 ---
 
-**Start over:** [Getting Started](../getting-started.md) | [Home](../../README.md)
+## Navigation
+
+**Related:**
+- [Getting Started](../getting-started.md) — Start over
+- [Evaluation Framework](README.md) — RAGAS metrics and testing

@@ -230,4 +230,6 @@ The fastest path to get a working RAG system with your own documents:
 
 ---
 
+## Navigation
+
 **Next:** [Content Preparation](content-preparation/README.md) — PDF extraction and cleaning

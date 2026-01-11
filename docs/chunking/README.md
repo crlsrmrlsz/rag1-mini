@@ -48,7 +48,7 @@ All chunking strategies share common components:
 | **Vector storage** | Weaviate HNSW index + BM25 | Hybrid search (dense + keyword) |
 | **Chunk metadata** | `book_id`, `section`, `context` | Hierarchical path for filtering and display |
 
-We count tokens rather than characters because embedding models operate on tokens, and the character-to-token ratio varies with content (technical terms, punctuation, and rare words tokenize differently than common prose). Using `tiktoken` with the same encoding as `text-embedding-3-large` ensures our 800-token target accurately reflects what the model will see.
+We count tokens rather than characters because embedding models operate on tokens, and the character-to-token ratio varies with content (technical terms, punctuation, and rare words tokenize differently than common prose). Using `tiktoken` with the same encoding as `text-embedding-3-large` ensures our max-token target accurately reflects what the model will see.
 
 
 ### Chunk Schema
@@ -107,7 +107,10 @@ This stage reads JSON files (one per book) from `data/processed/04_nlp_chunks/` 
 
 ---
 
-### Related
+## Navigation
 
+**Next:** [Section Chunking](section-chunking.md) — The baseline: fixed-size with sentence overlap
+
+**Related:**
 - [Preprocessing Strategies](../preprocessing/README.md) — Query-time transformations
 - [Evaluation Framework](../evaluation/README.md) — How strategies are compared

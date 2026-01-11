@@ -2,11 +2,8 @@
 
 [← Chunking Overview](README.md) | [Home](../../README.md)
 
-This is the baseline chunking strategy. Splits documents into fixed-size chunks while respecting section boundaries and maintaining sentence overlap for context continuity.
+This is the baseline chunking strategy. Splits documents into chunks with a maximum 800 token size, while respecting section boundaries and maintaining sentence overlap for context continuity.
 
-**Type:** Index-time chunking | **LLM Calls:** 0 | **Tokens/Chunk:** ~800
-
----
 
 ## Diagram
 
@@ -134,18 +131,6 @@ Each chunk includes metadata: `chunk_id`, `book_id`, `context` (hierarchical pat
 
 ---
 
-## Performance in This Pipeline
-
-### Key Finding: Section Chunking Provides Best Consistency
-
-From comprehensive evaluation across 102 configurations:
-
-| Metric | Section Chunking | Contextual | RAPTOR |
-|--------|------------------|------------|--------|
-| Single-Concept Relevancy | **89.1%** (1st) | 85.5% | 81.5% |
-| Cross-Domain Recall Drop | **-16.6%** (best) | -16.8% | -19.7% |
-
-**Takeaway:** Section chunking shows the **smallest degradation** when moving from simple to complex queries (-16.6% recall drop vs -30.5% for semantic chunking). The author's section organization provides natural semantic boundaries that remain robust across query types.
 
 ### Limitations
 
@@ -154,18 +139,6 @@ From comprehensive evaluation across 102 configurations:
 - **Vocabulary mismatch**: Embedding reflects chunk words, not chunk meaning
 
 These limitations motivate Contextual Chunking (adds LLM context) and RAPTOR (hierarchical summaries).
-
----
-
-## When to Use
-
-| Scenario | Recommendation |
-|----------|----------------|
-| Initial development | Use section chunking for fast iteration |
-| Cost-sensitive deployment | Zero LLM calls at index time |
-| Well-structured documents | Sections provide natural semantic units |
-| Specific fact retrieval | "What did Sapolsky say about cortisol?" |
-| **Avoid when** | Ambiguous content, cross-document synthesis needed |
 
 ---
 

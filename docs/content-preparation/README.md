@@ -353,4 +353,9 @@ python -m src.stages.run_stage_3_segmentation
 
 ---
 
+## Navigation
+
 **Next:** [Chunking Strategies](../chunking/README.md) — How documents are split for embedding
+
+**Related:**
+- [Getting Started](../getting-started.md) — Installation and quick start

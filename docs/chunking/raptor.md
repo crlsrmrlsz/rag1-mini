@@ -321,6 +321,135 @@ For 19 books with ~150 chunks each:
 
 ---
 
+## Future Work: Small-Chunk Ablation Study
+
+The current implementation uses 800-token section chunks as RAPTOR leaves, but the original paper used 100-token chunks. This section analyzes whether smaller chunks would improve results and proposes a future ablation study.
+
+### The Core Tension
+
+The 800-token "single complete concept" rationale assumes **direct retrieval**: query → chunk → answer. A coherent chunk produces a coherent answer.
+
+But RAPTOR has **two retrieval paths**:
+1. **Leaf retrieval**: Query matches a leaf chunk directly
+2. **Summary retrieval**: Query matches a summary node (LLM-generated, always coherent)
+
+The paper found **18.5-57% of retrieved nodes come from summaries**. This means summaries compensate for leaf quality in a significant fraction of queries. The "complete concept" rationale may be weaker for RAPTOR than for vanilla RAG.
+
+### Arguments FOR Smaller RAPTOR Chunks
+
+#### 1. Clustering operates on similarity, not coherence
+
+Clustering groups chunks by embedding similarity. Two fragments about "dopamine and reward" will cluster together even if neither is a complete thought. The **summarizer** then synthesizes them into coherent text:
+
+```
+Fragment A: "...dopamine release in the nucleus accumbens signals..."
+Fragment B: "...reward prediction errors modulate dopaminergic..."
+        ↓ cluster + summarize
+Summary: "Dopamine signaling in the nucleus accumbens encodes
+         reward prediction errors, modulating behavior through..."
+```
+
+The summary is coherent regardless of whether the inputs were.
+
+#### 2. RAPTOR's design assumes small chunks
+
+The algorithm was designed around 100-token chunks. Deep trees (3-4 levels) create multiple abstraction granularities:
+- L1: Paragraph-level themes
+- L2: Section-level themes
+- L3: Chapter-level themes
+- L4: Book-level themes
+
+With 800-token chunks, we start at approximately L1, skipping the finest granularity entirely.
+
+#### 3. Finer clustering may discover sub-thematic relationships
+
+Large chunks blur distinctions. A chunk about "cortisol, stress, AND immune function" clusters ambiguously. Three smaller chunks might cluster separately into stress-response and immunology themes, enabling more precise retrieval for specific queries.
+
+#### 4. The paper's results validate small chunks
+
+RAPTOR with 100-token chunks achieved +20% on QuALITY and new SOTA on QASPER. The design works empirically with small chunks.
+
+### Arguments AGAINST Smaller Chunks (for this corpus)
+
+#### 1. Embedding quality degrades for fragments
+
+Embedding models encode semantic meaning. A 100-token fragment mid-argument may produce a poor embedding:
+
+```
+"...therefore, if we accept the preceding premises, the conclusion
+follows necessarily that consciousness cannot be reduced to..."
+```
+
+What is this about? The embedding captures words but not the argument's direction. Dense philosophical text suffers more than narrative prose.
+
+#### 2. The paper's datasets differ fundamentally from this corpus
+
+| Paper's Datasets | Content | Why 100 tokens works |
+|------------------|---------|---------------------|
+| NarrativeQA | Fiction | Narrative flows; fragments still carry story context |
+| QASPER | NLP papers | Structured; fragments often self-contained claims |
+| QuALITY | Magazine articles | Accessible prose; less interdependent reasoning |
+
+| RAGLab Corpus | Content | Why 100 tokens may fail |
+|---------------|---------|------------------------|
+| Neuroscience | Dense terminology | Terms need definitional context |
+| Philosophy | Extended arguments | Premises reference prior premises |
+
+#### 3. Research supports larger chunks for technical content
+
+The [multi-dataset chunk size analysis](https://arxiv.org/html/2505.21700v2) found technical content (TechQA) jumped from **4.8% → 71.5%** accuracy when moving from 64 to 1024 tokens. This suggests embedding quality for technical text requires more context than narrative or magazine prose.
+
+#### 4. Current results are already strong
+
+RAPTOR achieves **best faithfulness (95.2%)** with 800-token leaves. If smaller chunks were critical to RAPTOR's value proposition, we'd expect worse results. The tree structure provides value even with fewer levels.
+
+#### 5. Practical complexity
+
+Using 800-token section chunks for everything (vanilla RAG, Contextual, RAPTOR) is simpler. A separate 100-token chunking pass just for RAPTOR adds pipeline complexity for uncertain benefit.
+
+### Summary of Trade-offs
+
+| Factor | Small Chunks (100) | Large Chunks (800) |
+|--------|-------------------|-------------------|
+| Paper's design intent | Aligned | Deviated |
+| Embedding quality (dense text) | Degraded | Preserved |
+| Clustering precision | Finer | Coarser |
+| Summary compensation | Mitigates fragmentation | N/A |
+| Current empirical results | Unknown | Strong (95.2% faithfulness) |
+| Research on technical content | Against | Supports |
+| Pipeline complexity | Higher | Simpler |
+
+### Proposed Ablation Study
+
+To resolve this empirically:
+
+1. **Create small-chunk variant**: 100-200 token chunks with sentence boundaries preserved (separate from section chunks)
+2. **Build RAPTOR trees**: Compare tree depth, cluster count, summary quality
+3. **Evaluate retrieval**:
+   - What fraction of retrievals are leaves vs summaries?
+   - Do deeper trees improve answer correctness?
+   - Does faithfulness remain high?
+4. **Analyze by query type**:
+   - Theme questions (should favor deeper trees)
+   - Factual questions (may favor coherent leaves)
+   - Cross-domain questions (unclear)
+
+**Hypothesis**: For this dense academic corpus, the benefit of coherent leaves may outweigh the benefit of deeper trees. But without empirical testing, this remains speculation.
+
+### Current Design Rationale
+
+The current implementation is a **pragmatic compromise**:
+
+- **Reuse existing infrastructure**: Section chunks serve all strategies
+- **Prioritize corpus-appropriate coherence**: Dense academic text benefits from larger chunks
+- **Accept shallower trees**: 2-3 levels still provide hierarchical abstraction
+- **Rely on tree structure, not depth**: Summaries bridge content regardless of tree depth
+- **Validate empirically**: 95.2% faithfulness suggests the approach works
+
+This may not be optimal per RAPTOR's original design, but it produces strong results for this specific corpus and use case.
+
+---
+
 ## When to Use
 
 | Scenario | Recommendation |

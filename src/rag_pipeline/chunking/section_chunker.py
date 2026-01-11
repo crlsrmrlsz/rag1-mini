@@ -201,15 +201,16 @@ def create_chunks_from_paragraphs(
                 text=chunk_text,
                 context=current_context,
                 book_name=book_name,
-                chunk_id=chunk_id
+                chunk_id=chunk_id,
+                overlap_sentences=overlap_sentences,
             ))
             chunk_id += 1
-            
+
             # Update overlap buffer with last N sentences (for next chunk in same section)
             if overlap_sentences > 0:
                 overlap_buffer.clear()
                 overlap_buffer.extend(current_chunk_sentences[-overlap_sentences:])
-            
+
             # Reset overlap counter after saving
             num_overlap_sentences = 0
     
@@ -336,16 +337,23 @@ def create_chunks_from_paragraphs(
     return chunks
 
 
-def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -> dict:
+def _create_chunk_dict(
+    text: str,
+    context: str,
+    book_name: str,
+    chunk_id: int,
+    overlap_sentences: int,
+) -> dict:
     """
     Create standardized chunk dictionary.
-    
+
     Args:
         text: Chunk text content
         context: Hierarchical context string
         book_name: Book identifier
         chunk_id: Sequential chunk number
-        
+        overlap_sentences: Actual overlap count used for this chunking run
+
     Returns:
         Chunk dictionary with metadata
     """
@@ -356,7 +364,7 @@ def _create_chunk_dict(text: str, context: str, book_name: str, chunk_id: int) -
         "section": parse_section_name(context),
         "text": text,
         "token_count": count_tokens(text),
-        "chunking_strategy": f"sequential_overlap_{OVERLAP_SENTENCES}"
+        "chunking_strategy": f"sequential_overlap_{overlap_sentences}"
     }
 
 

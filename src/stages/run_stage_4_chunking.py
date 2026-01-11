@@ -3,8 +3,8 @@
 Supports multiple chunking strategies:
 - section: Sequential with overlap (baseline, fast)
 - semantic: Embedding similarity-based (better coherence, uses API)
-- contextual: LLM-generated chunk context (future, Anthropic-style)
-- raptor: Hierarchical summarization tree (future)
+- contextual: LLM-generated chunk context (Anthropic-style, uses API)
+- raptor: Hierarchical summarization tree (multi-level retrieval, uses API)
 
 Usage:
     python -m src.stages.run_stage_4_chunking                    # Default: section

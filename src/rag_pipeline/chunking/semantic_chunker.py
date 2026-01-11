@@ -136,6 +136,7 @@ def _create_chunk_dict(
     context: str,
     book_name: str,
     chunk_id: int,
+    similarity_threshold: float,
 ) -> dict:
     """Create standardized chunk dictionary with semantic strategy marker.
 
@@ -144,6 +145,7 @@ def _create_chunk_dict(
         context: Hierarchical context string (Book > Chapter > Section).
         book_name: Book identifier.
         chunk_id: Sequential chunk number.
+        similarity_threshold: Actual threshold used for this chunking run.
 
     Returns:
         Chunk dictionary with all required metadata fields.
@@ -155,7 +157,7 @@ def _create_chunk_dict(
         "section": parse_section_name(context),
         "text": text,
         "token_count": count_tokens(text),
-        "chunking_strategy": f"semantic_{SEMANTIC_SIMILARITY_THRESHOLD}",
+        "chunking_strategy": f"semantic_{similarity_threshold}",
     }
 
 
@@ -203,6 +205,7 @@ def create_semantic_chunks(
                 context=current_context,
                 book_name=book_name,
                 chunk_id=chunk_id,
+                similarity_threshold=similarity_threshold,
             ))
             chunk_id += 1
 

@@ -124,7 +124,7 @@ For each book:
 
 | Decision | Paper | RAGLab | Rationale |
 |----------|-------|--------|-----------|
-| **Leaf chunk size** | 100 tokens | 800 tokens | Existing section chunks are optimized |
+| **Leaf chunk size** | 100 tokens | 800 tokens | See [Chunk Size Analysis](#chunk-size-analysis) below |
 | **Summary model** | gpt-3.5-turbo | claude-3-haiku | Fast, cheap, sufficient quality |
 | **UMAP n_neighbors** | 10 | 10 | Paper default works well |
 | **UMAP n_components** | 10 | 10 | Standard for GMM input |
@@ -136,6 +136,74 @@ For each book:
 1. **Larger leaves**: 800-token section chunks vs 100-token chunks (reduces tree depth)
 2. **Per-book trees**: Paper sometimes builds cross-document trees; we stay within books
 3. **Hard clustering default**: We use hard cluster assignment initially (Option A in research); soft clustering (Option C with P > 0.3 threshold) is future work
+
+### Chunk Size Analysis
+
+The most significant deviation from the paper is using 800-token leaves instead of 100-token leaves. This section explains why both choices make sense for their respective contexts.
+
+#### What the Paper Says (and Doesn't Say)
+
+The RAPTOR paper is surprisingly brief on chunk size rationale:
+
+> "We split the retrieval corpus into short, contiguous texts of length 100, similar to traditional retrieval augmentation techniques."
+
+No ablation study on chunk size was conducted. The authors' ablation compared **clustering methods** (semantic vs contiguous grouping), not chunk sizes. The 100-token choice appears inherited from prior RAG conventions rather than corpus-specific optimization.
+
+#### The Paper's Evaluation Datasets
+
+| Dataset | Content Type | Nature |
+|---------|--------------|--------|
+| **NarrativeQA** | Books, movie transcripts | Narrative fiction, flowing prose |
+| **QASPER** | NLP research papers | Technical, well-structured sections |
+| **QuALITY** | Magazine articles (~5k tokens) | Mixed, medium-length |
+
+These datasets are heterogeneous. The 100-token size may have been a **lowest common denominator** that works acceptably across narrative fiction, academic papers, and magazine prose.
+
+#### Why Small Chunks Serve RAPTOR's Goals
+
+The implicit design philosophy behind 100-token chunks:
+
+1. **More granular clustering**: 100 leaves per 10k-token document enables fine-grained semantic groupings
+2. **Deeper trees**: More leaves → more clusters → more summary levels (3-4 typical)
+3. **Richer hierarchy**: Each level captures a different abstraction granularity
+
+RAPTOR's power comes from having **many hierarchical levels**. Small chunks are the mechanism that enables deep trees.
+
+#### Why 800 Tokens for This Corpus
+
+RAGLab's corpus differs fundamentally from RAPTOR's evaluation datasets:
+
+| Corpus | Content | Avg Section | Characteristic |
+|--------|---------|-------------|----------------|
+| **Neuroscience** | Textbooks (Sapolsky, Huberman) | 666 tokens | Dense terminology, structured arguments |
+| **Philosophy** | Treatises (Seneca, Schopenhauer) | 1,427 tokens | Extended reasoning, conceptual development |
+
+[Research on long-document retrieval](https://arxiv.org/html/2505.21700v2) shows content type strongly affects optimal chunk size:
+
+- **Factoid queries** (concise answers): Small chunks (64-128 tokens) optimal
+- **Technical content** (TechQA): Accuracy jumped from 4.8% → 71.5% when moving from 64 to 1024 tokens
+- **Narrative requiring context** (NarrativeQA): Performance improved 4.2% → 10.7% (64 → 1024 tokens)
+
+Dense academic content—like neuroscience and philosophy—needs larger chunks to preserve the contextual scaffolding that makes arguments coherent. A 100-token chunk from Schopenhauer might capture half a sentence of a complex syllogism, losing the logical structure entirely.
+
+#### The Trade-off
+
+| Aspect | 100-token (Paper) | 800-token (RAGLab) |
+|--------|-------------------|-------------------|
+| **Tree depth** | Deep (3-4 levels) | Shallow (2 levels) |
+| **Clustering granularity** | Fine-grained | Coarser |
+| **Leaf retrieval quality** | Less context per hit | More complete ideas |
+| **Summary coverage** | Narrow focus | Broader themes |
+
+#### The Key Question
+
+Does RAPTOR's benefit come from:
+- **(A) The tree structure itself** — summaries bridging distant content, or
+- **(B) Small chunk granularity** — enabling fine-grained clustering?
+
+If (A), RAGLab's approach preserves the core benefit: hierarchical summaries still exist and still bridge content across sections. If (B), some clustering precision is lost.
+
+**Our assessment:** For dense academic content, (A) matters more. The hierarchical summaries provide value regardless of leaf size, while larger leaves better preserve the conceptual unity that defines philosophical and scientific argumentation. The evaluation results support this—RAPTOR achieves best faithfulness (95.2%) even with 800-token leaves.
 
 ### UMAP Dimensionality Reduction
 

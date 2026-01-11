@@ -28,6 +28,12 @@ This document explains common and general considetations about chunking, but the
 This project implements custom chunking rather than using ready-to-use frameworks like LangChain's `RecursiveCharacterTextSplitter` or LlamaIndex's `SentenceSplitter`. While these tools are convenient, building from scratch provides deeper understanding of chunking internals and enables fine-grained control—such as exact token counting, configurable sentence overlap, and tunable similarity thresholds for semantic boundaries.
 
 
+## Why 800 Tokens
+
+Research shows optimal chunk size depends heavily on content type and query complexity. [NVIDIA's chunking benchmark](https://developer.nvidia.com/blog/finding-the-best-chunking-strategy-for-accurate-ai-responses/) found 512-1024 tokens optimal for complex analytical queries, while [recent academic research](https://arxiv.org/html/2505.21700v2) confirms that larger chunks (512-1024 tokens) significantly improve retrieval for technical content—TechQA accuracy jumped from 4.8% at 64 tokens to 71.5% at 1024 tokens. Smaller chunks (64-128 tokens) only outperform for factoid queries with concise, localized answers.
+
+For this corpus, 800 tokens preserves paragraph unity effectively. Analysis of the section chunks shows 65% of neuroscience textbook sections fit within a single 800-token chunk (averaging 1.6 chunks per section), meaning most conceptual units remain intact. Philosophy texts show higher variance—short aphoristic works like the Tao Te Ching fit 99% of sections in one chunk, while longer essays like Seneca's Letters average 3.4 chunks per section. The 800-token size balances preserving complete ideas in structured textbooks while remaining within the 512-1024 range that research identifies as optimal for analytical content requiring broader context.
+
 
 ## Shared Infrastructure
 

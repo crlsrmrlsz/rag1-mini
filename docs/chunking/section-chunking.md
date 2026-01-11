@@ -86,7 +86,7 @@ For each document:
 
 | Decision | Value | Rationale |
 |----------|-------|-----------|
-| **Chunk size** | 800 tokens | Matches `text-embedding-3-large` sweet spot; leaves room for reranking |
+| **Chunk size** | 800 tokens | Preserves complete paragraphs; within 512-1024 range optimal for technical content |
 | **Overlap** | 2 sentences | Handles "As mentioned above..." references with minimal redundancy (~50-100 tokens) |
 | **Section boundaries** | Hard break | Prevents mixing unrelated content; preserves author's semantic organization |
 | **Tokenizer** | tiktoken (text-embedding-3-large) | Exact token count matching embedding model |

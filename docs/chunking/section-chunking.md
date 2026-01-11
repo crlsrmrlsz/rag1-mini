@@ -59,6 +59,7 @@ The 800-token limit represents a balanced estimate for this mixed corpus. The un
 
 <details>
 <summary><strong>Example Chunk</strong></summary>
+<small>
 
 ```json
 {
@@ -72,6 +73,7 @@ The 800-token limit represents a balanced estimate for this mixed corpus. The un
 }
 ```
 
+</small>
 </details>
 
 ### Core Function

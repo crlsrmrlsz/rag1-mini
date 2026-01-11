@@ -2,7 +2,7 @@
 
 [← Chunking Overview](README.md) | [Home](../../README.md)
 
-The baseline chunking strategy. Splits documents into fixed-size chunks while respecting section boundaries and maintaining sentence overlap for context continuity.
+This is the baseline chunking strategy. Splits documents into fixed-size chunks while respecting section boundaries and maintaining sentence overlap for context continuity.
 
 **Type:** Index-time chunking | **LLM Calls:** 0 | **Tokens/Chunk:** ~800
 

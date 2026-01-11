@@ -66,14 +66,6 @@ Chunks are stored in JSON files for inspection and inter-phase isolation, and ev
 }
 ```
 
-These metadata fields are used throughout the downstream pipeline:
-
-| Field | Usage |
-|-------|-------|
-| **book_id** | Answer headers (`[1] BookName`), UI display (title/author parsing), Weaviate filtering by book, Contextual/RAPTOR LLM prompts |
-| **context** | Contextual chunking LLM prompt (`Section: "{context_path}"`), RAPTOR summary node context, preserved in RRF merging |
-| **section** | Appended to answer headers (`[1] BookName (Section)`), RAPTOR child section aggregation, section markers in contextual chunking |
-
 These fields serve three main purposes: **attribution** (display sources in UI and answers), **filtering** (scope searches to specific books), and **advanced chunking** (RAPTOR and Contextual use them in LLM prompts to build hierarchical context). Preprocessing strategies operate on query text only and do not use chunk metadata.
 
 

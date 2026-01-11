@@ -26,20 +26,6 @@ For each document:
         Start new chunk with last 2 sentences (overlap)
 ```
 
-### Core Function
-
-```python
-# src/rag_pipeline/chunking/section_chunker.py
-
-def create_chunks_from_paragraphs(
-    paragraphs: list[dict],
-    book_name: str,
-    max_tokens: int = MAX_CHUNK_TOKENS,  # from config.py (800)
-    overlap_sentences: int = OVERLAP_SENTENCES  # from config.py (2)
-) -> list[dict]:
-```
-
-Each chunk includes metadata: `chunk_id`, `book_id`, `context` (hierarchical path like "Book > Chapter > Section"), `section`, `text`, `token_count`.
 
 ### Key Design Decisions
 
@@ -70,6 +56,20 @@ Neuroscience textbooks have well-structured sections averaging 666 tokens—comf
 The 800-token limit represents a balanced estimate for this mixed corpus. The underlying assumption is that well-written paragraphs typically contain single, self-contained ideas—by preserving paragraph unity, each chunk is more likely to represent one coherent concept useful for answering queries. This limit falls within the 512-1024 range that the NVIDIA and academic studies cited above identify as optimal for technical and analytical content, while preserving most neuroscience textbook sections as complete units. For philosophy essays that exceed this limit, the 2-sentence overlap helps maintain some continuity, though advanced techniques like Contextual Chunking or RAPTOR may provide better results for such content. 
 
 **Future work** could investigate tuning chunk limits per content type: shorter limits for factoid-heavy reference works, longer for essay-style texts requiring extended context. Semantic chunking also enforces this 800-token maximum to prevent oversized segments regardless of similarity scores.
+
+### Core Function
+
+```python
+# src/rag_pipeline/chunking/section_chunker.py
+
+def create_chunks_from_paragraphs(
+    paragraphs: list[dict],
+    book_name: str,
+    max_tokens: int = MAX_CHUNK_TOKENS,  # from config.py (800)
+    overlap_sentences: int = OVERLAP_SENTENCES  # from config.py (2)
+) -> list[dict]:
+```
+
 
 
 ## Navigation

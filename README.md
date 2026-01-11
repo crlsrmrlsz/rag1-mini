@@ -32,16 +32,19 @@ I cannot publish the dataset nor database (Weaviate for embeddings, Neo4j from K
 The code in this project covers the complete data workflow. Starts with processing books in PDF and follows the standard RAG pipeline. It allows to test different RAG improvement techniques both alone and combined to see the effect of each possible combination chunking strategy/query preprocessing and search type.
 
 
-![RAGlab workflow](assets/workflow.png)
+<div align="center">
+    <img src="assets/workflow.png" alt="RAGlab workflow">
+</div>
+
 
 
 ## Architecture 
 
 These are the main components of the application. 
 
-
-![RAGlab architecture](assets/architecture.png)
-
+<div align="center">
+    <img src="assets/architecture.png" alt="RAGlab architecture">
+</div>
 
 
 ## RAG improvement techniques tested
@@ -83,8 +86,10 @@ The evaluation of the RAG system can be done in two ways:
     - preprocessing technique applied (HyDE, Query Decomposition, GraphRAG).
 
     You can write a question and see all the pipeline intermediate results, the chunks retrieved, the score of each chunk, the intermediate LLM interactions (for Query Decomposition or HyDE) and the final answer, so in one place you can easily compare intermediate steps and final results of each configuration for same question.
+    <div align="center">
+      <img src="assets/streamlit_ui.png" alt="Streamlit UI">
+    </div>
 
-    ![Streamlit UI](assets/streamlit_ui.png)
 
 - **Running python code**. In addition to direct evaluation through the UI, an evaluation stage is included using RAGAS metrics over a set of handcrafted questions combining single concept and cross domain questions. 
 

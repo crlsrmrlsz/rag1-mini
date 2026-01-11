@@ -190,10 +190,22 @@ Dense academic content—like neuroscience and philosophy—needs larger chunks 
 
 | Aspect | 100-token (Paper) | 800-token (RAGLab) |
 |--------|-------------------|-------------------|
-| **Tree depth** | Deep (3-4 levels) | Shallow (2 levels) |
+| **Tree depth** | Deep (3-4 levels) | 2-3 levels (see below) |
 | **Clustering granularity** | Fine-grained | Coarser |
 | **Leaf retrieval quality** | Less context per hit | More complete ideas |
 | **Summary coverage** | Narrow focus | Broader themes |
+
+#### Actual Tree Depths in This Corpus
+
+Analysis of the 19 books in this corpus shows tree depth correlates with document size:
+
+| Category | Books | Leaves | Summary Levels | Example |
+|----------|-------|--------|----------------|---------|
+| **Large textbooks** | 5 | 500-880 | 3 (L1→L2→L3) | Cognitive Neuroscience: 881→38→7→3 |
+| **Medium books** | 6 | 250-500 | 2 (L1→L2) | Letters from a Stoic: 416→21→4 |
+| **Short works** | 8 | 70-160 | 2 (L1→L2) | Tao Te Ching: 129→14→3 |
+
+With 100-token chunks, a book like *Cognitive Neuroscience* would have ~7,000 leaves instead of 881, enabling 4-5 summary levels. The trade-off: deeper hierarchy vs. fragmented leaf content.
 
 #### The Key Question
 
